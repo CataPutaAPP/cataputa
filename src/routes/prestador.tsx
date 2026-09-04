@@ -230,6 +230,9 @@ function PrestadorContent() {
     if (!selectedRequest || !user) return;
     const price = parseFloat(proposalPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
+    // P4: Verificar lock
+    const { data: locked } = await supabase.rpc("is_user_locked", { p_user_id: user.id });
+    if (locked) return toast.error("Você já está em um atendimento ativo. Conclua antes de enviar propostas.");
 
     setSendingProposal(true);
 
@@ -267,6 +270,9 @@ function PrestadorContent() {
     const price = parseFloat(offerPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
     if (!user || !coords) return;
+    // P4: Verificar lock
+    const { data: locked } = await supabase.rpc("is_user_locked", { p_user_id: user.id });
+    if (locked) return toast.error("Você já está em um atendimento ativo. Conclua antes de criar ofertas.");
 
     setSubmittingOffer(true);
 
