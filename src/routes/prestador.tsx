@@ -166,29 +166,35 @@ function PrestadorContent() {
   // Fetch active service (where I'm the accepted provider)
   const fetchActiveService = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("service_requests")
-      .select(`
-        *,
-        proposal:proposals!accepted_proposal_id(price, client_price, message, local_option),
-        client:profiles!client_id(full_name, avatar_url, gender, rating_avg, rating_count)
-      `)
-      .eq("accepted_provider_id", user.id)
-      .in("status", ["aceita", "a_caminho", "em_andamento", "concluida"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      const svc = {
-        ...data,
-        proposal: Array.isArray(data.proposal) ? data.proposal[0] : data.proposal,
-        client: Array.isArray(data.client) ? data.client[0] : data.client,
-      } as ActiveService;
-      setActiveService(svc);
-      if (["aceita", "a_caminho", "em_andamento"].includes(svc.status)) {
+    try {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select("*")
+        .eq("accepted_provider_id", user.id)
+        .in("status", ["aceita", "a_caminho", "em_andamento"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) { console.error("fetchActiveService", error); setActiveService(null); return; }
+      if (data) {
+        // Fetch proposal and client separately to avoid join issues
+        const [{ data: prop }, { data: cli }] = await Promise.all([
+          data.accepted_proposal_id
+            ? supabase.from("proposals").select("price, client_price, message, local_option").eq("id", data.accepted_proposal_id).single()
+            : Promise.resolve({ data: null }),
+          supabase.from("profiles").select("full_name, avatar_url, gender, rating_avg, rating_count").eq("id", data.client_id).single(),
+        ]);
+        setActiveService({
+          ...data,
+          proposal: prop ?? undefined,
+          client: cli ?? undefined,
+        } as ActiveService);
         setView("match");
+      } else {
+        setActiveService(null);
       }
-    } else {
+    } catch (e) {
+      console.error("fetchActiveService catch", e);
       setActiveService(null);
     }
   }, [user]);
