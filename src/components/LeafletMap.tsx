@@ -14,188 +14,208 @@ export interface MapMarker {
   lng: number;
   color?: string;
   size?: number;
-  popup?: string;
   onClick?: () => void;
 }
 
 interface LeafletMapProps {
-  /** Called whenever user coords update */
   onCoordsChange?: (coords: MapCoords) => void;
-  /** Markers to render on the map */
   markers?: MapMarker[];
-  /** Radius circle in km (0 = no circle) */
   radiusKm?: number;
-  /** Whether to show geolocation error banner */
-  showGeoError?: boolean;
-  /** Extra class for the container */
-  className?: string;
-  /** Overlay content rendered on top of the map */
   children?: ReactNode;
 }
 
-/* ─── Leaflet loader ────────────────────────────────────────────────── */
+/* ─── Leaflet loader (script tag, with retry) ──────────────────────── */
 
-let leafletPromise: Promise<any> | null = null;
+const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
 
-function loadLeaflet(): Promise<any> {
-  if (leafletPromise) return leafletPromise;
+function ensureLeafletCSS() {
+  if (document.querySelector(`link[href="${LEAFLET_CSS}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = LEAFLET_CSS;
+  document.head.appendChild(link);
+}
 
-  leafletPromise = new Promise((resolve, reject) => {
-    // Check if already loaded
+function loadLeafletJS(): Promise<typeof window.L> {
+  return new Promise((resolve, reject) => {
     if ((window as any).L) {
       resolve((window as any).L);
       return;
     }
 
-    // Load CSS
-    if (!document.querySelector('link[href*="leaflet"]')) {
-      const css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-      document.head.appendChild(css);
+    const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`);
+    if (existing) {
+      // Script tag exists but L not ready yet — wait for it
+      const check = setInterval(() => {
+        if ((window as any).L) {
+          clearInterval(check);
+          resolve((window as any).L);
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(check);
+        reject(new Error("Leaflet timeout"));
+      }, 10000);
+      return;
     }
 
-    // Load JS
     const script = document.createElement("script");
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.onload = () => resolve((window as any).L);
-    script.onerror = () => {
-      leafletPromise = null;
-      reject(new Error("Falha ao carregar o mapa"));
+    script.src = LEAFLET_JS;
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).L) {
+        resolve((window as any).L);
+      } else {
+        reject(new Error("Leaflet loaded but L not found"));
+      }
     };
+    script.onerror = () => reject(new Error("Failed to load Leaflet script"));
     document.head.appendChild(script);
   });
+}
 
-  return leafletPromise;
+/* ─── Pulse animation CSS ───────────────────────────────────────────── */
+
+function ensurePulseCSS() {
+  if (document.getElementById("sh-pulse")) return;
+  const style = document.createElement("style");
+  style.id = "sh-pulse";
+  style.textContent = `
+    @keyframes sh-pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(3.5);opacity:0}}
+    .sh-dot-ring{animation:sh-pulse 2s ease-out infinite}
+    .leaflet-container{background:#0a0a12 !important}
+    .dark-popup .leaflet-popup-content-wrapper{background:hsl(240 6% 10%);color:hsl(240 5% 90%);border:1px solid hsl(240 4% 20%);border-radius:12px;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+    .dark-popup .leaflet-popup-tip{background:hsl(240 6% 10%);border:1px solid hsl(240 4% 20%)}
+  `;
+  document.head.appendChild(style);
 }
 
 /* ─── Component ─────────────────────────────────────────────────────── */
 
-export function LeafletMap({
-  onCoordsChange,
-  markers = [],
-  radiusKm = 0,
-  showGeoError = true,
-  className = "",
-  children,
-}: LeafletMapProps) {
+export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, children }: LeafletMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
+  const mapRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
-  const radiusCircleRef = useRef<any>(null);
+  const circleRef = useRef<any>(null);
   const markerLayerRef = useRef<any[]>([]);
-  const LRef = useRef<any>(null);
+  const Lref = useRef<any>(null);
 
   const [coords, setCoords] = useState<MapCoords | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [mapError, setMapError] = useState<string | null>(null);
 
-  // ── Geolocation ──────────────────────────────────────────────
+  const coordsRef = useRef(coords);
+  coordsRef.current = coords;
+
+  /* ── Geolocation ──────────────────────────────────────── */
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeoError("Seu navegador não suporta geolocalização.");
+      setLoading(false);
       return;
     }
-
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const newCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setCoords(newCoords);
+    const wid = navigator.geolocation.watchPosition(
+      (p) => {
+        const c = { lat: p.coords.latitude, lng: p.coords.longitude };
+        setCoords(c);
         setGeoError(null);
-        onCoordsChange?.(newCoords);
+        onCoordsChange?.(c);
       },
-      (err) => {
-        setGeoError("Permita acesso à localização para usar o mapa.");
+      () => {
+        setGeoError("Permita o acesso à localização para ver o mapa.");
+        setLoading(false);
       },
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 },
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 },
     );
+    return () => navigator.geolocation.clearWatch(wid);
+  }, []);
 
-    return () => navigator.geolocation.clearWatch(watchId);
-  }, [onCoordsChange]);
-
-  // ── Init map ─────────────────────────────────────────────────
+  /* ── Init map once we have coords ────────────────────── */
   useEffect(() => {
-    if (!coords || !containerRef.current) return;
+    if (!coords || !containerRef.current || mapRef.current) return;
 
     let cancelled = false;
 
-    loadLeaflet().then((L) => {
-      if (cancelled || !containerRef.current) return;
-      LRef.current = L;
+    ensureLeafletCSS();
+    ensurePulseCSS();
 
-      if (!mapInstanceRef.current) {
-        const map = L.map(containerRef.current, {
-          zoomControl: false,
-          attributionControl: false,
-        }).setView([coords.lat, coords.lng], 14);
+    loadLeafletJS()
+      .then((L) => {
+        if (cancelled || !containerRef.current) return;
+        Lref.current = L;
 
-        // Free dark tiles — no API key
-        L.tileLayer(
-          "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-          {
-            maxZoom: 19,
-            subdomains: "abcd",
-          },
-        ).addTo(map);
-
-        // User marker (purple pulsating dot)
-        const userIcon = L.divIcon({
-          className: "",
-          html: `
-            <div style="position:relative;width:20px;height:20px;">
-              <div style="position:absolute;inset:0;background:rgba(124,58,237,0.3);border-radius:50%;animation:pulse-ring 2s ease-out infinite;"></div>
-              <div style="position:absolute;inset:3px;background:#7c3aed;border:3px solid #fff;border-radius:50%;box-shadow:0 0 12px rgba(124,58,237,0.6);"></div>
-            </div>
-          `,
-          iconSize: [20, 20],
-          iconAnchor: [10, 10],
+        // Fix Leaflet default icon path issue
+        delete (L.Icon.Default.prototype as any)._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+          iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+          shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
         });
 
-        userMarkerRef.current = L.marker([coords.lat, coords.lng], {
-          icon: userIcon,
-          zIndexOffset: 1000,
+        const map = L.map(containerRef.current, {
+          center: [coords.lat, coords.lng],
+          zoom: 14,
+          zoomControl: false,
+          attributionControl: false,
+        });
+
+        L.tileLayer(TILE_URL, {
+          maxZoom: 19,
+          subdomains: "abcd",
         }).addTo(map);
 
-        // Inject pulse animation
-        if (!document.getElementById("leaflet-pulse-css")) {
-          const style = document.createElement("style");
-          style.id = "leaflet-pulse-css";
-          style.textContent = `
-            @keyframes pulse-ring {
-              0% { transform: scale(1); opacity: 1; }
-              100% { transform: scale(3); opacity: 0; }
-            }
-          `;
-          document.head.appendChild(style);
-        }
+        // User dot
+        const icon = L.divIcon({
+          className: "",
+          html: `
+            <div style="position:relative;width:22px;height:22px">
+              <div class="sh-dot-ring" style="position:absolute;inset:0;background:rgba(124,58,237,.3);border-radius:50%"></div>
+              <div style="position:absolute;inset:4px;background:#7c3aed;border:3px solid #fff;border-radius:50%;box-shadow:0 0 14px rgba(124,58,237,.6)"></div>
+            </div>`,
+          iconSize: [22, 22],
+          iconAnchor: [11, 11],
+        });
+        userMarkerRef.current = L.marker([coords.lat, coords.lng], { icon, zIndexOffset: 1000 }).addTo(map);
 
-        mapInstanceRef.current = map;
-        setMapReady(true);
-      } else {
-        // Update user position
-        mapInstanceRef.current.setView([coords.lat, coords.lng]);
-        userMarkerRef.current?.setLatLng([coords.lat, coords.lng]);
-      }
-    });
+        mapRef.current = map;
+        setLoading(false);
+
+        // Force a resize after a tick — fixes blank tiles
+        setTimeout(() => map.invalidateSize(), 200);
+      })
+      .catch((err) => {
+        console.error("LeafletMap init error:", err);
+        setMapError("Não foi possível carregar o mapa. Recarregue a página.");
+        setLoading(false);
+      });
 
     return () => {
       cancelled = true;
     };
   }, [coords]);
 
-  // ── Radius circle ────────────────────────────────────────────
+  /* ── Update user position ────────────────────────────── */
   useEffect(() => {
-    const L = LRef.current;
-    const map = mapInstanceRef.current;
+    if (!coords || !mapRef.current || !userMarkerRef.current) return;
+    userMarkerRef.current.setLatLng([coords.lat, coords.lng]);
+  }, [coords]);
+
+  /* ── Radius circle ───────────────────────────────────── */
+  useEffect(() => {
+    const L = Lref.current;
+    const map = mapRef.current;
     if (!L || !map || !coords) return;
 
-    if (radiusCircleRef.current) {
-      radiusCircleRef.current.remove();
-      radiusCircleRef.current = null;
+    if (circleRef.current) {
+      circleRef.current.remove();
+      circleRef.current = null;
     }
 
     if (radiusKm > 0) {
-      radiusCircleRef.current = L.circle([coords.lat, coords.lng], {
+      circleRef.current = L.circle([coords.lat, coords.lng], {
         radius: radiusKm * 1000,
         color: "#7c3aed",
         fillColor: "#7c3aed",
@@ -204,116 +224,104 @@ export function LeafletMap({
         dashArray: "6 4",
       }).addTo(map);
     }
-  }, [coords, radiusKm, mapReady]);
+  }, [coords, radiusKm]);
 
-  // ── Custom markers ───────────────────────────────────────────
+  /* ── Custom markers ──────────────────────────────────── */
   useEffect(() => {
-    const L = LRef.current;
-    const map = mapInstanceRef.current;
+    const L = Lref.current;
+    const map = mapRef.current;
     if (!L || !map) return;
 
-    // Clear old markers
     markerLayerRef.current.forEach((m) => m.remove());
     markerLayerRef.current = [];
 
     markers.forEach((m) => {
-      const color = m.color ?? "#22c55e";
-      const size = m.size ?? 12;
+      const c = m.color ?? "#22c55e";
+      const sz = m.size ?? 12;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:${size}px;height:${size}px;background:${color};border:2px solid rgba(255,255,255,0.9);border-radius:50%;box-shadow:0 0 8px ${color}80;"></div>`,
-        iconSize: [size, size],
-        iconAnchor: [size / 2, size / 2],
+        html: `<div style="width:${sz}px;height:${sz}px;background:${c};border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 8px ${c}80;cursor:pointer"></div>`,
+        iconSize: [sz, sz],
+        iconAnchor: [sz / 2, sz / 2],
       });
-
-      const marker = L.marker([m.lat, m.lng], { icon }).addTo(map);
-
-      if (m.popup) {
-        marker.bindPopup(m.popup, {
-          className: "dark-popup",
-          closeButton: false,
-        });
-      }
-
-      if (m.onClick) {
-        marker.on("click", m.onClick);
-      }
-
-      markerLayerRef.current.push(marker);
+      const mk = L.marker([m.lat, m.lng], { icon }).addTo(map);
+      if (m.onClick) mk.on("click", m.onClick);
+      markerLayerRef.current.push(mk);
     });
+  }, [markers]);
 
-    // Inject popup styles
-    if (!document.getElementById("leaflet-popup-css")) {
-      const style = document.createElement("style");
-      style.id = "leaflet-popup-css";
-      style.textContent = `
-        .dark-popup .leaflet-popup-content-wrapper {
-          background: hsl(240 6% 10%);
-          color: hsl(240 5% 90%);
-          border: 1px solid hsl(240 4% 20%);
-          border-radius: 12px;
-          font-family: inherit;
-          font-size: 13px;
-          box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-        }
-        .dark-popup .leaflet-popup-tip {
-          background: hsl(240 6% 10%);
-          border: 1px solid hsl(240 4% 20%);
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  }, [markers, mapReady]);
-
-  // ── Public: center map on user ───────────────────────────────
+  /* ── Center helper ───────────────────────────────────── */
   const centerOnUser = useCallback(() => {
-    if (coords && mapInstanceRef.current) {
-      mapInstanceRef.current.setView([coords.lat, coords.lng], 14, {
-        animate: true,
-      });
+    const c = coordsRef.current;
+    if (c && mapRef.current) {
+      mapRef.current.setView([c.lat, c.lng], 14, { animate: true });
     }
-  }, [coords]);
+  }, []);
 
+  // Expose center via custom event so siblings can trigger it
+  useEffect(() => {
+    const handler = () => centerOnUser();
+    window.addEventListener("map:center", handler);
+    return () => window.removeEventListener("map:center", handler);
+  }, [centerOnUser]);
+
+  /* ── Render ──────────────────────────────────────────── */
   return (
-    <div className={`relative ${className}`}>
-      {/* Map container */}
+    <>
+      {/* Map fills its positioned parent */}
       <div
         ref={containerRef}
-        className="absolute inset-0 z-0"
-        style={{ background: "#0a0a12" }}
+        style={{ position: "absolute", inset: 0, zIndex: 0, background: "#0a0a12" }}
       />
 
-      {/* Loading state */}
-      {!mapReady && !geoError && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#0a0a12]">
+      {/* Loading */}
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 5,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            background: "#0a0a12",
+          }}
+        >
           <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Carregando mapa...</p>
+          <p className="text-sm text-muted-foreground">Carregando mapa…</p>
         </div>
       )}
 
-      {/* Geo error banner */}
-      {showGeoError && geoError && (
+      {/* Geo error */}
+      {geoError && (
         <div className="absolute inset-x-4 top-4 z-40 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-center text-sm text-destructive backdrop-blur-md">
           <MapPin className="mb-1 inline size-4" /> {geoError}
         </div>
       )}
 
-      {/* Overlay children — pass coords and centerOnUser via render prop pattern isn't great here,
-          so we expose them through a context-like approach. For simplicity, children just overlay. */}
+      {/* Map load error */}
+      {mapError && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 5,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 12,
+            background: "#0a0a12",
+          }}
+        >
+          <MapPin className="size-8 text-destructive" />
+          <p className="text-sm text-destructive">{mapError}</p>
+        </div>
+      )}
+
       {children}
-    </div>
+    </>
   );
-}
-
-/* ─── Hook: use the map instance from outside ──────────────────────── */
-
-export function useMapCenter() {
-  // Thin wrapper — components that need to center can call this
-  // For now it's a placeholder; in a real app we'd use a context
-  return {
-    center: () => {
-      // Dispatched via custom event
-      window.dispatchEvent(new CustomEvent("map:center"));
-    },
-  };
 }
