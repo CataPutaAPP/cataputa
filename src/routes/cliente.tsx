@@ -11,6 +11,8 @@ import {
   Check,
   Loader2,
   Star,
+  Home,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,7 +20,6 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/context/AuthContext";
 import type { ServiceRequest } from "@/types";
 
@@ -38,37 +39,37 @@ export const Route = createFileRoute("/cliente")({
 /* ─── Data ──────────────────────────────────────────────────────────── */
 
 type ServiceType = "massagem" | "acompanhante";
+type LocalOption = "local_atendente" | "parceiro";
 
 const serviceSubTypes: Record<ServiceType, { value: string; label: string }[]> = {
   massagem: [
-    { value: "nuru", label: "Nuru" },
-    { value: "quick", label: "Quick" },
-    { value: "desportiva", label: "Desportiva" },
-    { value: "relaxante", label: "Relaxante" },
-    { value: "pedras_quentes", label: "Pedras Quentes" },
     { value: "tantrica", label: "Tântrica" },
+    { value: "lingam", label: "Lingam" },
+    { value: "nuru", label: "Nuru" },
+    { value: "vivencia", label: "Vivência" },
+    { value: "sensitiva", label: "Sensitiva" },
+    { value: "tailandesa", label: "Tailandesa" },
+    { value: "yoni", label: "Yoni" },
+    { value: "tradicional", label: "Tradicional (Relaxante)" },
   ],
   acompanhante: [
-    { value: "rapidinha_carro", label: "Rapidinha no carro" },
-    { value: "rapidinha_parceiro", label: "Rapidinha com parceiro" },
-    { value: "1_hora", label: "1 hora" },
+    { value: "15min", label: "15 minutos" },
+    { value: "30min", label: "30 minutos" },
+    { value: "60min", label: "60 minutos" },
+    { value: "120min", label: "120 minutos" },
+    { value: "no_carro", label: "No carro" },
   ],
 };
+
+const localOptions: { value: LocalOption; label: string; desc: string; icon: typeof Home }[] = [
+  { value: "local_atendente", label: "Atendente tem local", desc: "O atendimento será no local do prestador", icon: Home },
+  { value: "parceiro", label: "Usar parceiro", desc: "Um parceiro fornecerá o local de atendimento", icon: Users },
+];
 
 const genderOptions = [
   { value: "mulheres", label: "Mulheres" },
   { value: "homens", label: "Homens" },
   { value: "travesti", label: "Travesti" },
-];
-
-const extraFlags = [
-  { value: "beijo_boca", label: "Beijo na boca" },
-  { value: "oral_sem_capa", label: "Oral sem capa" },
-  { value: "anal", label: "Anal" },
-  { value: "podolatria", label: "Podolatria" },
-  { value: "fetiche", label: "Fetiche" },
-  { value: "inversao", label: "Inversão" },
-  { value: "no_carro", label: "No carro" },
 ];
 
 const radiusOptions = [
@@ -87,6 +88,7 @@ interface AvailableService {
   distance_km: number;
   lat: number;
   lng: number;
+  has_local: boolean;
 }
 
 function generateMockServices(lat: number, lng: number): AvailableService[] {
@@ -107,6 +109,7 @@ function generateMockServices(lat: number, lng: number): AvailableService[] {
       distance_km: 0.5 + Math.random() * 9.5,
       lat: lat + (Math.random() - 0.5) * 0.08,
       lng: lng + (Math.random() - 0.5) * 0.08,
+      has_local: Math.random() > 0.4,
     };
   });
 }
@@ -131,11 +134,11 @@ function ClienteContent() {
   const [availableServices, setAvailableServices] = useState<AvailableService[]>([]);
   const [selectedService, setSelectedService] = useState<AvailableService | null>(null);
 
+  // Form
   const [serviceType, setServiceType] = useState<ServiceType | "">("");
   const [subType, setSubType] = useState("");
+  const [localChoice, setLocalChoice] = useState<LocalOption | "">("");
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
-  const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
-  const [wantsPartner, setWantsPartner] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const handleCoordsChange = useCallback((c: MapCoords) => setCoords(c), []);
@@ -144,7 +147,8 @@ function ClienteContent() {
     if (coords) setAvailableServices(generateMockServices(coords.lat, coords.lng));
   }, [coords?.lat, coords?.lng]);
 
-  useEffect(() => { setSubType(""); }, [serviceType]);
+  useEffect(() => { setSubType(""); setLocalChoice(""); }, [serviceType]);
+  useEffect(() => { setLocalChoice(""); }, [subType]);
 
   const mapMarkers: MapMarker[] = availableServices
     .filter((s) => s.distance_km <= radius)
@@ -157,33 +161,39 @@ function ClienteContent() {
       onClick: () => setSelectedService(s),
     }));
 
-  function toggle(arr: string[], set: (v: string[]) => void, val: string) {
-    set(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
+  function toggleGender(val: string) {
+    setSelectedGenders((arr) =>
+      arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val],
+    );
   }
 
   function resetForm() {
     setServiceType("");
     setSubType("");
+    setLocalChoice("");
     setSelectedGenders([]);
-    setSelectedExtras([]);
-    setWantsPartner(false);
   }
 
   async function handleSubmit() {
     if (!serviceType || !subType) return toast.error("Selecione o tipo e subtipo de serviço.");
+    if (!localChoice) return toast.error("Selecione onde será o atendimento.");
     if (selectedGenders.length === 0) return toast.error("Selecione ao menos uma preferência de gênero.");
+
     setSubmitting(true);
     await new Promise((r) => setTimeout(r, 800));
+
+    const localLabel = localChoice === "local_atendente" ? "Local do atendente" : "Parceiro";
+
     const request: ServiceRequest = {
       id: crypto.randomUUID(),
       client_id: user?.id ?? "",
       client_name: user?.full_name ?? "Visitante",
       service_type: `${serviceType} — ${subType}`,
-      description: `Gênero: ${selectedGenders.join(", ")}${selectedExtras.length ? ` | Extras: ${selectedExtras.join(", ")}` : ""}`,
+      description: `Gênero: ${selectedGenders.join(", ")} | Local: ${localLabel}`,
       location: coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "N/D",
       urgency: "media",
       status: "aberta",
-      wants_partner: wantsPartner,
+      wants_partner: localChoice === "parceiro",
       created_at: new Date().toISOString(),
     };
     setRequests((p) => [request, ...p]);
@@ -199,16 +209,8 @@ function ClienteContent() {
 
   return (
     <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
-      {/*
-        Map wrapper — must have explicit position + dimensions for Leaflet.
-        We use fixed + inset:0 so it fills the viewport behind all UI.
-      */}
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
-        <LeafletMap
-          onCoordsChange={handleCoordsChange}
-          markers={mapMarkers}
-          radiusKm={radius}
-        />
+        <LeafletMap onCoordsChange={handleCoordsChange} markers={mapMarkers} radiusKm={radius} />
       </div>
 
       {/* ── Top controls ───────────────────────────────────────── */}
@@ -268,10 +270,19 @@ function ClienteContent() {
                         {s.service_type === "massagem" ? "Massagem" : "Acompanhante"}
                       </Badge>
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{subLabel(s.service_type, s.sub_type)} · {s.gender}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {subLabel(s.service_type, s.sub_type)} · {s.gender}
+                    </p>
                     <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {s.rating.toFixed(1)}</span>
+                      <span className="flex items-center gap-1">
+                        <Star className="size-3 fill-yellow-500 text-yellow-500" /> {s.rating.toFixed(1)}
+                      </span>
                       <span>{s.distance_km.toFixed(1)} km</span>
+                      {s.has_local && (
+                        <span className="flex items-center gap-1 text-primary">
+                          <Home className="size-3" /> Tem local
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -303,6 +314,7 @@ function ClienteContent() {
                 <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {selectedService.rating.toFixed(1)}</span>
                 <span>{selectedService.distance_km.toFixed(1)} km</span>
                 <span className="font-bold text-primary">R$ {selectedService.price}</span>
+                {selectedService.has_local && <span className="flex items-center gap-1 text-primary"><Home className="size-3" /> Tem local</span>}
               </div>
             </div>
           </div>
@@ -343,6 +355,7 @@ function ClienteContent() {
           </div>
 
           <div className="space-y-5">
+            {/* 1. Radius */}
             <Field label="Raio de busca">
               <div className="flex gap-2">
                 {radiusOptions.map((r) => (
@@ -351,6 +364,7 @@ function ClienteContent() {
               </div>
             </Field>
 
+            {/* 2. Service type */}
             <Field label="Tipo de serviço">
               <div className="flex gap-2">
                 {(["massagem", "acompanhante"] as ServiceType[]).map((t) => (
@@ -359,8 +373,9 @@ function ClienteContent() {
               </div>
             </Field>
 
+            {/* 3. Sub-type */}
             {serviceType && (
-              <Field label={serviceType === "massagem" ? "Tipo de massagem" : "Modalidade"}>
+              <Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}>
                 <div className="flex flex-wrap gap-2">
                   {serviceSubTypes[serviceType].map((s) => (
                     <Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>
@@ -369,12 +384,50 @@ function ClienteContent() {
               </Field>
             )}
 
+            {/* 4. Local do atendimento */}
             {subType && (
+              <Field label="Local do atendimento">
+                <div className="space-y-2">
+                  {localOptions.map((opt) => {
+                    const Icon = opt.icon;
+                    const active = localChoice === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => setLocalChoice(opt.value)}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:bg-secondary"
+                        }`}
+                      >
+                        <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
+                          <Icon className="size-5" />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p>
+                          <p className="text-xs text-muted-foreground">{opt.desc}</p>
+                        </div>
+                        {active && <Check className="size-5 text-primary" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+            )}
+
+            {/* 5. Gender multi-select */}
+            {localChoice && (
               <Field label="Preferência de gênero">
                 <p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p>
                 <div className="flex flex-wrap gap-2">
                   {genderOptions.map((g) => (
-                    <Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggle(selectedGenders, setSelectedGenders, g.value)} showCheck>
+                    <Pill
+                      key={g.value}
+                      active={selectedGenders.includes(g.value)}
+                      onClick={() => toggleGender(g.value)}
+                      showCheck
+                    >
                       {g.label}
                     </Pill>
                   ))}
@@ -382,28 +435,7 @@ function ClienteContent() {
               </Field>
             )}
 
-            {selectedGenders.length > 0 && (
-              <Field label="Extras (opcional)">
-                <div className="flex flex-wrap gap-2">
-                  {extraFlags.map((f) => (
-                    <Pill key={f.value} active={selectedExtras.includes(f.value)} onClick={() => toggle(selectedExtras, setSelectedExtras, f.value)} showCheck small>
-                      {f.label}
-                    </Pill>
-                  ))}
-                </div>
-              </Field>
-            )}
-
-            {selectedGenders.length > 0 && (
-              <div className="flex items-center justify-between rounded-xl border border-border p-3">
-                <div>
-                  <p className="text-sm font-medium">Precisa de parceiro?</p>
-                  <p className="text-xs text-muted-foreground">Um parceiro pode intermediar a negociação</p>
-                </div>
-                <Switch checked={wantsPartner} onCheckedChange={setWantsPartner} />
-              </div>
-            )}
-
+            {/* 6. Submit */}
             {selectedGenders.length > 0 && (
               <Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>
                 {submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}
@@ -417,7 +449,7 @@ function ClienteContent() {
   );
 }
 
-/* ─── Tiny UI helpers ───────────────────────────────────────────────── */
+/* ─── UI helpers ────────────────────────────────────────────────────── */
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-2"><p className="text-sm font-semibold">{label}</p>{children}</div>;
@@ -431,10 +463,10 @@ function Chip({ active, onClick, children, className = "" }: { active: boolean; 
   );
 }
 
-function Pill({ active, onClick, children, showCheck = false, small = false }: { active: boolean; onClick: () => void; children: React.ReactNode; showCheck?: boolean; small?: boolean }) {
+function Pill({ active, onClick, children, showCheck = false }: { active: boolean; onClick: () => void; children: React.ReactNode; showCheck?: boolean }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full border font-medium transition-all ${small ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
-      {showCheck && active && <Check className={small ? "size-3" : "size-3.5"} />}
+    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
+      {showCheck && active && <Check className="size-3.5" />}
       {children}
     </button>
   );
