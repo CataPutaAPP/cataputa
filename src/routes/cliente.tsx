@@ -8,6 +8,8 @@ import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
+import { MatchView, type ActiveService } from "@/components/MatchView";
+import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderProfile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -61,7 +63,7 @@ interface DBProposal {
 function ClienteContent() {
   const { user, updateLocation } = useAuth();
   const [coords, setCoords] = useState<MapCoords | null>(null);
-  const [view, setView] = useState<"map" | "request" | "proposals">("map");
+  const [view, setView] = useState<"map" | "request" | "proposals" | "match">("map");
   const [radius, setRadius] = useState(10);
 
   const [myRequests, setMyRequests] = useState<DBRequest[]>([]);
@@ -69,7 +71,10 @@ function ClienteContent() {
   const [proposals, setProposals] = useState<DBProposal[]>([]);
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
+  const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const prevProposalCount = useRef(0);
+
+  const [activeService, setActiveService] = useState<ActiveService | null>(null);
 
   const [serviceType, setServiceType] = useState<ServiceType | "">("");
   const [subType, setSubType] = useState("");
@@ -82,6 +87,38 @@ function ClienteContent() {
     setCoords(c);
     if (user) updateLocation(c.lat, c.lng);
   }, [user, updateLocation]);
+
+  // Fetch active service (aceita / a_caminho / em_andamento / concluida recent)
+  const fetchActiveService = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("service_requests")
+      .select(`
+        *,
+        proposal:proposals!accepted_proposal_id(price, client_price, message, local_option),
+        provider:profiles!accepted_provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)
+      `)
+      .eq("client_id", user.id)
+      .in("status", ["aceita", "a_caminho", "em_andamento", "concluida"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      // Flatten joined arrays from supabase
+      const svc = {
+        ...data,
+        proposal: Array.isArray(data.proposal) ? data.proposal[0] : data.proposal,
+        provider: Array.isArray(data.provider) ? data.provider[0] : data.provider,
+      } as ActiveService;
+      setActiveService(svc);
+      // Auto-show match view
+      if (["aceita", "a_caminho", "em_andamento"].includes(svc.status)) {
+        setView("match" as any);
+      }
+    } else {
+      setActiveService(null);
+    }
+  }, [user]);
 
   const fetchMyRequests = useCallback(async () => {
     if (!user) return;
@@ -117,12 +154,13 @@ function ClienteContent() {
   useEffect(() => {
     if (!user || !coords) return;
     fetchMyRequests();
+    fetchActiveService();
     const interval = setInterval(() => {
       fetchMyRequests();
       if (selectedRequestId) fetchProposals(selectedRequestId);
     }, 8000);
     return () => clearInterval(interval);
-  }, [user, coords, selectedRequestId]);
+  }, [user, coords, selectedRequestId, fetchActiveService]);
 
   useEffect(() => { setSubType(""); setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [serviceType]);
   useEffect(() => { setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [subType]);
@@ -164,6 +202,9 @@ function ClienteContent() {
     toast.success("Proposta aceita! O prestador foi notificado.");
     if (selectedRequestId) fetchProposals(selectedRequestId);
     fetchMyRequests();
+    // Transition to match view
+    await fetchActiveService();
+    setView("match");
   }
 
   function statusLabel(s: string) {
@@ -245,7 +286,9 @@ function ClienteContent() {
                       <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent"><Sparkles className="size-5" /></div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="truncate font-semibold">{p.provider?.full_name ?? "Prestador"}</p>
+                          <button onClick={() => setViewingProfileId(p.provider_id)} className="truncate font-semibold text-left hover:text-primary transition-colors">
+                            {p.provider?.full_name ?? "Prestador"}
+                          </button>
                           {p.provider?.has_local && <span className="flex items-center gap-0.5 text-[10px] text-primary"><Home className="size-3" /> Local</span>}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
@@ -256,6 +299,7 @@ function ClienteContent() {
                       {/* Cliente vê APENAS o valor total — sem breakdown */}
                       <p className="text-xl font-bold text-primary">R$ {Number(p.client_price).toFixed(2)}</p>
                     </div>
+                    <ProviderPhotoStrip providerId={p.provider_id} onClick={() => setViewingProfileId(p.provider_id)} />
                     {p.message && <p className="mt-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground italic">"{p.message}"</p>}
                     <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}</p>
                     {p.status === "pendente" && (
@@ -274,10 +318,39 @@ function ClienteContent() {
         </div>
       )}
 
+      {/* ── Match / Service view ───────────────────────────── */}
+      {view === "match" && activeService && user && (
+        <MatchView
+          service={activeService}
+          role="cliente"
+          userId={user.id}
+          onClose={() => { setView("map"); setActiveService(null); }}
+          onRefresh={fetchActiveService}
+        />
+      )}
+
       {view === "map" && (
-        <Button size="lg" onClick={() => setView("request")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
-          <Plus className="mr-1 size-5" /> Solicitar Serviço
-        </Button>
+        <>
+          {/* Show active service card if exists */}
+          {activeService && ["aceita", "a_caminho", "em_andamento"].includes(activeService.status) && (
+            <button onClick={() => setView("match")}
+              className="fixed inset-x-4 bottom-24 z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="size-5 text-primary" />
+                  <p className="text-sm font-semibold">Atendimento em andamento</p>
+                </div>
+                <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-[10px]">
+                  {activeService.status === "aceita" ? "Aceito" : activeService.status === "a_caminho" ? "A caminho" : "Em andamento"}
+                </Badge>
+              </div>
+              <p className="mt-1.5 text-xs font-medium text-primary">Toque para acompanhar →</p>
+            </button>
+          )}
+          <Button size="lg" onClick={() => setView("request")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
+            <Plus className="mr-1 size-5" /> Solicitar Serviço
+          </Button>
+        </>
       )}
 
       {view === "request" && (
@@ -296,6 +369,10 @@ function ClienteContent() {
             {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
           </div>
         </div>
+      )}
+      {/* Provider profile overlay */}
+      {viewingProfileId && (
+        <ProviderProfileView providerId={viewingProfileId} onClose={() => setViewingProfileId(null)} />
       )}
     </main>
   );
