@@ -179,6 +179,9 @@ function ClienteContent() {
     if (!localChoice) return toast.error("Selecione onde será o atendimento.");
     if (selectedGenders.length === 0) return toast.error("Selecione ao menos um gênero.");
     if (!user || !coords) return toast.error("Localização não disponível.");
+    // P4: Verificar lock
+    const { data: locked } = await supabase.rpc("is_user_locked", { p_user_id: user.id });
+    if (locked) return toast.error("Você já está em um atendimento ativo. Conclua antes de solicitar outro.");
     setSubmitting(true);
     const { error } = await supabase.from("service_requests").insert({
       client_id: user.id, service_type: serviceType, sub_type: subType,
