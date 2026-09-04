@@ -171,54 +171,61 @@ function Cadastro() {
               <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
             </div>
 
-            <Field label="Nome completo" error={errors.full_name}>
+            <Field label="Nome completo" htmlFor="full_name" error={errors.full_name}>
               <Input
+                id="full_name"
                 value={form.full_name}
                 onChange={(e) => set("full_name", e.target.value)}
                 placeholder="Maria Silva"
               />
             </Field>
-            <Field label="CPF" error={errors.cpf}>
+            <Field label="CPF" htmlFor="cpf" error={errors.cpf}>
               <Input
+                id="cpf"
                 value={form.cpf}
                 inputMode="numeric"
                 onChange={(e) => set("cpf", maskCPF(e.target.value))}
                 placeholder="000.000.000-00"
               />
             </Field>
-            <Field label="Telefone" error={errors.phone}>
+            <Field label="Telefone" htmlFor="phone" error={errors.phone}>
               <Input
+                id="phone"
                 value={form.phone}
                 inputMode="tel"
                 onChange={(e) => set("phone", maskPhone(e.target.value))}
                 placeholder="+55 (11) 90000-0000"
               />
             </Field>
-            <Field label="E-mail" error={errors.email}>
+            <Field label="E-mail" htmlFor="email" error={errors.email}>
               <Input
+                id="email"
                 value={form.email}
                 type="email"
                 onChange={(e) => set("email", e.target.value)}
                 placeholder="voce@email.com"
               />
             </Field>
-            <Field label="Username" error={errors.username}>
+            <Field label="Username" htmlFor="username" error={errors.username}>
               <Input
+                id="username"
                 value={form.username}
                 onChange={(e) => set("username", e.target.value.trim())}
                 placeholder="mariasilva"
                 autoCapitalize="none"
               />
             </Field>
-            <Field label="Senha" error={errors.password}>
+            <Field label="Senha" htmlFor="password" error={errors.password}>
               <Input
+                id="password"
                 value={form.password}
                 type="password"
                 onChange={(e) => set("password", e.target.value)}
               />
             </Field>
-            <Field label="Confirmar senha" error={errors.confirm}>
+            <Field label="Confirmar senha" htmlFor="confirm" error={errors.confirm}>
               <Input
+                id="confirm"
                 value={form.confirm}
                 type="password"
                 onChange={(e) => set("confirm", e.target.value)}
