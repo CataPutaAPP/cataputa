@@ -47,54 +47,81 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-  --font-display: "Sora", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
-  --shadow-glow: 0 18px 60px -18px oklch(0.58 0.24 295 / 0.65);
-  --shadow-panel: 0 24px 60px -30px oklch(0 0 0 / 0.9);
+
+  /* CataPuta Web — Tipografia */
+  --font-display: "Caudex", Georgia, "Times New Roman", serif;
+  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* CataPuta Web — Sombras */
+  --shadow-glow: 0 18px 60px -18px rgba(150, 26, 25, 0.55);
+  --shadow-panel: 0 24px 60px -30px rgba(0, 0, 0, 0.9);
 }
 
 :root {
   --radius: 0.875rem;
-  --background: oklch(0.145 0.012 285);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.195 0.015 285);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.195 0.015 285);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.58 0.24 295);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.26 0.02 285);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.24 0.015 285);
-  --muted-foreground: oklch(0.7 0.02 285);
-  --accent: oklch(0.33 0.09 295);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.62 0.22 22);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.68 0.16 155);
-  --success-foreground: oklch(0.16 0.01 285);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.58 0.24 295);
-  --chart-1: oklch(0.58 0.24 295);
-  --chart-2: oklch(0.68 0.16 155);
-  --chart-3: oklch(0.78 0.16 85);
-  --chart-4: oklch(0.66 0.2 22);
-  --chart-5: oklch(0.72 0.12 240);
-  --sidebar: oklch(0.175 0.014 285);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.58 0.24 295);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.26 0.02 285);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.58 0.24 295);
 
-  --map-base: oklch(0.17 0.013 285);
-  --map-line: oklch(0.26 0.02 285);
-  --map-road: oklch(0.34 0.05 295);
-  --map-block: oklch(0.22 0.018 285);
-  --map-pulse: oklch(0.58 0.24 295 / 0.25);
+  /* CataPuta Web — Dark theme com paleta da marca
+     Primary: Carmim Diabólico #961A19
+     Bronze: #C4A77D
+     Marrom: #78533D
+     Preto Ébano: #1A1A1A
+     Bege Pergaminho: #F0E6D2
+     Azul Cobalto: #0047AB
+  */
+
+  --background: #111010;
+  --foreground: #F0E6D2;
+
+  --card: #1A1A1A;
+  --card-foreground: #F0E6D2;
+
+  --popover: #1A1A1A;
+  --popover-foreground: #F0E6D2;
+
+  /* Primary = Carmim Diabólico */
+  --primary: #961A19;
+  --primary-foreground: #F0E6D2;
+
+  --secondary: #2A2220;
+  --secondary-foreground: #F0E6D2;
+
+  --muted: #241E1C;
+  --muted-foreground: #9A8B7A;
+
+  /* Accent = Bronze Ancestral */
+  --accent: #78533D;
+  --accent-foreground: #F0E6D2;
+
+  --destructive: #B91C1C;
+  --destructive-foreground: #F0E6D2;
+
+  --success: #22C55E;
+  --success-foreground: #111010;
+
+  --border: rgba(240, 230, 210, 0.1);
+  --input: rgba(240, 230, 210, 0.14);
+  --ring: #961A19;
+
+  --chart-1: #961A19;
+  --chart-2: #C4A77D;
+  --chart-3: #0047AB;
+  --chart-4: #78533D;
+  --chart-5: #22C55E;
+
+  --sidebar: #161313;
+  --sidebar-foreground: #F0E6D2;
+  --sidebar-primary: #961A19;
+  --sidebar-primary-foreground: #F0E6D2;
+  --sidebar-accent: #2A2220;
+  --sidebar-accent-foreground: #F0E6D2;
+  --sidebar-border: rgba(240, 230, 210, 0.1);
+  --sidebar-ring: #961A19;
+
+  --map-base: #111010;
+  --map-line: #2A2220;
+  --map-road: #78533D;
+  --map-block: #1E1917;
+  --map-pulse: rgba(150, 26, 25, 0.25);
 }
 
 .dark {
@@ -116,12 +143,13 @@
   h2,
   h3 {
     font-family: var(--font-display);
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
+    font-weight: 700;
   }
 }
 
 @utility panel {
-  background: color-mix(in oklab, var(--card) 88%, transparent);
+  background: color-mix(in srgb, var(--card) 88%, transparent);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(14px);
@@ -131,8 +159,9 @@
 @utility text-gradient {
   background: linear-gradient(
     100deg,
-    oklch(0.99 0 0) 10%,
-    oklch(0.7 0.2 295) 90%
+    #F0E6D2 10%,
+    #C4A77D 50%,
+    #961A19 90%
   );
   -webkit-background-clip: text;
   background-clip: text;
