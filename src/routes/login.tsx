@@ -73,8 +73,9 @@ function Login() {
         <form onSubmit={handleSubmit} className="panel space-y-4 p-6">
           <h1 className="text-2xl font-semibold">Entrar</h1>
           <div className="space-y-1.5">
-            <Label>Username</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
+              id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="seu.username"
@@ -82,8 +83,9 @@ function Login() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Senha</Label>
+            <Label htmlFor="password">Senha</Label>
             <Input
+              id="password"
               value={password}
               type="password"
               onChange={(e) => setPassword(e.target.value)}
