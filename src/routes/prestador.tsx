@@ -1,18 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Check, MapPin, Plus, X } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  Plus,
+  X,
+  Navigation,
+  Radar,
+  Eye,
+  Check,
+  XCircle,
+  Loader2,
+  Star,
+  Home,
+  Users,
+  DollarSign,
+  Clock,
+  MapPin,
+  Sparkles,
+  Send,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/DashboardShell";
-import { MapBackground } from "@/components/MapBackground";
+import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/context/AuthContext";
-import type { ServiceOffer, ServiceRequest, Urgency } from "@/types";
+import { supabase } from "@/lib/supabase";
+import {
+  type ServiceType,
+  type LocalOption,
+  serviceSubTypes,
+  serviceFlags,
+  genderOptions,
+  radiusOptions,
+  localOptions,
+  getSubLabel,
+} from "@/lib/service-options";
 
 export const Route = createFileRoute("/prestador")({
   head: () => ({
@@ -20,43 +47,41 @@ export const Route = createFileRoute("/prestador")({
       { title: "Painel do prestador — ServiHub" },
       {
         name: "description",
-        content: "Fique disponível, receba ofertas de serviço e acompanhe os trabalhos em andamento.",
+        content: "Receba demandas, envie propostas e oferte seus serviços.",
       },
-      { property: "og:title", content: "Painel do prestador — ServiHub" },
-      { property: "og:description", content: "Aceite ofertas e gerencie seus serviços." },
     ],
   }),
   component: PrestadorDashboard,
 });
 
-const urgencyLabel: Record<Urgency, string> = { baixa: "Baixa", media: "Média", alta: "Alta" };
+/* ─── Types ─────────────────────────────────────────────────────────── */
 
-const initialFeed: ServiceRequest[] = [
-  {
-    id: "feed-1",
-    client_id: "c1",
-    client_name: "Ana Souza",
-    service_type: "Elétrica",
-    description: "Tomada da cozinha sem energia, preciso hoje.",
-    location: "Vila Mariana, São Paulo",
-    urgency: "alta",
-    status: "aberta",
-    wants_partner: true,
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "feed-2",
-    client_id: "c2",
-    client_name: "Bruno Lima",
-    service_type: "Frete",
-    description: "Mudança de 12 caixas para bairro vizinho.",
-    location: "Pinheiros, São Paulo",
-    urgency: "media",
-    status: "aberta",
-    wants_partner: false,
-    created_at: new Date().toISOString(),
-  },
-];
+interface NearbyRequest {
+  id: string;
+  client_id: string;
+  service_type: ServiceType;
+  sub_type: string;
+  flags: string[];
+  gender_pref: string[];
+  local_option: LocalOption;
+  lat: number;
+  lng: number;
+  status: string;
+  created_at: string;
+  distance_km: number;
+}
+
+interface MyProposal {
+  id: string;
+  request_id: string;
+  price: number;
+  client_price: number;
+  status: string;
+  created_at: string;
+  message: string | null;
+}
+
+/* ─── Component ─────────────────────────────────────────────────────── */
 
 function PrestadorDashboard() {
   return (
@@ -67,203 +92,465 @@ function PrestadorDashboard() {
 }
 
 function PrestadorContent() {
-  const { user } = useAuth();
+  const { user, updateLocation } = useAuth();
+
+  const [coords, setCoords] = useState<MapCoords | null>(null);
+  const [view, setView] = useState<"map" | "offer" | "details">("map");
+  const [radius, setRadius] = useState(10);
   const [available, setAvailable] = useState(true);
-  const [feed, setFeed] = useState<ServiceRequest[]>(initialFeed);
-  const [ongoing, setOngoing] = useState<ServiceRequest[]>([]);
-  const [offers, setOffers] = useState<ServiceOffer[]>([]);
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ service_type: "", description: "", price: "", location: "" });
 
-  function accept(request: ServiceRequest) {
-    setFeed((prev) => prev.filter((r) => r.id !== request.id));
-    setOngoing((prev) => [{ ...request, status: "em_andamento" }, ...prev]);
-    toast.success("Serviço aceito! O cliente foi avisado.");
+  // Requests from clients
+  const [requests, setRequests] = useState<NearbyRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<NearbyRequest | null>(null);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  // Proposal form
+  const [proposalPrice, setProposalPrice] = useState("");
+  const [proposalMessage, setProposalMessage] = useState("");
+  const [proposalLocal, setProposalLocal] = useState<LocalOption>("local_atendente");
+  const [sendingProposal, setSendingProposal] = useState(false);
+
+  // My proposals
+  const [myProposals, setMyProposals] = useState<MyProposal[]>([]);
+
+  // Offer form
+  const [offerType, setOfferType] = useState<ServiceType | "">("");
+  const [offerSubType, setOfferSubType] = useState("");
+  const [offerFlags, setOfferFlags] = useState<string[]>([]);
+  const [offerPrice, setOfferPrice] = useState("");
+  const [offerLocal, setOfferLocal] = useState<LocalOption>("local_atendente");
+  const [offerDesc, setOfferDesc] = useState("");
+  const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  const handleCoordsChange = useCallback((c: MapCoords) => {
+    setCoords(c);
+    if (user) updateLocation(c.lat, c.lng);
+  }, [user, updateLocation]);
+
+  // Fetch nearby requests
+  const fetchRequests = useCallback(async () => {
+    if (!coords) return;
+    setLoadingRequests(true);
+
+    const { data, error } = await supabase.rpc("nearby_requests", {
+      p_lat: coords.lat,
+      p_lng: coords.lng,
+      p_radius_km: radius,
+    });
+
+    if (!error && data) {
+      setRequests(data as NearbyRequest[]);
+    }
+    setLoadingRequests(false);
+  }, [coords, radius]);
+
+  // Fetch my proposals
+  const fetchMyProposals = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("proposals")
+      .select("*")
+      .eq("provider_id", user.id)
+      .in("status", ["pendente", "aceita"])
+      .order("created_at", { ascending: false })
+      .limit(10);
+
+    if (data) setMyProposals(data as MyProposal[]);
+  }, [user]);
+
+  // Poll for requests every 15s
+  useEffect(() => {
+    if (!coords || !available) return;
+    fetchRequests();
+    fetchMyProposals();
+    const interval = setInterval(() => {
+      fetchRequests();
+      fetchMyProposals();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [coords, available, fetchRequests, fetchMyProposals]);
+
+  // Reset offer form when type changes
+  useEffect(() => { setOfferSubType(""); setOfferFlags([]); }, [offerType]);
+
+  // Map markers from client requests
+  const mapMarkers: MapMarker[] = requests.map((r) => ({
+    id: r.id,
+    lat: r.lat,
+    lng: r.lng,
+    color: r.service_type === "massagem" ? "#22c55e" : "#eab308",
+    size: 14,
+    onClick: () => { setSelectedRequest(r); setView("details"); },
+  }));
+
+  function toggleFlag(val: string) {
+    setOfferFlags((arr) =>
+      arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val],
+    );
   }
 
-  function refuse(id: string) {
-    setFeed((prev) => prev.filter((r) => r.id !== id));
-    toast("Oferta recusada.");
-  }
+  // Send proposal for a client request
+  async function handleSendProposal() {
+    if (!selectedRequest || !user) return;
+    const price = parseFloat(proposalPrice.replace(",", "."));
+    if (!price || price <= 0) return toast.error("Informe um valor válido.");
 
-  function submitOffer(event: React.FormEvent) {
-    event.preventDefault();
-    if (!form.service_type || !form.description || !form.price || !form.location) {
-      toast.error("Preencha todos os campos da oferta.");
+    setSendingProposal(true);
+
+    const { error } = await supabase.from("proposals").insert({
+      request_id: selectedRequest.id,
+      provider_id: user.id,
+      price,
+      local_option: proposalLocal,
+      message: proposalMessage || null,
+    });
+
+    setSendingProposal(false);
+
+    if (error) {
+      if (error.code === "23505") {
+        toast.error("Você já enviou uma proposta para esta solicitação.");
+      } else {
+        toast.error("Erro ao enviar proposta.");
+        console.error(error);
+      }
       return;
     }
-    const offer: ServiceOffer = {
-      id: crypto.randomUUID(),
-      request_id: "",
-      provider_id: user?.id ?? null,
-      service_type: form.service_type,
-      description: form.description,
-      price: Number(form.price.replace(",", ".")),
-      location: form.location,
-      status: "pendente",
-      created_at: new Date().toISOString(),
-    };
-    setOffers((prev) => [offer, ...prev]);
-    setForm({ service_type: "", description: "", price: "", location: "" });
-    setOpen(false);
-    toast.success("Oferta publicada para clientes da sua região.");
+
+    toast.success(`Proposta de R$ ${price.toFixed(2)} enviada! Cliente paga R$ ${(price * 1.07).toFixed(2)}.`);
+    setProposalPrice("");
+    setProposalMessage("");
+    setSelectedRequest(null);
+    setView("map");
+    fetchMyProposals();
   }
 
-  return (
-    <main className="relative min-h-screen">
-      <MapBackground className="fixed inset-0" />
+  // Create service offer
+  async function handleCreateOffer() {
+    if (!offerType || !offerSubType) return toast.error("Selecione tipo e subtipo.");
+    const price = parseFloat(offerPrice.replace(",", "."));
+    if (!price || price <= 0) return toast.error("Informe um valor válido.");
+    if (!user || !coords) return;
 
-      <div className="relative z-10 px-4 pt-24 pb-32">
-        <div className="panel flex items-center justify-between p-4">
-          <div>
-            <p className="font-semibold">{available ? "Disponível" : "Indisponível"}</p>
-            <p className="text-xs text-muted-foreground">
-              {available ? "Você está recebendo novas ofertas" : "Você não receberá ofertas agora"}
-            </p>
-          </div>
-          <Switch checked={available} onCheckedChange={setAvailable} />
+    setSubmittingOffer(true);
+
+    const { error } = await supabase.from("service_offers").insert({
+      provider_id: user.id,
+      service_type: offerType,
+      sub_type: offerSubType,
+      flags: offerFlags,
+      gender: user.gender ?? "mulheres",
+      price,
+      local_option: offerLocal,
+      lat: coords.lat,
+      lng: coords.lng,
+      radius_km: radius,
+      description: offerDesc || null,
+    });
+
+    setSubmittingOffer(false);
+
+    if (error) {
+      toast.error("Erro ao criar oferta.");
+      console.error(error);
+      return;
+    }
+
+    toast.success(`Oferta publicada! Clientes verão R$ ${(price * 1.07).toFixed(2)}.`);
+    setOfferType("");
+    setOfferSubType("");
+    setOfferFlags([]);
+    setOfferPrice("");
+    setOfferDesc("");
+    setView("map");
+  }
+
+  const clientPrice = (val: string) => {
+    const n = parseFloat(val.replace(",", "."));
+    return isNaN(n) || n <= 0 ? null : (n * 1.07).toFixed(2);
+  };
+
+  return (
+    <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
+      <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
+        <LeafletMap onCoordsChange={handleCoordsChange} markers={mapMarkers} radiusKm={radius} />
+      </div>
+
+      {/* ── Top controls ───────────────────────────────────────── */}
+      <div className="fixed inset-x-0 top-[60px] z-20 flex items-center gap-2 px-4 py-3">
+        {/* Availability toggle */}
+        <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
+          <div className={`size-2 rounded-full ${available ? "bg-green-500" : "bg-red-500"}`} />
+          <span className="text-xs font-medium">{available ? "Online" : "Offline"}</span>
+          <Switch checked={available} onCheckedChange={setAvailable} className="scale-75" />
         </div>
 
-        <section className="mt-6 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Ofertas disponíveis
-          </h2>
-          {!available ? (
-            <div className="panel p-5 text-sm text-muted-foreground">
-              Ative sua disponibilidade para ver novas ofertas.
-            </div>
-          ) : feed.length === 0 ? (
-            <div className="panel p-5 text-sm text-muted-foreground">
-              Nenhuma oferta no momento. Fique de olho!
-            </div>
-          ) : (
-            feed.map((r) => (
-              <article key={r.id} className="panel space-y-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h3 className="font-semibold">{r.service_type}</h3>
-                    <p className="text-xs text-muted-foreground">{r.client_name}</p>
-                  </div>
-                  <Badge variant="secondary">Urgência {urgencyLabel[r.urgency]}</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{r.description}</p>
-                <p className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="size-3.5" /> {r.location}
-                </p>
-                <div className="flex gap-2">
-                  <Button className="flex-1" onClick={() => accept(r)}>
-                    <Check className="mr-1 size-4" /> Aceitar
-                  </Button>
-                  <Button variant="secondary" className="flex-1" onClick={() => refuse(r.id)}>
-                    <X className="mr-1 size-4" /> Recusar
-                  </Button>
-                </div>
-              </article>
-            ))
-          )}
-        </section>
+        {/* Radius */}
+        <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
+          <Radar className="size-3.5 text-primary" />
+          {radiusOptions.map((r) => (
+            <button key={r.value} onClick={() => setRadius(r.value)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${radius === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {r.label}
+            </button>
+          ))}
+        </div>
 
-        <section className="mt-8 space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Serviços em andamento
-          </h2>
-          {ongoing.length === 0 ? (
-            <div className="panel p-5 text-sm text-muted-foreground">
-              Nenhum serviço em andamento.
-            </div>
-          ) : (
-            ongoing.map((r) => (
-              <article key={r.id} className="panel space-y-1 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{r.service_type}</h3>
-                  <Badge className="bg-success text-success-foreground">Em andamento</Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{r.description}</p>
-                <p className="text-xs text-muted-foreground">{r.location}</p>
-              </article>
-            ))
-          )}
-        </section>
-
-        {offers.length > 0 && (
-          <section className="mt-8 space-y-3">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Minhas ofertas publicadas
-            </h2>
-            {offers.map((o) => (
-              <article key={o.id} className="panel space-y-1 p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold">{o.service_type}</h3>
-                  <span className="text-sm font-semibold text-primary">
-                    R$ {o.price.toFixed(2)}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">{o.description}</p>
-                <p className="text-xs text-muted-foreground">{o.location}</p>
-              </article>
-            ))}
-          </section>
+        {coords && (
+          <button onClick={() => window.dispatchEvent(new CustomEvent("map:center"))} className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
+            <Navigation className="size-4 text-primary" />
+          </button>
         )}
       </div>
 
-      {!open && (
-        <Button
-          size="lg"
-          onClick={() => setOpen(true)}
-          className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow"
-        >
+      {/* ── Request count badge ────────────────────────────────── */}
+      {view === "map" && available && (
+        <div className="fixed left-4 top-[116px] z-20">
+          <Badge variant="secondary" className="backdrop-blur-md">
+            {loadingRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : <MapPin className="mr-1 size-3" />}
+            {requests.length} solicitações no raio
+          </Badge>
+        </div>
+      )}
+
+      {/* ── My proposals (floating cards) ──────────────────────── */}
+      {view === "map" && myProposals.length > 0 && !selectedRequest && (
+        <div className="fixed inset-x-4 bottom-24 z-20 max-h-40 space-y-2 overflow-y-auto">
+          {myProposals.slice(0, 2).map((p) => (
+            <div key={p.id} className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">Proposta R$ {Number(p.price).toFixed(2)}</p>
+                <Badge variant="secondary" className={`text-[10px] ${p.status === "aceita" ? "bg-green-500/20 text-green-400" : ""}`}>
+                  {p.status === "pendente" ? "Aguardando" : p.status === "aceita" ? "Aceita!" : p.status}
+                </Badge>
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">Cliente paga R$ {Number(p.client_price).toFixed(2)}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Request detail + proposal form ─────────────────────── */}
+      {view === "details" && selectedRequest && (
+        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Solicitação de cliente</h2>
+            <Button variant="ghost" size="icon" onClick={() => { setView("map"); setSelectedRequest(null); }}>
+              <X className="size-5" />
+            </Button>
+          </div>
+
+          {/* Request details */}
+          <div className="space-y-3 rounded-xl border border-border bg-secondary/30 p-4">
+            <div className="flex items-center justify-between">
+              <Badge>{selectedRequest.service_type === "massagem" ? "Massagem" : "Acompanhante"}</Badge>
+              <span className="text-xs text-muted-foreground">{selectedRequest.distance_km} km</span>
+            </div>
+            <p className="font-semibold">{getSubLabel(selectedRequest.service_type, selectedRequest.sub_type)}</p>
+
+            {selectedRequest.flags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {selectedRequest.flags.map((f) => (
+                  <span key={f} className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                    {serviceFlags.find((x) => x.value === f)?.label ?? f}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span>Gênero: {selectedRequest.gender_pref.join(", ")}</span>
+              <span>Local: {selectedRequest.local_option === "local_atendente" ? "Atendente" : "Parceiro"}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              <Clock className="mr-1 inline size-3" />
+              {new Date(selectedRequest.created_at).toLocaleString("pt-BR")}
+            </p>
+          </div>
+
+          {/* Proposal form */}
+          <div className="mt-5 space-y-4">
+            <h3 className="text-sm font-semibold">Enviar proposta</h3>
+
+            <div className="space-y-1.5">
+              <Label>Seu valor (R$)</Label>
+              <Input
+                value={proposalPrice}
+                onChange={(e) => setProposalPrice(e.target.value)}
+                placeholder="300,00"
+                inputMode="decimal"
+              />
+              {clientPrice(proposalPrice) && (
+                <p className="text-xs text-muted-foreground">
+                  Cliente paga: <span className="font-semibold text-primary">R$ {clientPrice(proposalPrice)}</span>
+                  <span className="ml-1">(+7% taxa)</span>
+                  {" · "}Você recebe: <span className="font-semibold text-green-400">R$ {(parseFloat(proposalPrice.replace(",", ".")) * 0.93).toFixed(2)}</span>
+                  <span className="ml-1">(-7% comissão)</span>
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Local do atendimento</Label>
+              <div className="flex gap-2">
+                {localOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setProposalLocal(opt.value)}
+                    className={`flex-1 rounded-xl border p-2.5 text-center text-xs font-medium transition-all ${
+                      proposalLocal === opt.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:bg-secondary"
+                    }`}
+                  >
+                    {opt.value === "local_atendente" ? "Tenho local" : "Usar parceiro"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Mensagem (opcional)</Label>
+              <Textarea
+                rows={2}
+                value={proposalMessage}
+                onChange={(e) => setProposalMessage(e.target.value)}
+                placeholder="Estou a 5 min, posso atender agora..."
+              />
+            </div>
+
+            <Button className="h-12 w-full" disabled={sendingProposal} onClick={handleSendProposal}>
+              {sendingProposal ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Send className="mr-2 size-5" />}
+              {sendingProposal ? "Enviando..." : "Enviar proposta"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── FAB ─────────────────────────────────────────────────── */}
+      {view === "map" && !selectedRequest && (
+        <Button size="lg" onClick={() => setView("offer")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
           <Plus className="mr-1 size-5" /> Ofertar Serviço
         </Button>
       )}
 
-      {open && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-panel">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Nova oferta</h2>
-            <Button variant="ghost" size="icon" aria-label="Fechar" onClick={() => setOpen(false)}>
-              <X className="size-5" />
-            </Button>
+      {/* ── Offer bottom sheet ─────────────────────────────────── */}
+      {view === "offer" && (
+        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Ofertar serviço</h2>
+            <Button variant="ghost" size="icon" onClick={() => setView("map")}><X className="size-5" /></Button>
           </div>
-          <form onSubmit={submitOffer} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Tipo de serviço</Label>
-              <Input
-                value={form.service_type}
-                onChange={(e) => setForm((p) => ({ ...p, service_type: e.target.value }))}
-                placeholder="Ex.: Instalação elétrica"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Descrição</Label>
-              <Textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Valor (R$)</Label>
-              <Input
-                value={form.price}
-                inputMode="decimal"
-                onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
-                placeholder="150,00"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Região de atendimento</Label>
-              <Input
-                value={form.location}
-                onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
-                placeholder="Bairro, cidade"
-              />
-            </div>
-            <Button type="submit" className="h-12 w-full">
-              Publicar oferta
-            </Button>
-          </form>
+
+          <div className="space-y-5">
+            {/* Type */}
+            <Field label="Tipo de serviço">
+              <div className="flex gap-2">
+                {(["massagem", "acompanhante"] as ServiceType[]).map((t) => (
+                  <Chip key={t} active={offerType === t} onClick={() => setOfferType(t)} className="capitalize">{t}</Chip>
+                ))}
+              </div>
+            </Field>
+
+            {/* Sub-type */}
+            {offerType && (
+              <Field label={offerType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}>
+                <div className="flex flex-wrap gap-2">
+                  {serviceSubTypes[offerType].map((s) => (
+                    <Pill key={s.value} active={offerSubType === s.value} onClick={() => setOfferSubType(s.value)}>{s.label}</Pill>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            {/* Flags (for acompanhante) */}
+            {offerType === "acompanhante" && offerSubType && (
+              <Field label="Serviços que você oferece">
+                <div className="flex flex-wrap gap-2">
+                  {serviceFlags.map((f) => (
+                    <Pill key={f.value} active={offerFlags.includes(f.value)} onClick={() => toggleFlag(f.value)} showCheck small>
+                      {f.label}
+                    </Pill>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            {/* Price */}
+            {offerSubType && (
+              <Field label="Seu valor (R$)">
+                <Input
+                  value={offerPrice}
+                  onChange={(e) => setOfferPrice(e.target.value)}
+                  placeholder="250,00"
+                  inputMode="decimal"
+                />
+                {clientPrice(offerPrice) && (
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    Cliente verá: <span className="font-semibold text-primary">R$ {clientPrice(offerPrice)}</span>
+                    {" · "}Você recebe: <span className="font-semibold text-green-400">R$ {(parseFloat(offerPrice.replace(",", ".")) * 0.93).toFixed(2)}</span>
+                  </p>
+                )}
+              </Field>
+            )}
+
+            {/* Local */}
+            {offerSubType && (
+              <Field label="Local">
+                <div className="flex gap-2">
+                  {localOptions.map((opt) => (
+                    <Chip key={opt.value} active={offerLocal === opt.value} onClick={() => setOfferLocal(opt.value)}>
+                      {opt.value === "local_atendente" ? "Tenho local" : "Parceiro"}
+                    </Chip>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            {/* Description */}
+            {offerSubType && (
+              <Field label="Descrição (opcional)">
+                <Textarea
+                  rows={2}
+                  value={offerDesc}
+                  onChange={(e) => setOfferDesc(e.target.value)}
+                  placeholder="Atendo em apartamento próprio, sigilo total..."
+                />
+              </Field>
+            )}
+
+            {/* Submit */}
+            {offerSubType && offerPrice && (
+              <Button className="h-13 w-full text-base" disabled={submittingOffer} onClick={handleCreateOffer}>
+                {submittingOffer ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}
+                {submittingOffer ? "Publicando..." : "Publicar oferta"}
+              </Button>
+            )}
+          </div>
         </div>
       )}
     </main>
+  );
+}
+
+/* ─── UI helpers ────────────────────────────────────────────────────── */
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-2"><p className="text-sm font-semibold">{label}</p>{children}</div>;
+}
+
+function Chip({ active, onClick, children, className = "" }: { active: boolean; onClick: () => void; children: React.ReactNode; className?: string }) {
+  return (
+    <button onClick={onClick} className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"} ${className}`}>
+      {children}
+    </button>
+  );
+}
+
+function Pill({ active, onClick, children, showCheck = false, small = false }: { active: boolean; onClick: () => void; children: React.ReactNode; showCheck?: boolean; small?: boolean }) {
+  return (
+    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full border font-medium transition-all ${small ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
+      {showCheck && active && <Check className={small ? "size-3" : "size-3.5"} />}
+      {children}
+    </button>
   );
 }
