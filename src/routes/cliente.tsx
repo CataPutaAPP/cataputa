@@ -71,7 +71,7 @@ function ClienteContent() {
     const request: ServiceRequest = {
       id: crypto.randomUUID(),
       client_id: user?.id ?? "",
-      client_name: user?.full_name ?? "",
+      client_name: user?.full_name ?? "Visitante",
       service_type: form.service_type,
       description: form.description,
       location: form.location,
@@ -91,7 +91,7 @@ function ClienteContent() {
       <MapBackground className="fixed inset-0" />
 
       <div className="relative z-10 px-4 pt-24 pb-32">
-        <h1 className="text-2xl font-semibold">Olá, {user?.full_name.split(" ")[0]}</h1>
+        <h1 className="text-2xl font-semibold">Olá, {user?.full_name?.split(" ")[0] ?? "visitante"}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           O que você precisa resolver hoje?
         </p>
@@ -102,7 +102,7 @@ function ClienteContent() {
           </h2>
           {requests.length === 0 ? (
             <div className="panel p-5 text-sm text-muted-foreground">
-              Você ainda não tem solicitações. Toque em “Solicitar Serviço” para começar.
+              Você ainda não tem solicitações. Toque em "Solicitar Serviço" para começar.
             </div>
           ) : (
             requests.map((r) => (
