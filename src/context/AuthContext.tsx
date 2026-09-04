@@ -7,10 +7,32 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { User, UserRole } from "@/types";
+import { supabase } from "@/lib/supabase";
+import type { UserRole } from "@/types";
 
-const USERS_KEY = "sv_users";
-const SESSION_KEY = "sv_session";
+/* ─── Types ─────────────────────────────────────────────────────────── */
+
+export interface Profile {
+  id: string;
+  role: UserRole;
+  status: string;
+  full_name: string;
+  username: string;
+  cpf: string;
+  phone: string;
+  email: string;
+  avatar_url: string | null;
+  bio: string | null;
+  gender: string | null;
+  date_of_birth: string | null;
+  lat: number | null;
+  lng: number | null;
+  has_local: boolean;
+  local_address: string | null;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+}
 
 export interface SignUpInput {
   full_name: string;
@@ -20,116 +42,225 @@ export interface SignUpInput {
   username: string;
   password: string;
   role: UserRole;
-}
-
-interface StoredUser extends User {
-  password: string;
+  gender?: string;
+  date_of_birth?: string;
 }
 
 interface AuthContextValue {
-  user: User | null;
+  user: Profile | null;
   loading: boolean;
   signUp: (input: SignUpInput) => Promise<{ error: string | null }>;
   signIn: (username: string, password: string) => Promise<{ error: string | null; role?: UserRole }>;
   signOut: () => void;
-  isUsernameTaken: (username: string) => boolean;
+  isUsernameTaken: (username: string) => Promise<boolean>;
   requestPasswordReset: (username: string) => Promise<{ error: string | null }>;
+  updateLocation: (lat: number, lng: number) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readUsers(): StoredUser[] {
-  try {
-    return JSON.parse(localStorage.getItem(USERS_KEY) ?? "[]") as StoredUser[];
-  } catch {
-    return [];
-  }
-}
-
-function writeUsers(users: StoredUser[]) {
-  localStorage.setItem(USERS_KEY, JSON.stringify(users));
-}
+/* ─── Provider ──────────────────────────────────────────────────────── */
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const id = localStorage.getItem(SESSION_KEY);
-    if (id) {
-      const found = readUsers().find((u) => u.id === id);
-      if (found) {
-        const { password: _pw, ...safe } = found;
-        setUser(safe);
-      }
-    }
-    setLoading(false);
+  // Fetch profile from DB
+  const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error || !data) return null;
+    return data as Profile;
   }, []);
 
-  const isUsernameTaken = useCallback(
-    (username: string) =>
-      readUsers().some((u) => u.username.toLowerCase() === username.trim().toLowerCase()),
-    [],
-  );
+  // Listen to auth state changes
+  useEffect(() => {
+    // Check current session
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        setUser(profile);
+      }
+      setLoading(false);
+    });
 
+    // Subscribe to changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          setUser(profile);
+        } else {
+          setUser(null);
+        }
+        setLoading(false);
+      },
+    );
+
+    return () => subscription.unsubscribe();
+  }, [fetchProfile]);
+
+  // Sign up: create auth user + profile
   const signUp = useCallback<AuthContextValue["signUp"]>(async (input) => {
-    const users = readUsers();
-    if (users.some((u) => u.username.toLowerCase() === input.username.toLowerCase()))
-      return { error: "Este username já está em uso." };
-    if (users.some((u) => u.email.toLowerCase() === input.email.toLowerCase()))
-      return { error: "Este e-mail já está cadastrado." };
+    // 1. Check username availability
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", input.username)
+      .maybeSingle();
 
-    const newUser: StoredUser = {
-      id: crypto.randomUUID(),
+    if (existing) return { error: "Este username já está em uso." };
+
+    // 2. Check CPF
+    const { data: cpfExists } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("cpf", input.cpf)
+      .maybeSingle();
+
+    if (cpfExists) return { error: "Este CPF já está cadastrado." };
+
+    // 3. Create auth user
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: input.email,
+      password: input.password,
+      options: {
+        data: {
+          full_name: input.full_name,
+          username: input.username,
+          role: input.role,
+        },
+      },
+    });
+
+    if (authError) return { error: authError.message };
+    if (!authData.user) return { error: "Erro ao criar usuário." };
+
+    // 4. Insert profile
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: authData.user.id,
+      role: input.role,
       full_name: input.full_name,
+      username: input.username,
       cpf: input.cpf,
       phone: input.phone,
       email: input.email,
-      username: input.username,
-      role: input.role,
-      password: input.password,
-      is_active: false,
-      created_at: new Date().toISOString(),
-    };
-    writeUsers([...users, newUser]);
+      gender: input.gender ?? null,
+      date_of_birth: input.date_of_birth ?? null,
+    });
+
+    if (profileError) {
+      console.error("Profile insert error:", profileError);
+      return { error: "Conta criada mas houve erro no perfil. Tente fazer login." };
+    }
+
+    // Sign out after registration (user needs to confirm email)
+    await supabase.auth.signOut();
+
     return { error: null };
   }, []);
 
+  // Sign in: lookup email by username, then authenticate
   const signIn = useCallback<AuthContextValue["signIn"]>(async (username, password) => {
-    const found = readUsers().find(
-      (u) => u.username.toLowerCase() === username.trim().toLowerCase(),
+    // 1. Get email from username via RPC
+    const { data: emailData, error: rpcError } = await supabase.rpc(
+      "get_email_by_username",
+      { p_username: username },
     );
-    if (!found || found.password !== password)
-      return { error: "Username ou senha inválidos." };
-    const { password: _pw, ...safe } = found;
-    localStorage.setItem(SESSION_KEY, safe.id);
-    setUser(safe);
-    return { error: null, role: safe.role };
-  }, []);
+
+    if (rpcError || !emailData || emailData.length === 0) {
+      return { error: "Username não encontrado." };
+    }
+
+    const email = emailData[0].email;
+
+    // 2. Sign in with email + password
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) return { error: "Username ou senha inválidos." };
+
+    // 3. Fetch profile to get role
+    const profile = await fetchProfile(data.user.id);
+    if (profile) {
+      setUser(profile);
+      // Update last_seen
+      supabase
+        .from("profiles")
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq("id", data.user.id)
+        .then();
+
+      return { error: null, role: profile.role };
+    }
+
+    return { error: null, role: undefined };
+  }, [fetchProfile]);
 
   const signOut = useCallback(() => {
-    localStorage.removeItem(SESSION_KEY);
+    supabase.auth.signOut();
     setUser(null);
+  }, []);
+
+  const isUsernameTaken = useCallback(async (username: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("username", username)
+      .maybeSingle();
+    return !!data;
   }, []);
 
   const requestPasswordReset = useCallback<AuthContextValue["requestPasswordReset"]>(
     async (username) => {
-      const found = readUsers().find(
-        (u) => u.username.toLowerCase() === username.trim().toLowerCase(),
+      const { data, error: rpcError } = await supabase.rpc(
+        "get_email_by_username",
+        { p_username: username },
       );
-      if (!found) return { error: "Não encontramos esse username." };
+
+      if (rpcError || !data || data.length === 0) {
+        return { error: "Username não encontrado." };
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(data[0].email);
+      if (error) return { error: error.message };
       return { error: null };
     },
     [],
   );
 
+  const updateLocation = useCallback(async (lat: number, lng: number) => {
+    if (!user) return;
+    await supabase
+      .from("profiles")
+      .update({ lat, lng, last_seen_at: new Date().toISOString() })
+      .eq("id", user.id);
+  }, [user]);
+
   const value = useMemo(
-    () => ({ user, loading, signUp, signIn, signOut, isUsernameTaken, requestPasswordReset }),
-    [user, loading, signUp, signIn, signOut, isUsernameTaken, requestPasswordReset],
+    () => ({
+      user,
+      loading,
+      signUp,
+      signIn,
+      signOut,
+      isUsernameTaken,
+      requestPasswordReset,
+      updateLocation,
+    }),
+    [user, loading, signUp, signIn, signOut, isUsernameTaken, requestPasswordReset, updateLocation],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+/* ─── Hook ──────────────────────────────────────────────────────────── */
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
