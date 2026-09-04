@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { LogOut } from "lucide-react";
 
@@ -24,11 +24,12 @@ export function DashboardShell({
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!loading && !user) navigate({ to: "/login", replace: true });
-  }, [loading, user, navigate]);
+  // TODO: Reativar guard quando Supabase estiver conectado
+  // useEffect(() => {
+  //   if (!loading && !user) navigate({ to: "/login", replace: true });
+  // }, [loading, user, navigate]);
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
         Carregando…
@@ -42,17 +43,19 @@ export function DashboardShell({
         <Logo size="sm" />
         <div className="flex items-center gap-2">
           <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Sair"
-            onClick={() => {
-              signOut();
-              navigate({ to: "/", replace: true });
-            }}
-          >
-            <LogOut className="size-5" />
-          </Button>
+          {user && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Sair"
+              onClick={() => {
+                signOut();
+                navigate({ to: "/", replace: true });
+              }}
+            >
+              <LogOut className="size-5" />
+            </Button>
+          )}
         </div>
       </header>
       {children}
