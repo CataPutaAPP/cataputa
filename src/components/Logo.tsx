@@ -2,17 +2,14 @@ export function Logo({ size = "lg" }: { size?: "sm" | "lg" }) {
   const isLg = size === "lg";
   return (
     <div className="flex flex-col items-center gap-4">
-      <div
-        className={`overflow-hidden rounded-full bg-[#1A1A1A] shadow-lg ${
-          isLg ? "size-32 shadow-primary/30" : "size-11 shadow-primary/20"
+      <img
+        src="/logo-cataputa.png"
+        alt="CataPuta Web"
+        className={`object-contain drop-shadow-lg ${
+          isLg ? "size-36" : "size-11"
         }`}
-      >
-        <img
-          src="/logo-cataputa.png"
-          alt="CataPuta Web"
-          className="size-full scale-110 object-cover"
-        />
-      </div>
+        style={isLg ? { filter: "drop-shadow(0 8px 24px rgba(150, 26, 25, 0.4))" } : undefined}
+      />
       {isLg && (
         <div className="text-center">
           <h1 className="font-display text-4xl font-bold tracking-tight">
