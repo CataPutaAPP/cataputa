@@ -24,11 +24,13 @@ interface LeafletMapProps {
   children?: ReactNode;
 }
 
-/* ─── Leaflet loader (script tag, with retry) ──────────────────────── */
+/* ─── Leaflet loader ────────────────────────────────────────────────── */
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
 const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-const TILE_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+
+// Free OSM tiles — no API key ever
+const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 function ensureLeafletCSS() {
   if (document.querySelector(`link[href="${LEAFLET_CSS}"]`)) return;
@@ -38,58 +40,66 @@ function ensureLeafletCSS() {
   document.head.appendChild(link);
 }
 
-function loadLeafletJS(): Promise<typeof window.L> {
+function ensureCustomCSS() {
+  if (document.getElementById("sh-map-css")) return;
+  const style = document.createElement("style");
+  style.id = "sh-map-css";
+  style.textContent = `
+    /* Dark mode: invert OSM tiles */
+    .sh-dark-tiles .leaflet-tile-pane {
+      filter: invert(1) hue-rotate(180deg) brightness(0.65) contrast(1.2) saturate(0.3);
+    }
+    /* Keep markers and overlays normal (un-invert) */
+    .sh-dark-tiles .leaflet-marker-pane,
+    .sh-dark-tiles .leaflet-shadow-pane,
+    .sh-dark-tiles .leaflet-overlay-pane {
+      filter: none;
+    }
+    .sh-dark-tiles .leaflet-container {
+      background: #0a0a12 !important;
+    }
+    @keyframes sh-pulse {
+      0%   { transform: scale(1); opacity: .7; }
+      100% { transform: scale(3.5); opacity: 0; }
+    }
+    .sh-dot-ring { animation: sh-pulse 2s ease-out infinite; }
+    .dark-popup .leaflet-popup-content-wrapper {
+      background: hsl(240 6% 10%);
+      color: hsl(240 5% 90%);
+      border: 1px solid hsl(240 4% 20%);
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+    }
+    .dark-popup .leaflet-popup-tip {
+      background: hsl(240 6% 10%);
+      border: 1px solid hsl(240 4% 20%);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function loadLeafletJS(): Promise<any> {
   return new Promise((resolve, reject) => {
     if ((window as any).L) {
       resolve((window as any).L);
       return;
     }
-
     const existing = document.querySelector(`script[src="${LEAFLET_JS}"]`);
     if (existing) {
-      // Script tag exists but L not ready yet — wait for it
       const check = setInterval(() => {
-        if ((window as any).L) {
-          clearInterval(check);
-          resolve((window as any).L);
-        }
+        if ((window as any).L) { clearInterval(check); resolve((window as any).L); }
       }, 100);
-      setTimeout(() => {
-        clearInterval(check);
-        reject(new Error("Leaflet timeout"));
-      }, 10000);
+      setTimeout(() => { clearInterval(check); reject(new Error("Leaflet timeout")); }, 10000);
       return;
     }
-
     const script = document.createElement("script");
     script.src = LEAFLET_JS;
     script.async = true;
-    script.onload = () => {
-      if ((window as any).L) {
-        resolve((window as any).L);
-      } else {
-        reject(new Error("Leaflet loaded but L not found"));
-      }
-    };
-    script.onerror = () => reject(new Error("Failed to load Leaflet script"));
+    script.onload = () => (window as any).L ? resolve((window as any).L) : reject(new Error("L not found"));
+    script.onerror = () => reject(new Error("Script load failed"));
     document.head.appendChild(script);
   });
-}
-
-/* ─── Pulse animation CSS ───────────────────────────────────────────── */
-
-function ensurePulseCSS() {
-  if (document.getElementById("sh-pulse")) return;
-  const style = document.createElement("style");
-  style.id = "sh-pulse";
-  style.textContent = `
-    @keyframes sh-pulse{0%{transform:scale(1);opacity:.7}100%{transform:scale(3.5);opacity:0}}
-    .sh-dot-ring{animation:sh-pulse 2s ease-out infinite}
-    .leaflet-container{background:#0a0a12 !important}
-    .dark-popup .leaflet-popup-content-wrapper{background:hsl(240 6% 10%);color:hsl(240 5% 90%);border:1px solid hsl(240 4% 20%);border-radius:12px;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
-    .dark-popup .leaflet-popup-tip{background:hsl(240 6% 10%);border:1px solid hsl(240 4% 20%)}
-  `;
-  document.head.appendChild(style);
 }
 
 /* ─── Component ─────────────────────────────────────────────────────── */
@@ -133,21 +143,20 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
     return () => navigator.geolocation.clearWatch(wid);
   }, []);
 
-  /* ── Init map once we have coords ────────────────────── */
+  /* ── Init map ─────────────────────────────────────────── */
   useEffect(() => {
     if (!coords || !containerRef.current || mapRef.current) return;
-
     let cancelled = false;
 
     ensureLeafletCSS();
-    ensurePulseCSS();
+    ensureCustomCSS();
 
     loadLeafletJS()
       .then((L) => {
         if (cancelled || !containerRef.current) return;
         Lref.current = L;
 
-        // Fix Leaflet default icon path issue
+        // Fix default icon paths
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
           iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -164,7 +173,7 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
 
         L.tileLayer(TILE_URL, {
           maxZoom: 19,
-          subdomains: "abcd",
+          attribution: "",
         }).addTo(map);
 
         // User dot
@@ -182,19 +191,15 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
 
         mapRef.current = map;
         setLoading(false);
-
-        // Force a resize after a tick — fixes blank tiles
         setTimeout(() => map.invalidateSize(), 200);
       })
       .catch((err) => {
-        console.error("LeafletMap init error:", err);
-        setMapError("Não foi possível carregar o mapa. Recarregue a página.");
+        console.error("LeafletMap:", err);
+        setMapError("Não foi possível carregar o mapa.");
         setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [coords]);
 
   /* ── Update user position ────────────────────────────── */
@@ -209,10 +214,7 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
     const map = mapRef.current;
     if (!L || !map || !coords) return;
 
-    if (circleRef.current) {
-      circleRef.current.remove();
-      circleRef.current = null;
-    }
+    if (circleRef.current) { circleRef.current.remove(); circleRef.current = null; }
 
     if (radiusKm > 0) {
       circleRef.current = L.circle([coords.lat, coords.lng], {
@@ -250,72 +252,43 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
     });
   }, [markers]);
 
-  /* ── Center helper ───────────────────────────────────── */
+  /* ── Center on user (via event) ──────────────────────── */
   const centerOnUser = useCallback(() => {
     const c = coordsRef.current;
-    if (c && mapRef.current) {
-      mapRef.current.setView([c.lat, c.lng], 14, { animate: true });
-    }
+    if (c && mapRef.current) mapRef.current.setView([c.lat, c.lng], 14, { animate: true });
   }, []);
 
-  // Expose center via custom event so siblings can trigger it
   useEffect(() => {
-    const handler = () => centerOnUser();
-    window.addEventListener("map:center", handler);
-    return () => window.removeEventListener("map:center", handler);
+    const h = () => centerOnUser();
+    window.addEventListener("map:center", h);
+    return () => window.removeEventListener("map:center", h);
   }, [centerOnUser]);
 
   /* ── Render ──────────────────────────────────────────── */
   return (
     <>
-      {/* Map fills its positioned parent */}
+      {/* sh-dark-tiles class triggers the CSS invert filter on tiles only */}
       <div
         ref={containerRef}
+        className="sh-dark-tiles"
         style={{ position: "absolute", inset: 0, zIndex: 0, background: "#0a0a12" }}
       />
 
-      {/* Loading */}
       {loading && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 5,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 12,
-            background: "#0a0a12",
-          }}
-        >
+        <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0a12" }}>
           <Loader2 className="size-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Carregando mapa…</p>
         </div>
       )}
 
-      {/* Geo error */}
       {geoError && (
         <div className="absolute inset-x-4 top-4 z-40 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-center text-sm text-destructive backdrop-blur-md">
           <MapPin className="mb-1 inline size-4" /> {geoError}
         </div>
       )}
 
-      {/* Map load error */}
       {mapError && (
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 5,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 12,
-            background: "#0a0a12",
-          }}
-        >
+        <div style={{ position: "absolute", inset: 0, zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, background: "#0a0a12" }}>
           <MapPin className="size-8 text-destructive" />
           <p className="text-sm text-destructive">{mapError}</p>
         </div>
