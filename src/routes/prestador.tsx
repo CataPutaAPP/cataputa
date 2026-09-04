@@ -22,6 +22,8 @@ import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
+import { MatchView, type ActiveService } from "@/components/MatchView";
+import { PhotoManager } from "@/components/ProviderProfile";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -95,7 +97,7 @@ function PrestadorContent() {
   const { user, updateLocation } = useAuth();
 
   const [coords, setCoords] = useState<MapCoords | null>(null);
-  const [view, setView] = useState<"map" | "offer" | "details">("map");
+  const [view, setView] = useState<"map" | "offer" | "details" | "match">("map");
   const [radius, setRadius] = useState(10);
   const [available, setAvailable] = useState(true);
 
@@ -112,6 +114,9 @@ function PrestadorContent() {
 
   // My proposals
   const [myProposals, setMyProposals] = useState<MyProposal[]>([]);
+
+  // Active service (post-accept)
+  const [activeService, setActiveService] = useState<ActiveService | null>(null);
 
   // Offer form
   const [offerType, setOfferType] = useState<ServiceType | "">("");
@@ -158,17 +163,48 @@ function PrestadorContent() {
     if (data) setMyProposals(data as MyProposal[]);
   }, [user]);
 
+  // Fetch active service (where I'm the accepted provider)
+  const fetchActiveService = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("service_requests")
+      .select(`
+        *,
+        proposal:proposals!accepted_proposal_id(price, client_price, message, local_option),
+        client:profiles!client_id(full_name, avatar_url, gender, rating_avg, rating_count)
+      `)
+      .eq("accepted_provider_id", user.id)
+      .in("status", ["aceita", "a_caminho", "em_andamento", "concluida"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      const svc = {
+        ...data,
+        proposal: Array.isArray(data.proposal) ? data.proposal[0] : data.proposal,
+        client: Array.isArray(data.client) ? data.client[0] : data.client,
+      } as ActiveService;
+      setActiveService(svc);
+      if (["aceita", "a_caminho", "em_andamento"].includes(svc.status)) {
+        setView("match");
+      }
+    } else {
+      setActiveService(null);
+    }
+  }, [user]);
+
   // Poll for requests every 15s
   useEffect(() => {
     if (!coords || !available) return;
     fetchRequests();
     fetchMyProposals();
+    fetchActiveService();
     const interval = setInterval(() => {
       fetchRequests();
       fetchMyProposals();
     }, 15000);
     return () => clearInterval(interval);
-  }, [coords, available, fetchRequests, fetchMyProposals]);
+  }, [coords, available, fetchRequests, fetchMyProposals, fetchActiveService]);
 
   // Reset offer form when type changes
   useEffect(() => { setOfferSubType(""); setOfferFlags([]); }, [offerType]);
@@ -312,21 +348,53 @@ function PrestadorContent() {
         </div>
       )}
 
-      {/* ── My proposals (floating cards) ──────────────────────── */}
-      {view === "map" && myProposals.length > 0 && !selectedRequest && (
-        <div className="fixed inset-x-4 bottom-24 z-20 max-h-40 space-y-2 overflow-y-auto">
-          {myProposals.slice(0, 2).map((p) => (
-            <div key={p.id} className="rounded-xl border border-border bg-card/90 p-3 backdrop-blur-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold">Proposta R$ {Number(p.price).toFixed(2)}</p>
-                <Badge variant="secondary" className={`text-[10px] ${p.status === "aceita" ? "bg-green-500/20 text-green-400" : ""}`}>
-                  {p.status === "pendente" ? "Aguardando" : p.status === "aceita" ? "Aceita!" : p.status}
-                </Badge>
-              </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">Você recebe R$ {(Number(p.price) * 0.93).toFixed(2)}</p>
+      {/* ── Active service card (floating) ─────────────────────── */}
+      {view === "map" && activeService && ["aceita", "a_caminho", "em_andamento"].includes(activeService.status) && (
+        <button onClick={() => setView("match")}
+          className="fixed inset-x-4 bottom-24 z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-5 text-primary" />
+              <p className="text-sm font-semibold">Serviço ativo</p>
             </div>
-          ))}
+            <Badge variant="secondary" className="bg-green-500/20 text-green-400 text-[10px]">
+              {activeService.status === "aceita" ? "Aceito" : activeService.status === "a_caminho" ? "A caminho" : "Em andamento"}
+            </Badge>
+          </div>
+          <p className="mt-1.5 text-xs font-medium text-primary">Toque para acompanhar →</p>
+        </button>
+      )}
+
+      {/* ── My proposals (floating cards) — only when no active service ── */}
+      {view === "map" && myProposals.length > 0 && !selectedRequest && !activeService && (
+        <div className="fixed inset-x-4 bottom-24 z-20 max-h-40 space-y-2 overflow-y-auto">
+          {myProposals.slice(0, 2).map((p) => {
+            const isAccepted = p.status === "aceita";
+            return (
+              <div key={p.id} onClick={isAccepted ? () => fetchActiveService() : undefined}
+                className={`rounded-xl border bg-card/90 p-3 backdrop-blur-sm ${isAccepted ? "border-green-500/40 cursor-pointer" : "border-border"}`}>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold">Proposta R$ {Number(p.price).toFixed(2)}</p>
+                  <Badge variant="secondary" className={`text-[10px] ${isAccepted ? "bg-green-500/20 text-green-400" : ""}`}>
+                    {p.status === "pendente" ? "Aguardando" : isAccepted ? "Aceita! Toque →" : p.status}
+                  </Badge>
+                </div>
+                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe R$ {(Number(p.price) * 0.93).toFixed(2)}</p>
+              </div>
+            );
+          })}
         </div>
+      )}
+
+      {/* ── Match / Service view ───────────────────────────── */}
+      {view === "match" && activeService && user && (
+        <MatchView
+          service={activeService}
+          role="prestador"
+          userId={user.id}
+          onClose={() => { setView("map"); setActiveService(null); }}
+          onRefresh={fetchActiveService}
+        />
       )}
 
       {/* ── Request detail + proposal form ─────────────────────── */}
@@ -514,6 +582,13 @@ function PrestadorContent() {
                   placeholder="Atendo em apartamento próprio, sigilo total..."
                 />
               </Field>
+            )}
+
+            {/* Photos */}
+            {offerSubType && user && (
+              <div className="rounded-xl border border-border bg-secondary/30 p-4">
+                <PhotoManager userId={user.id} onDone={() => {}} />
+              </div>
             )}
 
             {/* Submit */}
