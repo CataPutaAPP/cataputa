@@ -221,7 +221,7 @@ function PrestadorContent() {
     lat: r.lat,
     lng: r.lng,
     color: r.service_type === "massagem" ? "#22c55e" : "#eab308",
-    size: 14,
+    size: 20,
     onClick: () => { setSelectedRequest(r); setView("details"); },
   }));
 
@@ -357,6 +357,28 @@ function PrestadorContent() {
             {loadingRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : <MapPin className="mr-1 size-3" />}
             {requests.length} solicitações no raio
           </Badge>
+        </div>
+      )}
+
+      {/* ── Nearby request cards (floating, tappable) ────────────── */}
+      {view === "map" && available && requests.length > 0 && !activeService && (
+        <div className="fixed inset-x-4 bottom-24 z-20 max-h-48 space-y-2 overflow-y-auto">
+          {requests.slice(0, 5).map((r) => (
+            <button key={r.id} onClick={() => { setSelectedRequest(r); setView("details"); }}
+              className="w-full rounded-xl border border-border bg-card/90 p-3 text-left backdrop-blur-sm transition-all hover:bg-card active:scale-[0.98]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{getSubLabel(r.service_type, r.sub_type)}</p>
+                  <Badge variant="secondary" className="text-[10px]">{r.service_type === "massagem" ? "Massagem" : "Acompanhante"}</Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">{r.distance_km} km</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {r.gender_pref.join(", ")} · {r.local_option === "local_atendente" ? "Local do atendente" : "Parceiro"}
+              </p>
+              <p className="mt-1 text-xs font-medium text-primary">Toque para enviar proposta →</p>
+            </button>
+          ))}
         </div>
       )}
 
