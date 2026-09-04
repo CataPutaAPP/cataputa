@@ -88,34 +88,36 @@ function ClienteContent() {
     if (user) updateLocation(c.lat, c.lng);
   }, [user, updateLocation]);
 
-  // Fetch active service (aceita / a_caminho / em_andamento / concluida recent)
+  // Fetch active service (aceita / a_caminho / em_andamento)
   const fetchActiveService = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("service_requests")
-      .select(`
-        *,
-        proposal:proposals!accepted_proposal_id(price, client_price, message, local_option),
-        provider:profiles!accepted_provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)
-      `)
-      .eq("client_id", user.id)
-      .in("status", ["aceita", "a_caminho", "em_andamento", "concluida"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (data) {
-      // Flatten joined arrays from supabase
-      const svc = {
-        ...data,
-        proposal: Array.isArray(data.proposal) ? data.proposal[0] : data.proposal,
-        provider: Array.isArray(data.provider) ? data.provider[0] : data.provider,
-      } as ActiveService;
-      setActiveService(svc);
-      // Auto-show match view
-      if (["aceita", "a_caminho", "em_andamento"].includes(svc.status)) {
+    try {
+      const { data, error } = await supabase
+        .from("service_requests")
+        .select("*")
+        .eq("client_id", user.id)
+        .in("status", ["aceita", "a_caminho", "em_andamento"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) { console.error("fetchActiveService", error); setActiveService(null); return; }
+      if (data) {
+        const [{ data: prop }, { data: prov }] = await Promise.all([
+          data.accepted_proposal_id
+            ? supabase.from("proposals").select("price, client_price, message, local_option").eq("id", data.accepted_proposal_id).single()
+            : Promise.resolve({ data: null }),
+          data.accepted_provider_id
+            ? supabase.from("profiles").select("full_name, avatar_url, gender, rating_avg, rating_count, has_local").eq("id", data.accepted_provider_id).single()
+            : Promise.resolve({ data: null }),
+        ]);
+        const svc = { ...data, proposal: prop ?? undefined, provider: prov ?? undefined } as ActiveService;
+        setActiveService(svc);
         setView("match" as any);
+      } else {
+        setActiveService(null);
       }
-    } else {
+    } catch (e) {
+      console.error("fetchActiveService catch", e);
       setActiveService(null);
     }
   }, [user]);
