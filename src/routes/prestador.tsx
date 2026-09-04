@@ -19,7 +19,6 @@ import {
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
-import { playNotificationSound, validateMessage } from "@/lib/notifications";
 
 import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
@@ -156,15 +155,7 @@ function PrestadorContent() {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    if (data) {
-      const newAccepted = (data as MyProposal[]).filter(p => p.status === "aceita").length;
-      const oldAccepted = myProposals.filter(p => p.status === "aceita").length;
-      if (newAccepted > oldAccepted) {
-        playNotificationSound("accepted");
-        toast.success("Sua proposta foi aceita pelo cliente! 🎉");
-      }
-      setMyProposals(data as MyProposal[]);
-    }
+    if (data) setMyProposals(data as MyProposal[]);
   }, [user]);
 
   // Poll for requests every 15s
@@ -204,9 +195,6 @@ function PrestadorContent() {
     const price = parseFloat(proposalPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
 
-    const msgCheck = validateMessage(proposalMessage);
-    if (!msgCheck.valid) return toast.error(msgCheck.error);
-
     setSendingProposal(true);
 
     const { error } = await supabase.from("proposals").insert({
@@ -229,8 +217,7 @@ function PrestadorContent() {
       return;
     }
 
-    playNotificationSound("message");
-    toast.success(`Proposta de R$ ${price.toFixed(2)} enviada! Cliente paga R$ ${(price * 1.07).toFixed(2)}.`);
+    toast.success(`Proposta enviada! Você recebe R$ ${(price * 0.93).toFixed(2)} se aceita.`);
     setProposalPrice("");
     setProposalMessage("");
     setSelectedRequest(null);
@@ -269,7 +256,7 @@ function PrestadorContent() {
       return;
     }
 
-    toast.success(`Oferta publicada! Clientes verão R$ ${(price * 1.07).toFixed(2)}.`);
+    toast.success(`Oferta publicada! Você recebe R$ ${(price * 0.93).toFixed(2)} por atendimento.`);
     setOfferType("");
     setOfferSubType("");
     setOfferFlags([]);
@@ -278,9 +265,9 @@ function PrestadorContent() {
     setView("map");
   }
 
-  const clientPrice = (val: string) => {
+  const providerNet = (val: string) => {
     const n = parseFloat(val.replace(",", "."));
-    return isNaN(n) || n <= 0 ? null : (n * 1.07).toFixed(2);
+    return isNaN(n) || n <= 0 ? null : (n * 0.93).toFixed(2);
   };
 
   return (
@@ -336,7 +323,7 @@ function PrestadorContent() {
                   {p.status === "pendente" ? "Aguardando" : p.status === "aceita" ? "Aceita!" : p.status}
                 </Badge>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">Cliente paga R$ {Number(p.client_price).toFixed(2)}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Você recebe R$ {(Number(p.price) * 0.93).toFixed(2)}</p>
             </div>
           ))}
         </div>
@@ -392,12 +379,10 @@ function PrestadorContent() {
                 placeholder="300,00"
                 inputMode="decimal"
               />
-              {clientPrice(proposalPrice) && (
+              {providerNet(proposalPrice) && (
                 <p className="text-xs text-muted-foreground">
-                  Cliente paga: <span className="font-semibold text-primary">R$ {clientPrice(proposalPrice)}</span>
-                  <span className="ml-1">(+7% taxa)</span>
-                  {" · "}Você recebe: <span className="font-semibold text-green-400">R$ {(parseFloat(proposalPrice.replace(",", ".")) * 0.93).toFixed(2)}</span>
-                  <span className="ml-1">(-7% comissão)</span>
+                  Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(proposalPrice)}</span>
+                  <span className="ml-1">(após comissão da plataforma)</span>
                 </p>
               )}
             </div>
@@ -497,10 +482,10 @@ function PrestadorContent() {
                   placeholder="250,00"
                   inputMode="decimal"
                 />
-                {clientPrice(offerPrice) && (
+                {providerNet(offerPrice) && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
-                    Cliente verá: <span className="font-semibold text-primary">R$ {clientPrice(offerPrice)}</span>
-                    {" · "}Você recebe: <span className="font-semibold text-green-400">R$ {(parseFloat(offerPrice.replace(",", ".")) * 0.93).toFixed(2)}</span>
+                    Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(offerPrice)}</span>
+                    <span className="ml-1">(após comissão)</span>
                   </p>
                 )}
               </Field>
