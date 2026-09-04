@@ -65,8 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch profile from DB
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+    // Small delay to let the trigger finish creating the profile
+    await new Promise((r) => setTimeout(r, 500));
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -79,7 +81,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Listen to auth state changes
   useEffect(() => {
-    // Check current session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
@@ -88,7 +89,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Subscribe to changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         if (session?.user) {
@@ -104,9 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  // Sign up: create auth user + profile
+  // Sign up — profile is created automatically by database trigger
   const signUp = useCallback<AuthContextValue["signUp"]>(async (input) => {
-    // 1. Check username availability
+    // 1. Check username
     const { data: existing } = await supabase
       .from("profiles")
       .select("id")
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (cpfExists) return { error: "Este CPF já está cadastrado." };
 
-    // 3. Create auth user
+    // 3. Create auth user — trigger handles profile insert automatically
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
@@ -133,6 +133,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           full_name: input.full_name,
           username: input.username,
           role: input.role,
+          cpf: input.cpf,
+          phone: input.phone,
+          gender: input.gender ?? "",
+          date_of_birth: input.date_of_birth ?? "",
         },
       },
     });
@@ -140,33 +144,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (authError) return { error: authError.message };
     if (!authData.user) return { error: "Erro ao criar usuário." };
 
-    // 4. Insert profile
-    const { error: profileError } = await supabase.from("profiles").insert({
-      id: authData.user.id,
-      role: input.role,
-      full_name: input.full_name,
-      username: input.username,
-      cpf: input.cpf,
-      phone: input.phone,
-      email: input.email,
-      gender: input.gender ?? null,
-      date_of_birth: input.date_of_birth ?? null,
-    });
-
-    if (profileError) {
-      console.error("Profile insert error:", profileError);
-      return { error: "Conta criada mas houve erro no perfil. Tente fazer login." };
-    }
-
-    // Sign out after registration (user needs to confirm email)
+    // 4. Sign out (user needs to login explicitly)
     await supabase.auth.signOut();
 
     return { error: null };
   }, []);
 
-  // Sign in: lookup email by username, then authenticate
+  // Sign in by username
   const signIn = useCallback<AuthContextValue["signIn"]>(async (username, password) => {
-    // 1. Get email from username via RPC
     const { data: emailData, error: rpcError } = await supabase.rpc(
       "get_email_by_username",
       { p_username: username },
@@ -178,7 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const email = emailData[0].email;
 
-    // 2. Sign in with email + password
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -186,11 +170,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (error) return { error: "Username ou senha inválidos." };
 
-    // 3. Fetch profile to get role
     const profile = await fetchProfile(data.user.id);
     if (profile) {
       setUser(profile);
-      // Update last_seen
       supabase
         .from("profiles")
         .update({ last_seen_at: new Date().toISOString() })
