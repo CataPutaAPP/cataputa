@@ -22,6 +22,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import type { ServiceRequest } from "@/types";
+import {
+  type ServiceType,
+  type LocalOption,
+  serviceSubTypes,
+  serviceFlags,
+  genderOptions,
+  radiusOptions,
+  localOptions,
+  getSubLabel,
+} from "@/lib/service-options";
 
 export const Route = createFileRoute("/cliente")({
   head: () => ({
@@ -36,46 +46,7 @@ export const Route = createFileRoute("/cliente")({
   component: ClienteDashboard,
 });
 
-/* ─── Data ──────────────────────────────────────────────────────────── */
-
-type ServiceType = "massagem" | "acompanhante";
-type LocalOption = "local_atendente" | "parceiro";
-
-const serviceSubTypes: Record<ServiceType, { value: string; label: string }[]> = {
-  massagem: [
-    { value: "tantrica", label: "Tântrica" },
-    { value: "lingam", label: "Lingam" },
-    { value: "nuru", label: "Nuru" },
-    { value: "vivencia", label: "Vivência" },
-    { value: "sensitiva", label: "Sensitiva" },
-    { value: "tailandesa", label: "Tailandesa" },
-    { value: "yoni", label: "Yoni" },
-    { value: "tradicional", label: "Tradicional (Relaxante)" },
-  ],
-  acompanhante: [
-    { value: "15min", label: "15 minutos" },
-    { value: "30min", label: "30 minutos" },
-    { value: "60min", label: "60 minutos" },
-    { value: "120min", label: "120 minutos" },
-    { value: "no_carro", label: "No carro" },
-  ],
-};
-
-const localOptions: { value: LocalOption; label: string; desc: string; icon: typeof Home }[] = [
-  { value: "local_atendente", label: "Atendente tem local", desc: "O atendimento será no local do prestador", icon: Home },
-  { value: "parceiro", label: "Usar parceiro", desc: "Um parceiro fornecerá o local de atendimento", icon: Users },
-];
-
-const genderOptions = [
-  { value: "mulheres", label: "Mulheres" },
-  { value: "homens", label: "Homens" },
-  { value: "travesti", label: "Travesti" },
-];
-
-const radiusOptions = [
-  { value: 5, label: "5 km" },
-  { value: 10, label: "10 km" },
-];
+/* ─── Mock data ─────────────────────────────────────────────────────── */
 
 interface AvailableService {
   id: string;
@@ -89,6 +60,7 @@ interface AvailableService {
   lat: number;
   lng: number;
   has_local: boolean;
+  flags: string[];
 }
 
 function generateMockServices(lat: number, lng: number): AvailableService[] {
@@ -98,6 +70,10 @@ function generateMockServices(lat: number, lng: number): AvailableService[] {
   return Array.from({ length: 8 }, (_, i) => {
     const type = types[i % 2];
     const subs = serviceSubTypes[type];
+    const mockFlags = serviceFlags
+      .filter(() => Math.random() > 0.5)
+      .slice(0, 4 + Math.floor(Math.random() * 4))
+      .map((f) => f.value);
     return {
       id: `mock-${i}`,
       provider_name: names[i % names.length],
@@ -110,6 +86,7 @@ function generateMockServices(lat: number, lng: number): AvailableService[] {
       lat: lat + (Math.random() - 0.5) * 0.08,
       lng: lng + (Math.random() - 0.5) * 0.08,
       has_local: Math.random() > 0.4,
+      flags: mockFlags,
     };
   });
 }
@@ -137,6 +114,7 @@ function ClienteContent() {
   // Form
   const [serviceType, setServiceType] = useState<ServiceType | "">("");
   const [subType, setSubType] = useState("");
+  const [selectedFlags, setSelectedFlags] = useState<string[]>([]);
   const [localChoice, setLocalChoice] = useState<LocalOption | "">("");
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -147,8 +125,10 @@ function ClienteContent() {
     if (coords) setAvailableServices(generateMockServices(coords.lat, coords.lng));
   }, [coords?.lat, coords?.lng]);
 
-  useEffect(() => { setSubType(""); setLocalChoice(""); }, [serviceType]);
-  useEffect(() => { setLocalChoice(""); }, [subType]);
+  // Reset downstream when upstream changes
+  useEffect(() => { setSubType(""); setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [serviceType]);
+  useEffect(() => { setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [subType]);
+  useEffect(() => { setSelectedGenders([]); }, [localChoice]);
 
   const mapMarkers: MapMarker[] = availableServices
     .filter((s) => s.distance_km <= radius)
@@ -161,21 +141,26 @@ function ClienteContent() {
       onClick: () => setSelectedService(s),
     }));
 
-  function toggleGender(val: string) {
-    setSelectedGenders((arr) =>
-      arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val],
-    );
+  function toggleArr(arr: string[], set: (v: string[]) => void, val: string) {
+    set(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
   }
 
   function resetForm() {
     setServiceType("");
     setSubType("");
+    setSelectedFlags([]);
     setLocalChoice("");
     setSelectedGenders([]);
   }
 
+  // Should we show the flags step? Only for acompanhante
+  const showFlags = serviceType === "acompanhante" && !!subType;
+  // Can we proceed past flags? For massagem: subType is enough. For acompanhante: need flags selected
+  const flagsComplete = serviceType === "massagem" ? !!subType : selectedFlags.length > 0;
+
   async function handleSubmit() {
     if (!serviceType || !subType) return toast.error("Selecione o tipo e subtipo de serviço.");
+    if (serviceType === "acompanhante" && selectedFlags.length === 0) return toast.error("Selecione ao menos um serviço oferecido.");
     if (!localChoice) return toast.error("Selecione onde será o atendimento.");
     if (selectedGenders.length === 0) return toast.error("Selecione ao menos uma preferência de gênero.");
 
@@ -183,13 +168,18 @@ function ClienteContent() {
     await new Promise((r) => setTimeout(r, 800));
 
     const localLabel = localChoice === "local_atendente" ? "Local do atendente" : "Parceiro";
+    const flagLabels = selectedFlags.map((f) => serviceFlags.find((x) => x.value === f)?.label ?? f);
 
     const request: ServiceRequest = {
       id: crypto.randomUUID(),
       client_id: user?.id ?? "",
       client_name: user?.full_name ?? "Visitante",
-      service_type: `${serviceType} — ${subType}`,
-      description: `Gênero: ${selectedGenders.join(", ")} | Local: ${localLabel}`,
+      service_type: `${serviceType} — ${getSubLabel(serviceType, subType)}`,
+      description: [
+        `Gênero: ${selectedGenders.join(", ")}`,
+        `Local: ${localLabel}`,
+        flagLabels.length > 0 ? `Serviços: ${flagLabels.join(", ")}` : "",
+      ].filter(Boolean).join(" | "),
       location: coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "N/D",
       urgency: "media",
       status: "aberta",
@@ -203,10 +193,6 @@ function ClienteContent() {
     toast.success("Solicitação enviada! Prestadores no raio foram notificados.");
   }
 
-  function subLabel(type: ServiceType, sub: string) {
-    return serviceSubTypes[type]?.find((x) => x.value === sub)?.label ?? sub;
-  }
-
   return (
     <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
@@ -218,33 +204,16 @@ function ClienteContent() {
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <Radar className="size-3.5 text-primary" />
           {radiusOptions.map((r) => (
-            <button
-              key={r.value}
-              onClick={() => setRadius(r.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                radius === r.value
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
+            <button key={r.value} onClick={() => setRadius(r.value)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${radius === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {r.label}
             </button>
           ))}
         </div>
-
-        <button
-          onClick={() => setView(view === "available" ? "map" : "available")}
-          className="flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-2 text-xs font-medium backdrop-blur-md hover:bg-secondary"
-        >
-          <Eye className="size-3.5" />
-          {view === "available" ? "Mapa" : "Disponíveis"}
+        <button onClick={() => setView(view === "available" ? "map" : "available")} className="flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-2 text-xs font-medium backdrop-blur-md hover:bg-secondary">
+          <Eye className="size-3.5" />{view === "available" ? "Mapa" : "Disponíveis"}
         </button>
-
         {coords && (
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("map:center"))}
-            className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary"
-          >
+          <button onClick={() => window.dispatchEvent(new CustomEvent("map:center"))} className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
             <Navigation className="size-4 text-primary" />
           </button>
         )}
@@ -259,38 +228,40 @@ function ClienteContent() {
               .filter((s) => s.distance_km <= radius)
               .sort((a, b) => a.distance_km - b.distance_km)
               .map((s) => (
-                <article key={s.id} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 hover:bg-secondary/30">
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent">
-                    <Sparkles className="size-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-semibold">{s.provider_name}</p>
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
-                        {s.service_type === "massagem" ? "Massagem" : "Acompanhante"}
-                      </Badge>
+                <article key={s.id} className="rounded-2xl border border-border bg-card p-4 hover:bg-secondary/30">
+                  <div className="flex items-center gap-4">
+                    <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-accent">
+                      <Sparkles className="size-5" />
                     </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {subLabel(s.service_type, s.sub_type)} · {s.gender}
-                    </p>
-                    <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Star className="size-3 fill-yellow-500 text-yellow-500" /> {s.rating.toFixed(1)}
-                      </span>
-                      <span>{s.distance_km.toFixed(1)} km</span>
-                      {s.has_local && (
-                        <span className="flex items-center gap-1 text-primary">
-                          <Home className="size-3" /> Tem local
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-semibold">{s.provider_name}</p>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          {s.service_type === "massagem" ? "Massagem" : "Acompanhante"}
+                        </Badge>
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{getSubLabel(s.service_type, s.sub_type)} · {s.gender}</p>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {s.rating.toFixed(1)}</span>
+                        <span>{s.distance_km.toFixed(1)} km</span>
+                        {s.has_local && <span className="flex items-center gap-1 text-primary"><Home className="size-3" /> Tem local</span>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-primary">R$ {s.price}</p>
+                      <Button size="sm" className="mt-1 h-8 text-xs" onClick={() => toast.success(`Interesse enviado para ${s.provider_name}!`)}>Solicitar</Button>
+                    </div>
+                  </div>
+                  {/* Flags do prestador */}
+                  {s.flags.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
+                      {s.flags.map((f) => (
+                        <span key={f} className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                          {serviceFlags.find((x) => x.value === f)?.label ?? f}
                         </span>
-                      )}
+                      ))}
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-primary">R$ {s.price}</p>
-                    <Button size="sm" className="mt-1 h-8 text-xs" onClick={() => toast.success(`Interesse enviado para ${s.provider_name}!`)}>
-                      Solicitar
-                    </Button>
-                  </div>
+                  )}
                 </article>
               ))}
           </div>
@@ -300,15 +271,13 @@ function ClienteContent() {
       {/* ── Selected service popup ─────────────────────────────── */}
       {selectedService && view === "map" && (
         <div className="fixed inset-x-4 bottom-24 z-30 rounded-2xl border border-border bg-card p-4 shadow-xl">
-          <button onClick={() => setSelectedService(null)} className="absolute right-3 top-3">
-            <X className="size-4 text-muted-foreground" />
-          </button>
+          <button onClick={() => setSelectedService(null)} className="absolute right-3 top-3"><X className="size-4 text-muted-foreground" /></button>
           <div className="flex items-center gap-3">
             <div className="flex size-11 items-center justify-center rounded-xl bg-accent"><Sparkles className="size-5" /></div>
             <div>
               <p className="font-semibold">{selectedService.provider_name}</p>
               <p className="text-xs text-muted-foreground">
-                {selectedService.service_type === "massagem" ? "Massagem" : "Acompanhante"} · {subLabel(selectedService.service_type, selectedService.sub_type)} · {selectedService.gender}
+                {selectedService.service_type === "massagem" ? "Massagem" : "Acompanhante"} · {getSubLabel(selectedService.service_type, selectedService.sub_type)} · {selectedService.gender}
               </p>
               <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {selectedService.rating.toFixed(1)}</span>
@@ -318,6 +287,15 @@ function ClienteContent() {
               </div>
             </div>
           </div>
+          {selectedService.flags.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-border pt-3">
+              {selectedService.flags.map((f) => (
+                <span key={f} className="rounded-full bg-secondary px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                  {serviceFlags.find((x) => x.value === f)?.label ?? f}
+                </span>
+              ))}
+            </div>
+          )}
           <Button className="mt-3 h-10 w-full" onClick={() => { toast.success(`Interesse enviado para ${selectedService.provider_name}!`); setSelectedService(null); }}>
             Confirmar interesse
           </Button>
@@ -384,22 +362,32 @@ function ClienteContent() {
               </Field>
             )}
 
-            {/* 4. Local do atendimento */}
-            {subType && (
+            {/* 4. Flags — only for acompanhante */}
+            {showFlags && (
+              <Field label="O que você procura">
+                <p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p>
+                <div className="flex flex-wrap gap-2">
+                  {serviceFlags.map((f) => (
+                    <Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>
+                      {f.label}
+                    </Pill>
+                  ))}
+                </div>
+              </Field>
+            )}
+
+            {/* 5. Local do atendimento */}
+            {flagsComplete && (
               <Field label="Local do atendimento">
                 <div className="space-y-2">
                   {localOptions.map((opt) => {
-                    const Icon = opt.icon;
                     const active = localChoice === opt.value;
+                    const Icon = opt.value === "local_atendente" ? Home : Users;
                     return (
                       <button
                         key={opt.value}
                         onClick={() => setLocalChoice(opt.value)}
-                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                          active
-                            ? "border-primary bg-primary/10"
-                            : "border-border hover:bg-secondary"
-                        }`}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}
                       >
                         <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}>
                           <Icon className="size-5" />
@@ -416,18 +404,13 @@ function ClienteContent() {
               </Field>
             )}
 
-            {/* 5. Gender multi-select */}
+            {/* 6. Gender */}
             {localChoice && (
               <Field label="Preferência de gênero">
                 <p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p>
                 <div className="flex flex-wrap gap-2">
                   {genderOptions.map((g) => (
-                    <Pill
-                      key={g.value}
-                      active={selectedGenders.includes(g.value)}
-                      onClick={() => toggleGender(g.value)}
-                      showCheck
-                    >
+                    <Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>
                       {g.label}
                     </Pill>
                   ))}
@@ -435,7 +418,7 @@ function ClienteContent() {
               </Field>
             )}
 
-            {/* 6. Submit */}
+            {/* 7. Submit */}
             {selectedGenders.length > 0 && (
               <Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>
                 {submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}
@@ -463,10 +446,10 @@ function Chip({ active, onClick, children, className = "" }: { active: boolean; 
   );
 }
 
-function Pill({ active, onClick, children, showCheck = false }: { active: boolean; onClick: () => void; children: React.ReactNode; showCheck?: boolean }) {
+function Pill({ active, onClick, children, showCheck = false, small = false }: { active: boolean; onClick: () => void; children: React.ReactNode; showCheck?: boolean; small?: boolean }) {
   return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-all ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
-      {showCheck && active && <Check className="size-3.5" />}
+    <button onClick={onClick} className={`flex items-center gap-1.5 rounded-full border font-medium transition-all ${small ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} ${active ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
+      {showCheck && active && <Check className={small ? "size-3" : "size-3.5"} />}
       {children}
     </button>
   );
