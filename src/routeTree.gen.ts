@@ -10,33 +10,91 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CadastroRouteImport } from './routes/cadastro'
+import { Route as ClienteRouteImport } from './routes/cliente'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ParceiroRouteImport } from './routes/parceiro'
+import { Route as PrestadorRouteImport } from './routes/prestador'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CadastroRoute = CadastroRouteImport.update({
+  id: '/cadastro',
+  path: '/cadastro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClienteRoute = ClienteRouteImport.update({
+  id: '/cliente',
+  path: '/cliente',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParceiroRoute = ParceiroRouteImport.update({
+  id: '/parceiro',
+  path: '/parceiro',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrestadorRoute = PrestadorRouteImport.update({
+  id: '/prestador',
+  path: '/prestador',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/cliente': typeof ClienteRoute
+  '/login': typeof LoginRoute
+  '/parceiro': typeof ParceiroRoute
+  '/prestador': typeof PrestadorRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/cliente': typeof ClienteRoute
+  '/login': typeof LoginRoute
+  '/parceiro': typeof ParceiroRoute
+  '/prestador': typeof PrestadorRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cadastro': typeof CadastroRoute
+  '/cliente': typeof ClienteRoute
+  '/login': typeof LoginRoute
+  '/parceiro': typeof ParceiroRoute
+  '/prestador': typeof PrestadorRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    '/' | '/cadastro' | '/cliente' | '/login' | '/parceiro' | '/prestador'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/cadastro' | '/cliente' | '/login' | '/parceiro' | '/prestador'
+  id:
+    | '__root__'
+    | '/'
+    | '/cadastro'
+    | '/cliente'
+    | '/login'
+    | '/parceiro'
+    | '/prestador'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CadastroRoute: typeof CadastroRoute
+  ClienteRoute: typeof ClienteRoute
+  LoginRoute: typeof LoginRoute
+  ParceiroRoute: typeof ParceiroRoute
+  PrestadorRoute: typeof PrestadorRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +106,51 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cadastro': {
+      id: '/cadastro'
+      path: '/cadastro'
+      fullPath: '/cadastro'
+      preLoaderRoute: typeof CadastroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cliente': {
+      id: '/cliente'
+      path: '/cliente'
+      fullPath: '/cliente'
+      preLoaderRoute: typeof ClienteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parceiro': {
+      id: '/parceiro'
+      path: '/parceiro'
+      fullPath: '/parceiro'
+      preLoaderRoute: typeof ParceiroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prestador': {
+      id: '/prestador'
+      path: '/prestador'
+      fullPath: '/prestador'
+      preLoaderRoute: typeof PrestadorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CadastroRoute: CadastroRoute,
+  ClienteRoute: ClienteRoute,
+  LoginRoute: LoginRoute,
+  ParceiroRoute: ParceiroRoute,
+  PrestadorRoute: PrestadorRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
