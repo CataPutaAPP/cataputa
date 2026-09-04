@@ -19,6 +19,7 @@ import {
   Send,
 } from "lucide-react";
 import { toast } from "sonner";
+import { playNotificationSound, validateMessage } from "@/lib/notifications";
 
 import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
@@ -155,7 +156,15 @@ function PrestadorContent() {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    if (data) setMyProposals(data as MyProposal[]);
+    if (data) {
+      const newAccepted = (data as MyProposal[]).filter(p => p.status === "aceita").length;
+      const oldAccepted = myProposals.filter(p => p.status === "aceita").length;
+      if (newAccepted > oldAccepted) {
+        playNotificationSound("accepted");
+        toast.success("Sua proposta foi aceita pelo cliente! 🎉");
+      }
+      setMyProposals(data as MyProposal[]);
+    }
   }, [user]);
 
   // Poll for requests every 15s
@@ -195,6 +204,9 @@ function PrestadorContent() {
     const price = parseFloat(proposalPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
 
+    const msgCheck = validateMessage(proposalMessage);
+    if (!msgCheck.valid) return toast.error(msgCheck.error);
+
     setSendingProposal(true);
 
     const { error } = await supabase.from("proposals").insert({
@@ -217,6 +229,7 @@ function PrestadorContent() {
       return;
     }
 
+    playNotificationSound("message");
     toast.success(`Proposta de R$ ${price.toFixed(2)} enviada! Cliente paga R$ ${(price * 1.07).toFixed(2)}.`);
     setProposalPrice("");
     setProposalMessage("");
