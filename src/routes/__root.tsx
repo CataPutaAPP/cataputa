@@ -79,19 +79,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ServiHub — Marketplace de serviços" },
+      { title: "CataPuta Web — Serviços sob demanda" },
       {
         name: "description",
         content:
-          "ServiHub conecta clientes, prestadores e parceiros para serviços sob demanda perto de você.",
+          "CataPuta Web conecta clientes, prestadores e parceiros para serviços sob demanda perto de você.",
       },
-      { property: "og:title", content: "ServiHub — Marketplace de serviços" },
+      { property: "og:title", content: "CataPuta Web — Serviços sob demanda" },
       {
         property: "og:description",
-        content: "Solicite, ofereça e faça parcerias em serviços sob demanda.",
+        content: "Solicite, ofereça e negocie serviços sob demanda, sem rodeios.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#961A19" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -99,9 +100,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Caudex:wght@400;700&family=Open+Sans:wght@400;500;600;700&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/logo-cataputa.png", type: "image/png" },
     ],
   }),
   shellComponent: RootShell,
@@ -130,7 +131,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
         <Toaster position="top-center" />
       </AuthProvider>
