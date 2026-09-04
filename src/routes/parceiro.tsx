@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import {
-  Check, X, Handshake, MapPin, DollarSign, Clock,
-  Loader2, Inbox, RefreshCw, Building2, Sparkles, Star,
+  MapPin, DollarSign, Clock, Loader2, Building2, Camera,
+  Save, Eye, Handshake, Star, Settings, Inbox,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,15 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { PhotoManager } from "@/components/ProviderProfile";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { getSubLabel, type ServiceType } from "@/lib/service-options";
 
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
     meta: [
       { title: "Painel do parceiro — CataPuta Web" },
-      { name: "description", content: "Forneça locais para atendimento e ganhe comissão." },
+      { name: "description", content: "Cadastre seu espaço e ganhe com cada atendimento." },
     ],
   }),
   component: () => <DashboardShell role="parceiro"><ParceiroContent /></DashboardShell>,
@@ -27,29 +28,23 @@ export const Route = createFileRoute("/parceiro")({
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
-interface OpenPartnership {
-  partnership_id: string;
-  request_id: string;
-  share_percent: number;
-  share_amount: number;
-  status: string;
-  created_at: string;
-  service_type: string;
-  sub_type: string;
-  request_lat: number;
-  request_lng: number;
-  distance_km: number;
-}
+const localTypes = [
+  { value: "motel", label: "Motel" },
+  { value: "drive", label: "Drive" },
+  { value: "hotel", label: "Hotel" },
+  { value: "hostel", label: "Hostel" },
+  { value: "quarto", label: "Quarto" },
+  { value: "garagem", label: "Garagem" },
+  { value: "outro", label: "Outro" },
+];
 
-interface MyPartnership {
+interface MyBooking {
   id: string;
   request_id: string;
-  address: string | null;
   share_percent: number;
   share_amount: number;
   status: string;
   created_at: string;
-  // joined
   request?: {
     service_type: string;
     sub_type: string;
@@ -60,237 +55,270 @@ interface MyPartnership {
 /* ─── Component ─────────────────────────────────────────────────────── */
 
 function ParceiroContent() {
-  const { user, updateLocation } = useAuth();
-  const [tab, setTab] = useState<"abertos" | "meus">("abertos");
-  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const [tab, setTab] = useState<"local" | "reservas">("local");
+  const [saving, setSaving] = useState(false);
 
-  // Open partnerships nearby
-  const [openList, setOpenList] = useState<OpenPartnership[]>([]);
+  // Local setup form
+  const [localType, setLocalType] = useState(user?.local_type ?? "");
+  const [localAddress, setLocalAddress] = useState(user?.local_address ?? "");
+  const [localDesc, setLocalDesc] = useState(user?.local_description ?? "");
+  const [localPrice, setLocalPrice] = useState(user?.local_price?.toString() ?? "");
+  const [localLat, setLocalLat] = useState(user?.lat?.toString() ?? "");
+  const [localLng, setLocalLng] = useState(user?.lng?.toString() ?? "");
 
-  // My partnerships
-  const [myList, setMyList] = useState<MyPartnership[]>([]);
+  // Bookings
+  const [bookings, setBookings] = useState<MyBooking[]>([]);
 
-  // Accept form
-  const [acceptingId, setAcceptingId] = useState<string | null>(null);
-  const [address, setAddress] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  // Get user location
+  // Load profile data
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (user) updateLocation(pos.coords.latitude, pos.coords.longitude);
-      },
-      () => {},
-      { enableHighAccuracy: true },
-    );
-  }, [user, updateLocation]);
-
-  // Fetch open partnerships
-  const fetchOpen = useCallback(async () => {
-    if (!user?.lat || !user?.lng) return;
-    setLoading(true);
-    const { data, error } = await supabase.rpc("nearby_partnerships", {
-      p_lat: user.lat,
-      p_lng: user.lng,
-      p_radius_km: 20,
-    });
-    if (data) setOpenList(data as OpenPartnership[]);
-    if (error) console.error("nearby_partnerships", error);
-    setLoading(false);
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("local_type, local_address, local_description, local_price, lat, lng")
+        .eq("id", user.id)
+        .single();
+      if (data) {
+        setLocalType(data.local_type ?? "");
+        setLocalAddress(data.local_address ?? "");
+        setLocalDesc(data.local_description ?? "");
+        setLocalPrice(data.local_price?.toString() ?? "");
+        if (data.lat) setLocalLat(data.lat.toString());
+        if (data.lng) setLocalLng(data.lng.toString());
+      }
+    })();
   }, [user]);
 
-  // Fetch my partnerships
-  const fetchMine = useCallback(async () => {
+  // Geolocation
+  function captureLocation() {
+    if (!navigator.geolocation) return toast.error("Geolocalização não disponível.");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocalLat(pos.coords.latitude.toFixed(6));
+        setLocalLng(pos.coords.longitude.toFixed(6));
+        toast.success("Localização capturada!");
+      },
+      () => toast.error("Não foi possível capturar a localização."),
+      { enableHighAccuracy: true },
+    );
+  }
+
+  // Save local
+  async function handleSave() {
+    if (!localType) return toast.error("Selecione o tipo do local.");
+    if (!localAddress.trim()) return toast.error("Informe o endereço.");
+    const price = parseFloat(localPrice.replace(",", "."));
+    if (!price || price <= 0) return toast.error("Informe um preço válido.");
+    if (!localLat || !localLng) return toast.error("Capture a localização no mapa.");
+    if (!user) return;
+
+    setSaving(true);
+    const { error } = await supabase.rpc("update_partner_local", {
+      p_user_id: user.id,
+      p_local_type: localType,
+      p_local_address: localAddress.trim(),
+      p_local_description: localDesc.trim() || null,
+      p_local_price: price,
+      p_lat: parseFloat(localLat),
+      p_lng: parseFloat(localLng),
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message || "Erro ao salvar."); return; }
+    toast.success("Local salvo! Você aparecerá no mapa para clientes.");
+  }
+
+  // Fetch bookings
+  const fetchBookings = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("partnerships")
       .select("*, request:service_requests!request_id(service_type, sub_type, status)")
       .eq("partner_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(20);
+      .limit(30);
     if (data) {
-      setMyList(data.map((d: any) => ({
+      setBookings(data.map((d: any) => ({
         ...d,
         request: Array.isArray(d.request) ? d.request[0] : d.request,
-      })) as MyPartnership[]);
+      })) as MyBooking[]);
     }
   }, [user]);
 
   useEffect(() => {
-    fetchOpen();
-    fetchMine();
-    const interval = setInterval(() => { fetchOpen(); fetchMine(); }, 15000);
+    fetchBookings();
+    const interval = setInterval(fetchBookings, 15000);
     return () => clearInterval(interval);
-  }, [fetchOpen, fetchMine]);
+  }, [fetchBookings]);
 
-  // Accept partnership
-  async function handleAccept(partnershipId: string) {
-    if (!address.trim()) return toast.error("Informe o endereço do local.");
-    if (!user) return;
-    setSubmitting(true);
-    const { error } = await supabase.rpc("accept_partnership", {
-      p_partnership_id: partnershipId,
-      p_partner_id: user.id,
-      p_address: address.trim(),
-      p_lat: user.lat ?? null,
-      p_lng: user.lng ?? null,
-    });
-    setSubmitting(false);
-    if (error) { toast.error(error.message || "Erro ao aceitar."); return; }
-    toast.success("Parceria aceita! O endereço foi enviado.");
-    setAcceptingId(null);
-    setAddress("");
-    fetchOpen();
-    fetchMine();
-  }
+  const totalEarnings = bookings
+    .filter((b) => b.status === "concluida" || b.request?.status === "concluida")
+    .reduce((sum, b) => sum + Number(b.share_amount), 0);
+
+  const activeCount = bookings.filter((b) => ["aceita", "em_andamento"].includes(b.status)).length;
+  const isConfigured = !!localType && !!localAddress && parseFloat(localPrice) > 0 && !!localLat;
 
   const statusLabel: Record<string, { text: string; cls: string }> = {
-    convite: { text: "Aberta", cls: "bg-yellow-500/20 text-yellow-400" },
-    aceita: { text: "Aceita", cls: "bg-green-500/20 text-green-400" },
-    recusada: { text: "Recusada", cls: "opacity-50" },
-    em_andamento: { text: "Em andamento", cls: "bg-primary/20 text-primary" },
+    convite: { text: "Pendente", cls: "bg-yellow-500/20 text-yellow-400" },
+    aceita: { text: "Confirmada", cls: "bg-green-500/20 text-green-400" },
+    em_andamento: { text: "Em uso", cls: "bg-primary/20 text-primary animate-pulse" },
     concluida: { text: "Concluída", cls: "bg-green-500/20 text-green-400" },
+    recusada: { text: "Cancelada", cls: "opacity-50" },
   };
 
   return (
     <main className="min-h-screen px-4 pb-16 pt-20" style={{ background: "#0a0a12" }}>
-      {/* Header stats */}
-      <div className="mb-6 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Disponíveis</p>
-          <p className="mt-1 text-2xl font-bold text-primary">{openList.length}</p>
+      {/* Stats */}
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">Status</p>
+          <p className={`mt-1 text-sm font-bold ${isConfigured ? "text-green-400" : "text-yellow-400"}`}>
+            {isConfigured ? "Ativo" : "Pendente"}
+          </p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4">
-          <p className="text-xs text-muted-foreground">Minhas parcerias</p>
-          <p className="mt-1 text-2xl font-bold text-foreground">{myList.length}</p>
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">Reservas</p>
+          <p className="mt-1 text-sm font-bold">{activeCount}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">Ganhos</p>
+          <p className="mt-1 text-sm font-bold text-green-400">R$ {totalEarnings.toFixed(2)}</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="mb-4 flex gap-2">
-        <button onClick={() => setTab("abertos")}
-          className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${tab === "abertos" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
-          Disponíveis
+        <button onClick={() => setTab("local")}
+          className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${tab === "local" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+          <Settings className="mr-1.5 inline size-4" /> Meu local
         </button>
-        <button onClick={() => setTab("meus")}
-          className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${tab === "meus" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
-          Minhas parcerias
+        <button onClick={() => setTab("reservas")}
+          className={`flex-1 rounded-xl border py-2.5 text-sm font-medium transition-all ${tab === "reservas" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+          <Handshake className="mr-1.5 inline size-4" /> Reservas {activeCount > 0 && `(${activeCount})`}
         </button>
       </div>
 
-      {/* Tab: Abertos */}
-      {tab === "abertos" && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Solicitações que precisam de local (20 km)</p>
-            <Button variant="ghost" size="sm" onClick={fetchOpen} disabled={loading}>
-              <RefreshCw className={`mr-1 size-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
-            </Button>
+      {/* Tab: Meu local */}
+      {tab === "local" && (
+        <div className="space-y-5">
+          {/* Type */}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tipo do local</Label>
+            <div className="flex flex-wrap gap-2">
+              {localTypes.map((t) => (
+                <button key={t.value} onClick={() => setLocalType(t.value)}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${localType === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {openList.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Inbox className="size-12 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">
-                {!user?.lat ? "Ative a localização para ver oportunidades." : "Nenhuma solicitação com parceiro no raio."}
+          {/* Address */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Endereço completo</Label>
+            <Input value={localAddress} onChange={(e) => setLocalAddress(e.target.value)}
+              placeholder="Rua, número, bairro, cidade..." />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Descrição do espaço</Label>
+            <Textarea rows={3} value={localDesc} onChange={(e) => setLocalDesc(e.target.value)}
+              placeholder="Descreva o ambiente: quarto privativo, suíte, estacionamento, sigilo..." />
+          </div>
+
+          {/* Price */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Preço por uso (R$)</Label>
+            <Input value={localPrice} onChange={(e) => setLocalPrice(e.target.value)}
+              placeholder="80,00" inputMode="decimal" />
+            {parseFloat(localPrice.replace(",", ".")) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Você recebe: <span className="font-semibold text-green-400">
+                  R$ {(parseFloat(localPrice.replace(",", ".")) * 0.90).toFixed(2)}
+                </span>
+                <span className="ml-1">(plataforma retém 10%)</span>
               </p>
-            </div>
-          ) : (
-            openList.map((p) => (
-              <article key={p.partnership_id} className="rounded-2xl border border-border bg-card p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent">
-                      <Building2 className="size-5" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold">{getSubLabel(p.service_type as any, p.sub_type)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {p.service_type === "massagem" ? "Massagem" : "Acompanhante"} · {p.distance_km} km
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-green-400">R$ {Number(p.share_amount).toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">{p.share_percent}% comissão</p>
-                  </div>
+            )}
+          </div>
+
+          {/* Geolocation */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Localização exata</Label>
+            {localLat && localLng ? (
+              <div className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/5 p-3">
+                <MapPin className="size-5 text-green-400" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-400">Localização capturada</p>
+                  <p className="text-[10px] text-muted-foreground">{localLat}, {localLng}</p>
                 </div>
+                <Button variant="secondary" size="sm" onClick={captureLocation}>Atualizar</Button>
+              </div>
+            ) : (
+              <Button variant="secondary" className="w-full" onClick={captureLocation}>
+                <MapPin className="mr-2 size-4" /> Capturar minha localização
+              </Button>
+            )}
+          </div>
 
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  <Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}
-                </p>
-
-                {acceptingId === p.partnership_id ? (
-                  <div className="mt-3 space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Endereço do local</Label>
-                      <Input
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Rua, número, bairro, complemento..."
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button className="flex-1" disabled={submitting} onClick={() => handleAccept(p.partnership_id)}>
-                        {submitting ? <Loader2 className="mr-1 size-4 animate-spin" /> : <Check className="mr-1 size-4" />}
-                        {submitting ? "Enviando..." : "Confirmar"}
-                      </Button>
-                      <Button variant="secondary" onClick={() => { setAcceptingId(null); setAddress(""); }}>
-                        <X className="size-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button className="mt-3 h-10 w-full" onClick={() => setAcceptingId(p.partnership_id)}>
-                    <Handshake className="mr-2 size-4" /> Fornecer local
-                  </Button>
-                )}
-              </article>
-            ))
+          {/* Photos */}
+          {user && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-4">
+              <PhotoManager userId={user.id} onDone={() => {}} />
+            </div>
           )}
+
+          {/* Save */}
+          <Button className="h-13 w-full text-base" disabled={saving} onClick={handleSave}>
+            {saving ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Save className="mr-2 size-5" />}
+            {saving ? "Salvando..." : "Salvar local"}
+          </Button>
         </div>
       )}
 
-      {/* Tab: Meus */}
-      {tab === "meus" && (
+      {/* Tab: Reservas */}
+      {tab === "reservas" && (
         <div className="space-y-3">
-          {myList.length === 0 ? (
+          {bookings.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <Handshake className="size-12 text-muted-foreground/30" />
-              <p className="text-sm text-muted-foreground">Você ainda não aceitou nenhuma parceria.</p>
+              <Inbox className="size-12 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                {isConfigured
+                  ? "Nenhuma reserva ainda. Clientes verão seu local no mapa."
+                  : "Configure seu local na aba anterior para começar a receber reservas."
+                }
+              </p>
             </div>
           ) : (
-            myList.map((p) => {
-              const st = statusLabel[p.status] ?? { text: p.status, cls: "" };
+            bookings.map((b) => {
+              const st = statusLabel[b.status] ?? { text: b.status, cls: "" };
               return (
-                <article key={p.id} className="rounded-2xl border border-border bg-card p-4">
+                <article key={b.id} className="rounded-2xl border border-border bg-card p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent">
-                        <Handshake className="size-5" />
+                        <Building2 className="size-5" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold">
-                          {p.request ? getSubLabel(p.request.service_type as any, p.request.sub_type) : "Serviço"}
+                          {b.request?.service_type === "massagem" ? "Massagem" : "Acompanhante"}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {p.address ?? "Sem endereço"}
+                          {b.request?.sub_type ?? "Serviço"}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <Badge variant="secondary" className={`text-[10px] ${st.cls}`}>{st.text}</Badge>
-                      <p className="mt-1 text-sm font-bold text-green-400">R$ {Number(p.share_amount).toFixed(2)}</p>
+                      <p className="mt-1 text-sm font-bold text-green-400">
+                        +R$ {Number(b.share_amount).toFixed(2)}
+                      </p>
                     </div>
                   </div>
                   <p className="mt-2 text-[10px] text-muted-foreground">
-                    <Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}
+                    <Clock className="mr-1 inline size-3" />{new Date(b.created_at).toLocaleString("pt-BR")}
                   </p>
-                  {p.request?.status === "concluida" && p.status !== "concluida" && (
-                    <p className="mt-2 text-xs text-green-400">Serviço concluído — pagamento será liberado</p>
-                  )}
                 </article>
               );
             })
