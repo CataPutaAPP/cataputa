@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell,
+  Loader2, Star, Home, Users, Clock, Inbox, Bell, DollarSign,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,6 +72,7 @@ function ClienteContent() {
   const [loadingProposals, setLoadingProposals] = useState(false);
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
+  const [payingProposal, setPayingProposal] = useState<DBProposal | null>(null);
   const prevProposalCount = useRef(0);
 
   const [activeService, setActiveService] = useState<ActiveService | null>(null);
@@ -199,17 +200,28 @@ function ClienteContent() {
   }
 
   async function handleAcceptProposal(proposalId: string) {
-    setAcceptingId(proposalId);
-    const { error } = await supabase.from("proposals").update({ status: "aceita" }).eq("id", proposalId);
+    // Find the proposal to get the price
+    const proposal = proposals.find(p => p.id === proposalId);
+    if (!proposal) return;
+    // Show payment screen instead of accepting directly
+    setPayingProposal(proposal);
+    setView("payment" as any);
+  }
+
+  async function handlePaymentConfirmed() {
+    if (!payingProposal) return;
+    setAcceptingId(payingProposal.id);
+    // After payment confirmed, mark proposal as accepted
+    const { error } = await supabase.from("proposals").update({ status: "aceita" }).eq("id", payingProposal.id);
     setAcceptingId(null);
-    if (error) { toast.error("Erro ao aceitar proposta."); return; }
+    if (error) { toast.error("Erro ao processar. Tente novamente."); return; }
     playNotificationSound("accepted");
-    toast.success("Proposta aceita! O prestador foi notificado.");
+    toast.success("Pagamento confirmado! O prestador foi notificado.");
+    setPayingProposal(null);
     if (selectedRequestId) fetchProposals(selectedRequestId);
     fetchMyRequests();
-    // Transition to match view
     await fetchActiveService();
-    setView("match");
+    setView("match" as any);
   }
 
   function statusLabel(s: string) {
@@ -310,7 +322,7 @@ function ClienteContent() {
                     {p.status === "pendente" && (
                       <Button className="mt-3 h-10 w-full" disabled={acceptingId === p.id} onClick={() => handleAcceptProposal(p.id)}>
                         {acceptingId === p.id ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
-                        {acceptingId === p.id ? "Aceitando..." : "Aceitar esta proposta"}
+                        {acceptingId === p.id ? "Processando..." : `Pagar R$ ${Number(p.client_price).toFixed(2)}`}
                       </Button>
                     )}
                     {accepted && <div className="mt-3 rounded-lg bg-green-500/10 p-2.5 text-center text-sm font-medium text-green-400">✓ Proposta aceita</div>}
@@ -375,6 +387,67 @@ function ClienteContent() {
           </div>
         </div>
       )}
+      {/* ── Payment screen (PIX) ──────────────────────────────── */}
+      {(view as string) === "payment" && payingProposal && (
+        <div className="fixed inset-x-0 bottom-0 top-[60px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
+          <div className="mx-auto max-w-sm">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Pagamento</h2>
+              <Button variant="ghost" size="icon" onClick={() => { setPayingProposal(null); setView("proposals"); }}>
+                <X className="size-5" />
+              </Button>
+            </div>
+
+            {/* Resumo */}
+            <div className="mb-5 rounded-2xl border border-border bg-card p-5">
+              <p className="text-sm text-muted-foreground">Valor total</p>
+              <p className="mt-1 text-3xl font-bold text-primary">
+                R$ {Number(payingProposal.client_price).toFixed(2)}
+              </p>
+              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                <p>Prestador: {payingProposal.provider?.full_name ?? "—"}</p>
+                <p>Serviço: {selectedRequestId ? "Acompanhante" : "Serviço"}</p>
+              </div>
+            </div>
+
+            {/* PIX info */}
+            <div className="mb-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-5 text-center">
+              <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-2xl bg-yellow-500/20">
+                <DollarSign className="size-8 text-yellow-500" />
+              </div>
+              <p className="text-sm font-semibold text-yellow-400">Pagamento via PIX</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                O valor fica retido (escrow) até o serviço ser concluído.
+                Se cancelar antes do início, reembolso total.
+              </p>
+            </div>
+
+            {/* Simular pagamento (MVP) */}
+            <div className="mb-3 rounded-xl border border-border bg-secondary/30 p-4 text-center">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Modo teste</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Em produção, aqui aparecerá o QR Code PIX.
+                Por enquanto, clique abaixo para simular o pagamento.
+              </p>
+            </div>
+
+            <Button
+              className="h-14 w-full bg-green-600 text-base text-white hover:bg-green-700"
+              disabled={!!acceptingId}
+              onClick={handlePaymentConfirmed}
+            >
+              {acceptingId ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Check className="mr-2 size-5" />}
+              {acceptingId ? "Processando..." : `Confirmar pagamento · R$ ${Number(payingProposal.client_price).toFixed(2)}`}
+            </Button>
+
+            <Button variant="ghost" className="mt-2 h-10 w-full text-sm text-muted-foreground"
+              onClick={() => { setPayingProposal(null); setView("proposals"); }}>
+              Voltar às propostas
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Provider profile overlay */}
       {viewingProfileId && (
         <ProviderProfileView providerId={viewingProfileId} onClose={() => setViewingProfileId(null)} />
