@@ -399,10 +399,11 @@ function PrestadorContent() {
         </button>
       )}
 
-      {/* ── My proposals (floating cards) — only when no active service ── */}
-      {view === "map" && myProposals.length > 0 && !selectedRequest && !activeService && (
-        <div className="fixed inset-x-4 bottom-24 z-20 max-h-40 space-y-2 overflow-y-auto">
-          {myProposals.slice(0, 2).map((p) => {
+      {/* ── Floating cards: proposals OU requests (sem sobreposição) ── */}
+      {view === "map" && !activeService && !selectedRequest && (
+        <div className="fixed inset-x-4 bottom-24 z-20 max-h-48 space-y-2 overflow-y-auto">
+          {/* Propostas pendentes/aceitas primeiro */}
+          {myProposals.map((p) => {
             const isAccepted = p.status === "aceita";
             return (
               <div key={p.id} onClick={isAccepted ? () => fetchActiveService() : undefined}
@@ -410,13 +411,30 @@ function PrestadorContent() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Proposta R$ {Number(p.price).toFixed(2)}</p>
                   <Badge variant="secondary" className={`text-[10px] ${isAccepted ? "bg-green-500/20 text-green-400" : ""}`}>
-                    {p.status === "pendente" ? "Aguardando" : isAccepted ? "Aceita! Toque →" : p.status}
+                    {p.status === "pendente" ? "Aguardando cliente" : isAccepted ? "Paga! Toque →" : p.status}
                   </Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">Você recebe R$ {(Number(p.price) * 0.93).toFixed(2)}</p>
               </div>
             );
           })}
+          {/* Solicitações disponíveis (só se não tem propostas) */}
+          {myProposals.length === 0 && requests.slice(0, 5).map((r) => (
+            <button key={r.id} onClick={() => { setSelectedRequest(r); setView("details"); }}
+              className="w-full rounded-xl border border-border bg-card/90 p-3 text-left backdrop-blur-sm transition-all hover:bg-card active:scale-[0.98]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold">{getSubLabel(r.service_type, r.sub_type)}</p>
+                  <Badge variant="secondary" className="text-[10px]">{r.service_type === "massagem" ? "Massagem" : "Acompanhante"}</Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">{r.distance_km} km</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {r.gender_pref.join(", ")} · {r.local_option === "local_atendente" ? "Local do atendente" : "Parceiro"}
+              </p>
+              <p className="mt-1 text-xs font-medium text-primary">Toque para enviar proposta →</p>
+            </button>
+          ))}
         </div>
       )}
 
