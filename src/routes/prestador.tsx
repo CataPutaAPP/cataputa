@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Plus,
   X,
@@ -164,17 +164,27 @@ function PrestadorContent() {
   }, [user]);
 
   // Fetch active service (where I'm the accepted provider)
+  const activeIdRef = useRef<string | null>(null);
   const fetchActiveService = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from("service_requests")
-        .select("*")
-        .eq("accepted_provider_id", user.id)
-        .in("status", ["aceita", "a_caminho", "em_andamento"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Se ja existe um atendimento aberto na tela, recarrega ELE pelo id —
+      // sem filtro de status. Senao a conclusao some com o registro e a
+      // avaliacao nunca chega a aparecer.
+      const { data, error } = activeIdRef.current
+        ? await supabase
+            .from("service_requests")
+            .select("*")
+            .eq("id", activeIdRef.current)
+            .maybeSingle()
+        : await supabase
+            .from("service_requests")
+            .select("*")
+            .eq("accepted_provider_id", user.id)
+            .in("status", ["aceita", "a_caminho", "em_andamento"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
       if (error) { console.error("fetchActiveService", error); setActiveService(null); return; }
       if (data) {
         // Fetch proposal and client separately to avoid join issues
@@ -191,6 +201,7 @@ function PrestadorContent() {
         } as ActiveService);
         setView("match");
       } else {
+        activeIdRef.current = null;
         setActiveService(null);
       }
     } catch (e) {
@@ -325,7 +336,7 @@ function PrestadorContent() {
       </div>
 
       {/* ── Top controls ───────────────────────────────────────── */}
-      <div className="fixed inset-x-0 top-[60px] z-20 flex items-center gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
         {/* Availability toggle */}
         <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <div className={`size-2 rounded-full ${available ? "bg-green-500" : "bg-red-500"}`} />
@@ -352,7 +363,7 @@ function PrestadorContent() {
 
       {/* ── Request count badge ────────────────────────────────── */}
       {view === "map" && available && (
-        <div className="fixed left-4 top-[116px] z-20">
+        <div className="fixed left-4 top-[148px] z-20">
           <Badge variant="secondary" className="backdrop-blur-md">
             {loadingRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : <MapPin className="mr-1 size-3" />}
             {requests.length} solicitações no raio
@@ -422,7 +433,7 @@ function PrestadorContent() {
           service={activeService}
           role="prestador"
           userId={user.id}
-          onClose={() => { setView("map"); setActiveService(null); }}
+          onClose={() => { activeIdRef.current = null; setView("map"); setActiveService(null); }}
           onRefresh={fetchActiveService}
         />
       )}
