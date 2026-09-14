@@ -244,7 +244,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[60px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
+    <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">
@@ -344,8 +344,8 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         </div>
       )}
 
-      {/* Action buttons */}
-      <div className="space-y-3">
+      {/* Action buttons — grudados no rodape para nunca cairem abaixo da dobra */}
+      <div className="sticky bottom-0 -mx-4 space-y-3 border-t border-border/50 bg-background/95 px-4 pb-2 pt-3 backdrop-blur-md">
         {/* Provider: estou a caminho */}
         {isProvider && service.status === "aceita" && !providerIsOnWay && (
           <Button className="h-13 w-full text-base" onClick={handleEnRoute} disabled={loading === "provider_en_route"}>
