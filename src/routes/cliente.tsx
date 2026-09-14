@@ -90,17 +90,37 @@ function ClienteContent() {
   }, [user, updateLocation]);
 
   // Fetch active service (aceita / a_caminho / em_andamento)
+  const activeIdRef = useRef<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  // Cada resposta revela o proximo campo logo abaixo da dobra. Sem isto o
+  // usuario toca numa opcao, nada aparece na tela e o formulario parece travado.
+  useEffect(() => {
+    const el = sheetRef.current;
+    if (!el) return;
+    const t = setTimeout(() => el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }), 120);
+    return () => clearTimeout(t);
+  }, [serviceType, subType, selectedFlags.length, localChoice, selectedGenders.length]);
   const fetchActiveService = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from("service_requests")
-        .select("*")
-        .eq("client_id", user.id)
-        .in("status", ["aceita", "a_caminho", "em_andamento"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Se ja existe um atendimento aberto na tela, recarrega ELE pelo id —
+      // sem filtro de status. Senao a conclusao some com o registro e a
+      // avaliacao nunca chega a aparecer.
+      const { data, error } = activeIdRef.current
+        ? await supabase
+            .from("service_requests")
+            .select("*")
+            .eq("id", activeIdRef.current)
+            .maybeSingle()
+        : await supabase
+            .from("service_requests")
+            .select("*")
+            .eq("client_id", user.id)
+            .in("status", ["aceita", "a_caminho", "em_andamento"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
       if (error) { console.error("fetchActiveService", error); setActiveService(null); return; }
       if (data) {
         const [{ data: prop }, { data: prov }] = await Promise.all([
@@ -112,9 +132,11 @@ function ClienteContent() {
             : Promise.resolve({ data: null }),
         ]);
         const svc = { ...data, proposal: prop ?? undefined, provider: prov ?? undefined } as ActiveService;
+        activeIdRef.current = svc.id;
         setActiveService(svc);
         setView("match" as any);
       } else {
+        activeIdRef.current = null;
         setActiveService(null);
       }
     } catch (e) {
@@ -240,7 +262,7 @@ function ClienteContent() {
         <LeafletMap onCoordsChange={handleCoordsChange} markers={[]} radiusKm={radius} />
       </div>
 
-      <div className="fixed inset-x-0 top-[60px] z-20 flex items-center gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <Radar className="size-3.5 text-primary" />
           {radiusOptions.map((r) => (
@@ -279,7 +301,7 @@ function ClienteContent() {
       )}
 
       {view === "proposals" && (
-        <div className="fixed inset-x-0 bottom-0 top-[60px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
+        <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Propostas recebidas</h2>
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); setSelectedRequestId(null); prevProposalCount.current = 0; }}><X className="size-5" /></Button>
@@ -341,7 +363,7 @@ function ClienteContent() {
           service={activeService}
           role="cliente"
           userId={user.id}
-          onClose={() => { setView("map"); setActiveService(null); }}
+          onClose={() => { activeIdRef.current = null; setView("map"); setActiveService(null); }}
           onRefresh={fetchActiveService}
         />
       )}
@@ -371,7 +393,7 @@ function ClienteContent() {
       )}
 
       {view === "request" && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+        <div ref={sheetRef} className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Nova solicitação</h2>
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); resetForm(); }}><X className="size-5" /></Button>
@@ -389,7 +411,7 @@ function ClienteContent() {
       )}
       {/* ── Payment screen (PIX) ──────────────────────────────── */}
       {(view as string) === "payment" && payingProposal && (
-        <div className="fixed inset-x-0 bottom-0 top-[60px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
+        <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
           <div className="mx-auto max-w-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Pagamento</h2>
