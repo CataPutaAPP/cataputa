@@ -18,6 +18,7 @@ import {
   Sparkles,
   Send,
   Car,
+  UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -101,7 +102,7 @@ function PrestadorContent() {
   const { user, updateLocation } = useAuth();
 
   const [coords, setCoords] = useState<MapCoords | null>(null);
-  const [view, setView] = useState<"map" | "offer" | "details" | "match">("map");
+  const [view, setView] = useState<"map" | "offer" | "details" | "match" | "perfil">("map");
   const [radius, setRadius] = useState(10);
   const [available, setAvailable] = useState(true);
 
@@ -130,6 +131,24 @@ function PrestadorContent() {
   const [offerLocal, setOfferLocal] = useState<LocalOption>("local_atendente");
   const [offerDesc, setOfferDesc] = useState("");
   const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  // Fotos do perfil: mínimo obrigatório para propor e ofertar
+  const MIN_PHOTOS = 3;
+  const [photoCount, setPhotoCount] = useState<number | null>(null);
+  const fetchPhotoCount = useCallback(async () => {
+    if (!user) return;
+    const { count } = await supabase.from("provider_photos")
+      .select("id", { count: "exact", head: true }).eq("user_id", user.id);
+    setPhotoCount(count ?? 0);
+  }, [user]);
+  useEffect(() => { fetchPhotoCount(); }, [fetchPhotoCount]);
+  const needsPhotos = photoCount !== null && photoCount < MIN_PHOTOS;
+  function requirePhotos(): boolean {
+    if (!needsPhotos) return true;
+    toast.error(`Complete seu perfil: mínimo de ${MIN_PHOTOS} fotos para enviar propostas e ofertas.`);
+    setView("perfil");
+    return false;
+  }
 
   // Taxa da plataforma conforme a nota do prestador (5 / 7 / 10%)
   const { pct: feePct } = useProviderFeePct(user?.id);
@@ -261,6 +280,7 @@ function PrestadorContent() {
     if (!selectedRequest || !user) return;
     const price = parseFloat(proposalPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
+    if (!requirePhotos()) return;
     // P4: Verificar lock
     const { data: locked } = await supabase.rpc("is_user_locked", { p_user_id: user.id });
     if (locked) return toast.error("Você já está em um atendimento ativo. Conclua antes de enviar propostas.");
@@ -301,6 +321,7 @@ function PrestadorContent() {
     const price = parseFloat(offerPrice.replace(",", "."));
     if (!price || price <= 0) return toast.error("Informe um valor válido.");
     if (!user || !coords) return;
+    if (!requirePhotos()) return;
     // P4: Verificar lock
     const { data: locked } = await supabase.rpc("is_user_locked", { p_user_id: user.id });
     if (locked) return toast.error("Você já está em um atendimento ativo. Conclua antes de criar ofertas.");
@@ -357,6 +378,13 @@ function PrestadorContent() {
           <span className="text-xs font-medium">{available ? "Online" : "Offline"}</span>
           <Switch checked={available} onCheckedChange={setAvailable} className="scale-75" />
         </div>
+
+        {/* Meu perfil */}
+        <button onClick={() => setView("perfil")}
+          className={`relative flex items-center gap-1.5 rounded-full border bg-background/80 px-3 py-1.5 text-xs font-medium backdrop-blur-md ${needsPhotos ? "border-yellow-500/60 text-yellow-400" : "border-border"}`}>
+          <UserCircle className="size-4" /> Perfil
+          {needsPhotos && <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-yellow-500" />}
+        </button>
 
         {/* Radius */}
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
@@ -557,6 +585,35 @@ function PrestadorContent() {
         </div>
       )}
 
+      {/* ── Aviso de perfil incompleto ─────────────────────────── */}
+      {view === "map" && needsPhotos && (
+        <button onClick={() => setView("perfil")}
+          className="fixed inset-x-4 top-[132px] z-20 rounded-xl border border-yellow-500/40 bg-card/95 p-3 text-left text-xs backdrop-blur">
+          <span className="font-semibold text-yellow-400">Perfil incompleto:</span>{" "}
+          adicione pelo menos {MIN_PHOTOS} fotos ({photoCount}/{MIN_PHOTOS}) para enviar propostas e ofertas. Toque aqui →
+        </button>
+      )}
+
+      {/* ── Meu perfil (fotos) ─────────────────────────────────── */}
+      {view === "perfil" && user && (
+        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Meu perfil</h2>
+              <p className="text-xs text-muted-foreground">Estas fotos aparecem em todas as suas propostas e ofertas. Troque quando quiser.</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => { fetchPhotoCount(); setView("map"); }}><X className="size-5" /></Button>
+          </div>
+          <div className={`mb-4 rounded-xl border p-3 text-xs ${needsPhotos ? "border-yellow-500/40 bg-yellow-500/5 text-yellow-300" : "border-green-500/30 bg-green-500/5 text-green-400"}`}>
+            {needsPhotos
+              ? `Mínimo obrigatório: ${MIN_PHOTOS} fotos (você tem ${photoCount}).`
+              : "Perfil completo — você já pode propor e ofertar."}
+          </div>
+          <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
+          <Button className="mt-5 h-12 w-full" onClick={() => { fetchPhotoCount(); setView("map"); }}>Concluir</Button>
+        </div>
+      )}
+
       {/* ── FAB ─────────────────────────────────────────────────── */}
       {view === "map" && !selectedRequest && (
         <Button size="lg" onClick={() => setView("offer")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
@@ -653,13 +710,6 @@ function PrestadorContent() {
                   placeholder="Atendo em apartamento próprio, sigilo total..."
                 />
               </Field>
-            )}
-
-            {/* Photos */}
-            {offerSubType && user && (
-              <div className="rounded-xl border border-border bg-secondary/30 p-4">
-                <PhotoManager userId={user.id} onDone={() => {}} />
-              </div>
             )}
 
             {/* Submit */}

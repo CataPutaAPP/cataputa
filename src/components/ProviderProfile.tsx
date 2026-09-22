@@ -209,7 +209,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
       });
     }
     setUploading(false);
-    fetchPhotos();
+    fetchPhotos(); onDone();
     toast.success("Fotos enviadas!");
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -224,7 +224,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
     // Delete from DB
     await supabase.from("provider_photos").delete().eq("id", photo.id);
     setDeleting(null);
-    fetchPhotos();
+    fetchPhotos(); onDone();
     toast.success("Foto removida.");
   }
 
@@ -233,7 +233,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Minhas fotos</h3>
-          <p className="text-xs text-muted-foreground">{photos.length}/5 fotos · Mínimo 3 recomendado</p>
+          <p className="text-xs text-muted-foreground">{photos.length}/5 fotos · Mínimo 3 obrigatório</p>
         </div>
         {photos.length < 5 && (
           <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
