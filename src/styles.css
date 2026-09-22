@@ -48,65 +48,65 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* CataPuta Web — Tipografia */
-  --font-display: "Caudex", Georgia, "Times New Roman", serif;
-  --font-sans: "Open Sans", ui-sans-serif, system-ui, sans-serif;
+  /* Privora Private Club — Tipografia
+     Fraunces para títulos (serifada, editorial) · Manrope para interface */
+  --font-display: "Fraunces", "Goudy Old Style", Georgia, serif;
+  --font-sans: "Manrope", "Montserrat", ui-sans-serif, system-ui, sans-serif;
 
-  /* CataPuta Web — Sombras */
-  --shadow-glow: 0 18px 60px -18px rgba(150, 26, 25, 0.55);
-  --shadow-panel: 0 24px 60px -30px rgba(0, 0, 0, 0.9);
+  /* Privora — Sombras (brilho discreto em latão) */
+  --shadow-glow: 0 18px 60px -18px rgba(216, 184, 144, 0.35);
+  --shadow-panel: 0 24px 60px -30px rgba(20, 8, 17, 0.9);
 }
 
 :root {
   --radius: 0.875rem;
 
-  /* CataPuta Web — Dark theme com paleta da marca
-     Primary: Carmim Diabólico #961A19
-     Bronze: #C4A77D
-     Marrom: #78533D
-     Preto Ébano: #1A1A1A
-     Bege Pergaminho: #F0E6D2
-     Azul Cobalto: #0047AB
-  */
+  /* Privora Private Club — paleta oficial
+     Deep Plum      #3F1D36   (60% — base)
+     Brass          #D8B890   (10% — detalhe nobre)
+     Antique Rose   #B17078   (30% — apoio)
+     Ivory          #F6EDDE   (texto sobre fundo escuro)
+     Graphite       #4C5051   (neutros)
+     Proporção de uso 60/30/10, conforme o manual. */
 
-  --background: #111010;
-  --foreground: #F0E6D2;
+  --background: #1E0E1A;
+  --foreground: #F6EDDE;
 
-  --card: #1A1A1A;
-  --card-foreground: #F0E6D2;
+  --card: #2A1425;
+  --card-foreground: #F6EDDE;
 
-  --popover: #1A1A1A;
-  --popover-foreground: #F0E6D2;
+  --popover: #2A1425;
+  --popover-foreground: #F6EDDE;
 
-  /* Primary = Carmim Diabólico */
-  --primary: #961A19;
-  --primary-foreground: #F0E6D2;
+  /* Primary = Brass/Champagne (o dourado do lacre) */
+  --primary: #D8B890;
+  --primary-foreground: #2A1425;
 
-  --secondary: #2A2220;
-  --secondary-foreground: #F0E6D2;
+  --secondary: #3F1D36;
+  --secondary-foreground: #F6EDDE;
 
-  --muted: #241E1C;
-  --muted-foreground: #9A8B7A;
+  --muted: #351830;
+  --muted-foreground: #C3AFBC;
 
-  /* Accent = Bronze Ancestral */
-  --accent: #78533D;
-  --accent-foreground: #F0E6D2;
+  /* Accent = Antique Rose */
+  --accent: #B17078;
+  --accent-foreground: #1E0E1A;
 
-  --destructive: #B91C1C;
-  --destructive-foreground: #F0E6D2;
+  --destructive: #A83246;
+  --destructive-foreground: #F6EDDE;
 
-  --success: #22C55E;
-  --success-foreground: #111010;
+  --success: #6E8E6A;
+  --success-foreground: #1E0E1A;
 
-  --border: rgba(240, 230, 210, 0.1);
-  --input: rgba(240, 230, 210, 0.14);
-  --ring: #961A19;
+  --border: rgba(246, 237, 222, 0.12);
+  --input: rgba(246, 237, 222, 0.16);
+  --ring: #D8B890;
 
-  --chart-1: #961A19;
-  --chart-2: #C4A77D;
-  --chart-3: #0047AB;
-  --chart-4: #78533D;
-  --chart-5: #22C55E;
+  --chart-1: #D8B890;
+  --chart-2: #B17078;
+  --chart-3: #F6EDDE;
+  --chart-4: #4C5051;
+  --chart-5: #6E8E6A;
 
   --sidebar: #161313;
   --sidebar-foreground: #F0E6D2;
