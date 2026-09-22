@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { LogOut } from "lucide-react";
+import { useNavigate, Link } from "@tanstack/react-router";
+import { LogOut, ShieldCheck } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -8,6 +8,7 @@ import { HelpButton } from "@/components/HelpButton";
 import { PlansButton } from "@/components/PlansButton";
 import { VerificationGate } from "@/components/VerificationGate";
 import { ChatNotifier } from "@/components/ChatNotifier";
+import { useMyPlan } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -28,6 +29,7 @@ export function DashboardShell({
 }) {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { plan } = useMyPlan(!!user);
 
   // TODO: Reativar guard quando Supabase estiver conectado
   // useEffect(() => {
@@ -48,6 +50,12 @@ export function DashboardShell({
         <Logo size="sm" />
         <div className="flex items-center gap-2">
           <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
+          {plan?.is_admin && (
+            <Link to="/admin" aria-label="Administração"
+              className="flex size-9 items-center justify-center rounded-md hover:bg-secondary">
+              <ShieldCheck className="size-5 text-primary" />
+            </Link>
+          )}
           {user && <PlansButton audience={role} />}
           <HelpButton screen={role} />
           {user && <NotificationBell />}
