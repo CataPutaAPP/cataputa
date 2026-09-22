@@ -86,6 +86,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Privora Private Club — acesso reservado e verificado, com privacidade em primeiro lugar.",
       },
       { property: "og:title", content: "Privora Private Club" },
+      { name: "theme-color", content: "#3F1D36" },
       {
         property: "og:description",
         content: "Solicite, ofereça e negocie serviços sob demanda, sem rodeios.",
@@ -103,6 +104,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap",
       },
       { rel: "icon", href: "/favicon.png", type: "image/png" },
+      { rel: "manifest", href: "/manifest.webmanifest" },
+      { rel: "apple-touch-icon", href: "/icon-192.png" },
     ],
   }),
   shellComponent: RootShell,
