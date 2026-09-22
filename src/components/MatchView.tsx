@@ -15,6 +15,7 @@ import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "
 import { brl } from "@/lib/fees";
 import { ReportButton } from "@/components/ReportButton";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
+import { useRealtime } from "@/lib/realtime";
 import type { Profile } from "@/context/AuthContext";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -93,11 +94,13 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
     }
   }, [service.status, service.started_at]);
 
-  // Poll for updates
-  useEffect(() => {
-    const interval = setInterval(onRefresh, 5000);
-    return () => clearInterval(interval);
-  }, [onRefresh]);
+  // Tempo real: cada etapa do atendimento aparece na hora para os dois lados
+  useRealtime(
+    `atendimento-${service.id}`,
+    [{ table: "service_requests", filter: `id=eq.${service.id}` }],
+    onRefresh,
+    { fallbackMs: 30000 },
+  );
 
   // Check if already rated
   useEffect(() => {
