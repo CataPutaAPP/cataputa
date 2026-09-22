@@ -152,6 +152,7 @@ function PrestadorContent() {
   const [submittingOffer, setSubmittingOffer] = useState(false);
 
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  const [vips, setVips] = useState<Set<string>>(new Set());
   const { plan: myPlan, refresh: refreshPlan } = useMyPlan();
   const [boostCheckout, setBoostCheckout] = useState<CheckoutItem | null>(null);
   const [boostProduct, setBoostProduct] = useState<{ code: string; name: string; price: number; duration_hours: number } | null>(null);
@@ -291,6 +292,14 @@ function PrestadorContent() {
 
   // Reset offer form when type changes
   useEffect(() => { setOfferSubType(""); setOfferFlags([]); }, [offerType]);
+
+  // Clientes VIP (plano Black) aparecem sinalizados na lista de chamados
+  const clientKey = requests.map((r) => r.client_id).join(",");
+  useEffect(() => {
+    const ids = [...new Set(requests.map((r) => r.client_id))];
+    if (!ids.length) { setVips(new Set()); return; }
+    supabase.rpc("vip_clients", { p_ids: ids }).then(({ data }) => setVips(new Set((data as string[]) ?? [])));
+  }, [clientKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map markers from client requests
   const mapMarkers: MapMarker[] = requests.map((r) => ({
@@ -501,6 +510,7 @@ function PrestadorContent() {
                 <span className="text-xs text-muted-foreground">{r.distance_km} km</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
+                {vips.has(r.client_id) && <span className="mr-1 rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">★ VIP</span>}
                 {r.gender_pref.join(", ")} · {getLocalLabel(isCarro(r.sub_type) ? "carro" : r.local_option, "prestador")}
               </p>
               <p className="mt-1 text-xs font-medium text-primary">Toque para enviar proposta →</p>
