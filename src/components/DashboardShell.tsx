@@ -5,6 +5,7 @@ import { LogOut } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { NotificationBell } from "@/components/NotificationBell";
 import { HelpButton } from "@/components/HelpButton";
+import { PlansButton } from "@/components/PlansButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -45,6 +46,7 @@ export function DashboardShell({
         <Logo size="sm" />
         <div className="flex items-center gap-2">
           <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
+          {user && <PlansButton audience={role} />}
           <HelpButton screen={role} />
           {user && <NotificationBell />}
           {user && (

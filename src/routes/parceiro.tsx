@@ -74,7 +74,6 @@ const emptyRoom = { id: "", name: "", description: "", price: "", duration: 60, 
 function ParceiroContent() {
   const { user } = useAuth();
   const [tab, setTab] = useState<"local" | "quartos" | "reservas">("quartos");
-  const [partnerFeePct, setPartnerFeePct] = useState(10);
 
   // ── Local (endereço + geolocalização) ──
   const [saving, setSaving] = useState(false);
@@ -98,12 +97,9 @@ function ParceiroContent() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const [{ data }, { data: fee }] = await Promise.all([
-        supabase.from("profiles")
-          .select("local_type, local_address, local_description, local_price, lat, lng")
-          .eq("id", user.id).single(),
-        supabase.rpc("get_setting", { p_key: "partner_fee_pct" }),
-      ]);
+      const { data } = await supabase.from("profiles")
+        .select("local_type, local_address, local_description, local_price, lat, lng")
+        .eq("id", user.id).single();
       if (data) {
         setLocalType(data.local_type ?? "");
         setLocalAddress(data.local_address ?? "");
@@ -112,7 +108,6 @@ function ParceiroContent() {
         if (data.lat) setLocalLat(String(data.lat));
         if (data.lng) setLocalLng(String(data.lng));
       }
-      if (fee != null) setPartnerFeePct(Number(fee));
     })();
   }, [user]);
 
@@ -146,7 +141,7 @@ function ParceiroContent() {
             toast("Quarto sendo reservado — aguardando pagamento do cliente", { icon: "🛏️" });
           } else if (payload.eventType === "UPDATE" && b.status === "confirmada" && old?.status !== "confirmada") {
             playNotificationSound("accepted");
-            toast.success(`Reserva confirmada! Você recebe ${brl(b.partner_net)}`);
+            toast.success(`Reserva confirmada! ${brl(b.room_price)} — pagamento no seu estabelecimento`);
           } else if (payload.eventType === "UPDATE" && b.status === "cancelada" && old?.status !== "cancelada") {
             toast("Uma reserva foi cancelada.", { icon: "⚠️" });
           }
@@ -255,7 +250,7 @@ function ParceiroContent() {
 
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "Quarto";
   const openBookings = bookings.filter((b) => ["pendente", "confirmada", "em_uso"].includes(b.status));
-  const totalEarnings = bookings.filter((b) => b.status === "concluida").reduce((s, b) => s + Number(b.partner_net), 0);
+  const totalEarnings = bookings.filter((b) => b.status === "concluida").reduce((s, b) => s + Number(b.room_price), 0);
   const isConfigured = !!localAddress && !!localLat && activeRooms.length > 0;
 
   const statusLabel: Record<Booking["status"], { text: string; cls: string }> = {
@@ -286,7 +281,7 @@ function ParceiroContent() {
           <p className="mt-1 text-sm font-bold">{openBookings.length}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 text-center">
-          <p className="text-[10px] text-muted-foreground">Ganhos</p>
+          <p className="text-[10px] text-muted-foreground">Reservas concluídas</p>
           <p className="mt-1 text-sm font-bold text-green-400">{brl(totalEarnings)}</p>
         </div>
       </div>
@@ -324,7 +319,7 @@ function ParceiroContent() {
                   <p className="shrink-0 font-bold text-primary">{brl(r.price)}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <Clock className="mr-1 inline size-3" />{fmtDuration(r.duration_minutes)} · você recebe {brl(Number(r.price) * (1 - partnerFeePct / 100))}
+                  <Clock className="mr-1 inline size-3" />{fmtDuration(r.duration_minutes)} · pago no seu estabelecimento
                 </p>
                 {!r.photo_url && <p className="mt-0.5 text-[11px] text-yellow-400">Sem foto — adicione para aparecer melhor</p>}
                 <div className="mt-2 flex gap-1">
@@ -378,9 +373,9 @@ function ParceiroContent() {
               onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })} />
             {parseFloat(String(roomForm.price).replace(",", ".")) > 0 && (
               <p className="text-xs text-muted-foreground">
-                Você recebe <span className="font-semibold text-green-400">
-                  {brl(parseFloat(String(roomForm.price).replace(",", ".")) * (1 - partnerFeePct / 100))}
-                </span> (plataforma retém {partnerFeePct}%), automaticamente quando o cliente paga.
+                O cliente paga <span className="font-semibold text-green-400">
+                  {brl(parseFloat(String(roomForm.price).replace(",", ".")))}
+                </span> direto no seu estabelecimento. O CataPuta não cobra comissão sobre reservas.
               </p>
             )}
           </div>
@@ -434,7 +429,7 @@ function ParceiroContent() {
                   </div>
                   <div className="text-right">
                     <Badge variant="secondary" className={`text-[10px] ${st.cls}`}>{st.text}</Badge>
-                    <p className={`mt-1 text-sm font-bold ${b.status === "cancelada" ? "text-muted-foreground line-through" : "text-green-400"}`}>+{brl(b.partner_net)}</p>
+                    <p className={`mt-1 text-sm font-bold ${b.status === "cancelada" ? "text-muted-foreground line-through" : "text-green-400"}`}>{brl(b.room_price)}</p>
                   </div>
                 </div>
                 <p className="mt-2 text-[10px] text-muted-foreground">

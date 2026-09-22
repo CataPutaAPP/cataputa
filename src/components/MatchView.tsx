@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
 import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "@/lib/service-options";
-import { netAfterFee, brl } from "@/lib/fees";
+import { brl } from "@/lib/fees";
 import type { Profile } from "@/context/AuthContext";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -217,8 +217,8 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           </div>
           <p className="mb-1 text-sm text-muted-foreground">
             {service.started_at
-              ? "O serviço já foi iniciado. Cancelar agora NÃO dá direito a reembolso."
-              : "Antes do início, o reembolso é total."
+              ? "O serviço já foi iniciado. Cancelar agora pesa bastante na sua reputação."
+              : "Cancelamentos ficam registrados no seu perfil e afetam sua reputação."
             }
           </p>
           <div className="mt-5 flex gap-3">
@@ -291,13 +291,10 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           </div>
           <div className="text-right">
             <p className="text-lg font-bold text-primary">
-              {isClient
-                ? brl(service.proposal?.client_price ?? 0)
-                : brl(netAfterFee(Number(service.proposal?.price ?? 0), Number(service.provider_fee_pct ?? 7)))
-              }
+              {brl(service.proposal?.price ?? 0)}
             </p>
             <p className="text-[10px] text-muted-foreground">
-              {isClient ? "valor total" : "você recebe"}
+              {isClient ? "pago direto ao prestador" : "você recebe (integral)"}
             </p>
           </div>
         </div>

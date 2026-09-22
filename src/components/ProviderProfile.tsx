@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
+import { useMyPlan, featureLimit } from "@/lib/plans";
 import { serviceFlags, getSubLabel, type ServiceType } from "@/lib/service-options";
 import type { Profile } from "@/context/AuthContext";
 
@@ -157,6 +158,10 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
 /* ─── Provider: Photo management (upload/delete) ───────────────────── */
 
 export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
+  // Máximo de fotos vem do plano (prestador); parceiro e demais ficam com 5
+  const { plan } = useMyPlan();
+  const maxPhotos = featureLimit(plan, "max_photos", 5);
+  const maxLabel = Number.isFinite(maxPhotos) ? String(maxPhotos) : "∞";
   const [photos, setPhotos] = useState<ProviderPhoto[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -176,8 +181,8 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (photos.length + files.length > 5) {
-      toast.error("Máximo de 5 fotos.");
+    if (photos.length + files.length > maxPhotos) {
+      toast.error(`Seu plano permite até ${maxLabel} fotos. Veja os planos (ícone de coroa) para liberar mais.`);
       return;
     }
 
@@ -201,12 +206,18 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
 
       const { data: { publicUrl } } = supabase.storage.from("photos").getPublicUrl(path);
 
-      await supabase.from("provider_photos").insert({
+      const { error: insertError } = await supabase.from("provider_photos").insert({
         user_id: userId,
         photo_url: publicUrl,
         storage_path: path,
         sort_order: photos.length + i,
       });
+      if (insertError) {
+        // limite do plano (ou outra regra do banco): desfaz o upload para não deixar arquivo órfão
+        await supabase.storage.from("photos").remove([path]);
+        toast.error(insertError.message || "Não foi possível salvar a foto.");
+        break;
+      }
     }
     setUploading(false);
     fetchPhotos(); onDone();
@@ -233,9 +244,9 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Minhas fotos</h3>
-          <p className="text-xs text-muted-foreground">{photos.length}/5 fotos · Mínimo 3 obrigatório</p>
+          <p className="text-xs text-muted-foreground">{photos.length}/{maxLabel} fotos · Mínimo 3 obrigatório</p>
         </div>
-        {photos.length < 5 && (
+        {photos.length < maxPhotos && (
           <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>
             {uploading ? <Loader2 className="mr-1.5 size-3.5 animate-spin" /> : <ImagePlus className="mr-1.5 size-3.5" />}
             {uploading ? "Enviando..." : "Adicionar"}
@@ -251,7 +262,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
           <Camera className="size-10 text-muted-foreground/40" />
           <div>
             <p className="text-sm font-medium">Adicione suas fotos</p>
-            <p className="mt-1 text-xs text-muted-foreground">3 a 5 fotos de corpo inteiro para aparecer nas propostas</p>
+            <p className="mt-1 text-xs text-muted-foreground">Mínimo de 3 fotos de corpo inteiro para aparecer nas propostas</p>
           </div>
         </button>
       ) : (
@@ -267,7 +278,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
               </button>
             </div>
           ))}
-          {photos.length < 5 && (
+          {photos.length < maxPhotos && (
             <button onClick={() => fileRef.current?.click()}
               className="flex aspect-[3/4] items-center justify-center rounded-xl border-2 border-dashed border-border transition-colors hover:border-primary/50">
               <ImagePlus className="size-6 text-muted-foreground/40" />

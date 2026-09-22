@@ -46,7 +46,7 @@ import {
   getLocalLabel,
   isCarro,
 } from "@/lib/service-options";
-import { useProviderFeePct, netAfterFee, brl } from "@/lib/fees";
+import { brl } from "@/lib/fees";
 
 export const Route = createFileRoute("/prestador")({
   head: () => ({
@@ -150,8 +150,6 @@ function PrestadorContent() {
     return false;
   }
 
-  // Taxa da plataforma conforme a nota do prestador (5 / 7 / 10%)
-  const { pct: feePct } = useProviderFeePct(user?.id);
 
   // Proposta começa com o local que o cliente pediu; "no carro" é fixo
   useEffect(() => {
@@ -307,7 +305,7 @@ function PrestadorContent() {
       return;
     }
 
-    toast.success(`Proposta enviada! Você recebe ${brl(netAfterFee(price, feePct))} se aceita.`);
+    toast.success(`Proposta enviada! Você recebe ${brl(price)} integral, direto do cliente.`);
     setProposalPrice("");
     setProposalMessage("");
     setSelectedRequest(null);
@@ -350,7 +348,7 @@ function PrestadorContent() {
       return;
     }
 
-    toast.success(`Oferta publicada! Você recebe ${brl(netAfterFee(price, feePct))} por atendimento.`);
+    toast.success(`Oferta publicada! Você recebe ${brl(price)} integral por atendimento.`);
     setOfferType("");
     setOfferSubType("");
     setOfferFlags([]);
@@ -361,7 +359,7 @@ function PrestadorContent() {
 
   const providerNet = (val: string) => {
     const n = parseFloat(val.replace(",", "."));
-    return isNaN(n) || n <= 0 ? null : netAfterFee(n, feePct).toFixed(2);
+    return isNaN(n) || n <= 0 ? null : n.toFixed(2);
   };
 
   return (
@@ -445,7 +443,7 @@ function PrestadorContent() {
                     {p.status === "pendente" ? "Aguardando cliente" : isAccepted ? "Paga! Toque →" : p.status}
                   </Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe {brl(netAfterFee(Number(p.price), feePct))}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe {brl(p.price)} integral</p>
               </div>
             );
           })}
@@ -533,12 +531,12 @@ function PrestadorContent() {
               {providerNet(proposalPrice) && (
                 <p className="text-xs text-muted-foreground">
                   Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(proposalPrice)}</span>
-                  <span className="ml-1">(taxa de {feePct}% pela sua nota)</span>
+                  <span className="ml-1">(valor integral, pago direto pelo cliente — sem comissão)</span>
                 </p>
               )}
               <p className="text-[11px] text-muted-foreground">
                 Inclua deslocamento e todos os custos — você recebe só o valor combinado, nada por fora.
-                {proposalLocal === "parceiro" && " O quarto do parceiro é pago pelo cliente."}
+                {proposalLocal === "parceiro" && " O quarto do parceiro é pago pelo cliente, no local."}
               </p>
             </div>
 
@@ -675,7 +673,7 @@ function PrestadorContent() {
                 {providerNet(offerPrice) && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(offerPrice)}</span>
-                    <span className="ml-1">(taxa de {feePct}% pela sua nota)</span>
+                    <span className="ml-1">(valor integral — sem comissão)</span>
                   </p>
                 )}
               </Field>

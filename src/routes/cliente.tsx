@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell, DollarSign, Car, Building2,
+  Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +50,7 @@ interface DBProposal {
   id: string;
   request_id: string;
   provider_id: string;
+  price: number;
   client_price: number;
   message: string | null;
   local_option: LocalOption;
@@ -174,7 +175,7 @@ function ClienteContent() {
     setLoadingProposals(true);
     const { data } = await supabase
       .from("proposals")
-      .select("id, request_id, provider_id, client_price, message, local_option, status, created_at, provider:profiles!provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)")
+      .select("id, request_id, provider_id, price, client_price, message, local_option, status, created_at, provider:profiles!provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)")
       .eq("request_id", requestId)
       .order("created_at", { ascending: false });
     if (data) {
@@ -243,7 +244,7 @@ function ClienteContent() {
     setLoadingQuote(false);
     if (error || !data) {
       console.error("quote_proposal", error);
-      toast.error("Não foi possível calcular o valor. Tente novamente.");
+      toast.error("Não foi possível carregar a proposta. Tente novamente.");
       setPayingProposal(null); setView("proposals");
       return;
     }
@@ -278,7 +279,7 @@ function ClienteContent() {
     setAcceptingId(null);
     if (error) { toast.error("Erro ao processar. Tente novamente."); return; }
     playNotificationSound("accepted");
-    toast.success("Pagamento confirmado! O prestador foi notificado.");
+    toast.success("Atendimento confirmado! O prestador foi notificado.");
     setPayingProposal(null);
     setQuote(null);
     setBookedRoom(null);
@@ -379,7 +380,7 @@ function ClienteContent() {
                         </div>
                       </div>
                       {/* Cliente vê APENAS o valor total — sem breakdown */}
-                      <p className="text-xl font-bold text-primary">R$ {Number(p.client_price).toFixed(2)}</p>
+                      <p className="text-xl font-bold text-primary">{brl(p.price)}</p>
                     </div>
                     <ProviderPhotoStrip providerId={p.provider_id} onClick={() => setViewingProfileId(p.provider_id)} />
                     <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -392,7 +393,7 @@ function ClienteContent() {
                     {p.status === "pendente" && (
                       <Button className="mt-3 h-10 w-full" disabled={acceptingId === p.id} onClick={() => handleAcceptProposal(p.id)}>
                         {acceptingId === p.id ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
-                        {acceptingId === p.id ? "Processando..." : p.local_option === "parceiro" ? "Escolher quarto e pagar" : `Pagar ${brl(p.client_price)}`}
+                        {acceptingId === p.id ? "Processando..." : p.local_option === "parceiro" ? "Escolher quarto e aceitar" : `Aceitar · ${brl(p.price)}`}
                       </Button>
                     )}
                     {accepted && <div className="mt-3 rounded-lg bg-green-500/10 p-2.5 text-center text-sm font-medium text-green-400">✓ Proposta aceita</div>}
@@ -463,28 +464,28 @@ function ClienteContent() {
         <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
           <div className="mx-auto max-w-sm">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Pagamento</h2>
+              <h2 className="text-lg font-semibold">Confirmar atendimento</h2>
               <Button variant="ghost" size="icon" onClick={() => { setPayingProposal(null); setQuote(null); setView("proposals"); }}>
                 <X className="size-5" />
               </Button>
             </div>
 
-            {/* Resumo — cliente vê atendimento (já com taxa) + quarto, nunca o split */}
+            {/* Resumo — valores pagos direto ao prestador e ao parceiro */}
             <div className="mb-5 rounded-2xl border border-border bg-card p-5">
               {loadingQuote || !quote ? (
                 <div className="flex justify-center py-6"><Loader2 className="size-6 animate-spin text-primary" /></div>
               ) : (
                 <>
-                  <p className="text-sm text-muted-foreground">Valor total</p>
+                  <p className="text-sm text-muted-foreground">Valor combinado</p>
                   <p className="mt-1 text-3xl font-bold text-primary">{brl(quote.client_total)}</p>
                   <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Atendimento</span>
-                      <span>{brl(Number(quote.service_price) + Number(quote.client_fee))}</span>
+                      <span className="text-muted-foreground">Atendimento · pago ao prestador</span>
+                      <span>{brl(quote.service_price)}</span>
                     </div>
                     {Number(quote.room_price) > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Quarto{bookedRoom ? ` · ${bookedRoom.room_name}` : ""}</span>
+                        <span className="text-muted-foreground">Quarto{bookedRoom ? ` · ${bookedRoom.room_name}` : ""} · pago no local</span>
                         <span>{brl(quote.room_price)}</span>
                       </div>
                     )}
@@ -498,25 +499,11 @@ function ClienteContent() {
               )}
             </div>
 
-            {/* PIX info */}
-            <div className="mb-5 rounded-2xl border border-yellow-500/30 bg-yellow-500/5 p-5 text-center">
-              <div className="mx-auto mb-3 flex size-16 items-center justify-center rounded-2xl bg-yellow-500/20">
-                <DollarSign className="size-8 text-yellow-500" />
-              </div>
-              <p className="text-sm font-semibold text-yellow-400">Pagamento via PIX</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                O valor fica retido até o serviço ser concluído.
-                Se o prestador cancelar, reembolso total. Se você cancelar antes do início, reembolso de 60%.
-              </p>
-            </div>
-
-            {/* Simular pagamento (MVP) */}
-            <div className="mb-3 rounded-xl border border-border bg-secondary/30 p-4 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Modo teste</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Em produção, aqui aparecerá o QR Code PIX.
-                Por enquanto, clique abaixo para simular o pagamento.
-              </p>
+            {/* Pagamento direto */}
+            <div className="mb-5 rounded-2xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
+              <p className="mb-1 font-semibold text-foreground">Como funciona o pagamento</p>
+              Você paga o atendimento direto ao prestador, como combinarem. O quarto de parceiro é pago no próprio estabelecimento.
+              O CataPuta não recebe nenhuma parte desses valores. Cancelamentos ficam registrados na sua reputação.
             </div>
 
             <Button
@@ -525,7 +512,7 @@ function ClienteContent() {
               onClick={handlePaymentConfirmed}
             >
               {acceptingId ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Check className="mr-2 size-5" />}
-              {acceptingId ? "Processando..." : `Confirmar pagamento · ${brl(quote?.client_total ?? 0)}`}
+              {acceptingId ? "Confirmando..." : "Confirmar atendimento"}
             </Button>
 
             <Button variant="ghost" className="mt-2 h-10 w-full text-sm text-muted-foreground"
