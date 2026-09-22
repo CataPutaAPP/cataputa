@@ -12,6 +12,7 @@ import { MatchView, type ActiveService } from "@/components/MatchView";
 import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderProfile";
 import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
+import { OffersSheet } from "@/components/OffersSheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -85,6 +86,7 @@ function ClienteContent() {
   const [pickingRoomFor, setPickingRoomFor] = useState<DBProposal | null>(null);
   const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  const [showOffers, setShowOffers] = useState(false);
   const { counts: unread } = useUnreadChats(user?.id);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const providerKey = proposals.map((p) => p.provider_id).join(",");
@@ -274,6 +276,21 @@ function ClienteContent() {
     openPayment(proposal);
   }
 
+  async function handleOfferAccepted({ request_id, proposal_id }: { request_id: string; proposal_id: string }) {
+    setShowOffers(false);
+    setSelectedRequestId(request_id);
+    await fetchProposals(request_id);
+    const { data } = await supabase
+      .from("proposals")
+      .select("id, request_id, provider_id, price, client_price, message, local_option, status, created_at, provider:profiles!provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)")
+      .eq("id", proposal_id).single();
+    if (!data) { toast.error("Não foi possível abrir a oferta."); return; }
+    const proposal = { ...data, provider: Array.isArray(data.provider) ? data.provider[0] : data.provider } as unknown as DBProposal;
+    fetchMyRequests();
+    if (proposal.local_option === "parceiro") { setPickingRoomFor(proposal); setView("room" as any); return; }
+    openPayment(proposal);
+  }
+
   function handleRoomBooked(room: NearbyRoom) {
     setBookedRoom(room);
     const proposal = pickingRoomFor;
@@ -453,9 +470,14 @@ function ClienteContent() {
               <p className="mt-1.5 text-xs font-medium text-primary">Toque para acompanhar →</p>
             </button>
           )}
-          <Button size="lg" onClick={() => setView("request")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
-            <Plus className="mr-1 size-5" /> Solicitar Serviço
-          </Button>
+          <div className="fixed inset-x-0 bottom-6 z-30 flex items-center justify-center gap-2 px-4">
+            <Button size="lg" onClick={() => setView("request")} className="h-14 rounded-full px-6 text-base shadow-glow">
+              <Plus className="mr-1 size-5" /> Solicitar
+            </Button>
+            <Button size="lg" variant="secondary" onClick={() => setShowOffers(true)} className="h-14 rounded-full px-6 text-base">
+              <Sparkles className="mr-1 size-5" /> Ver ofertas
+            </Button>
+          </div>
         </>
       )}
 
@@ -549,6 +571,15 @@ function ClienteContent() {
           lng={selectedRequest.lng}
           onClose={() => { setPickingRoomFor(null); setView("proposals"); }}
           onBooked={handleRoomBooked}
+        />
+      )}
+
+      {showOffers && coords && (
+        <OffersSheet
+          lat={coords.lat} lng={coords.lng} radius={radius}
+          onClose={() => setShowOffers(false)}
+          onAccepted={handleOfferAccepted}
+          onViewProfile={(id) => setViewingProfileId(id)}
         />
       )}
 
