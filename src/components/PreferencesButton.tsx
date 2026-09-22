@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Settings, X, EyeOff, Smartphone, Lock, Check, Download, Trash2, Loader2 } from "lucide-react";
+import { Settings, X, EyeOff, Smartphone, Lock, Check, Download, Trash2, Loader2, Bell } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { ModalPortal } from "@/components/ModalPortal";
 import { useMyPlan } from "@/lib/plans";
 import { supabase } from "@/lib/supabase";
 import { useDiscreet } from "@/lib/discreet";
+import { usePush } from "@/lib/push";
 import { useAuth } from "@/context/AuthContext";
 
 // evento do navegador que permite oferecer a instalação na tela inicial
@@ -20,6 +21,7 @@ export function PreferencesButton() {
   const [instalar, setInstalar] = useState<PromptInstalacao | null>(null);
   const [instalado, setInstalado] = useState(false);
   const { signOut } = useAuth();
+  const push = usePush();
   const [excluindo, setExcluindo] = useState(false);
 
   async function excluirConta() {
@@ -95,6 +97,32 @@ export function PreferencesButton() {
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     Já instalou na tela inicial? Remova e instale de novo para o ícone neutro valer.
                   </p>
+                )}
+              </section>
+
+              {/* Avisos */}
+              <section className="mt-3 rounded-2xl border border-border p-4">
+                <p className="flex items-center gap-2 font-semibold"><Bell className="size-4" /> Avisos no celular</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Receba chamados novos, propostas e respostas mesmo com o app fechado.
+                  No modo discreto o aviso aparece como "Agenda".
+                </p>
+                {!push.suportado ? (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Seu navegador não aceita avisos. No iPhone, instale o app na tela inicial primeiro.
+                  </p>
+                ) : !push.configurado ? (
+                  <p className="mt-3 text-xs text-muted-foreground">Em breve.</p>
+                ) : (
+                  <Button variant="secondary" className="mt-3 w-full" disabled={push.ocupado}
+                    onClick={async () => {
+                      if (push.inscrito) { await push.desativar(); toast.success("Avisos desligados neste aparelho."); return; }
+                      const erro = await push.ativar();
+                      if (erro) toast.error(erro); else toast.success("Pronto! Você receberá avisos neste aparelho.");
+                    }}>
+                    {push.ocupado ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Bell className="mr-2 size-4" />}
+                    {push.inscrito ? "Desligar avisos neste aparelho" : "Ativar avisos"}
+                  </Button>
                 )}
               </section>
 
