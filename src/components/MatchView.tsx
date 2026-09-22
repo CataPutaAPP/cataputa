@@ -13,6 +13,8 @@ import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
 import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "@/lib/service-options";
 import { brl } from "@/lib/fees";
+import { ReportButton } from "@/components/ReportButton";
+import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import type { Profile } from "@/context/AuthContext";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -66,6 +68,8 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   const [loading, setLoading] = useState<string | null>(null);
   const [showRating, setShowRating] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const { counts: unread } = useUnreadChats(userId);
   const [myRating, setMyRating] = useState(0);
   const [myComment, setMyComment] = useState("");
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
@@ -324,6 +328,17 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           done={isDone} time={service.completed_at} />
       </div>
 
+      {/* Chat do atendimento */}
+      {service.accepted_proposal_id && (
+        <Button variant="secondary" className="mb-5 h-11 w-full" onClick={() => setChatOpen(true)}>
+          <MessageCircle className="mr-2 size-4" /> Conversar com {otherName}
+          {unread[service.accepted_proposal_id] ? <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread[service.accepted_proposal_id]}</span> : null}
+        </Button>
+      )}
+      {chatOpen && service.accepted_proposal_id && (
+        <ChatPanel proposalId={service.accepted_proposal_id} onClose={() => setChatOpen(false)} />
+      )}
+
       {/* Ponto de encontro */}
       {service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
         <div className="mb-5 rounded-2xl border border-border bg-card p-4">
@@ -449,6 +464,11 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
             onClick={() => setShowCancel(true)}>
             <X className="mr-2 size-4" /> Cancelar serviço
           </Button>
+        )}
+        {otherId && (
+          <div className="flex justify-center">
+            <ReportButton reportedId={otherId} requestId={service.id} />
+          </div>
         )}
       </div>
     </div>

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/lib/supabase";
 import { brl } from "@/lib/fees";
 import { useMyPlan } from "@/lib/plans";
+import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import type { UserRole } from "@/types";
 
 interface Plan { id: string; code: string; name: string; description: string | null; price_month: number; sort_order: number }
@@ -27,6 +28,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
   const [values, setValues] = useState<PlanFeature[]>([]);
   const [code, setCode] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [checkout, setCheckout] = useState<CheckoutItem | null>(null);
   const { plan: my, refresh } = useMyPlan(open);
 
   useEffect(() => {
@@ -81,8 +83,10 @@ export function PlansButton({ audience }: { audience: UserRole }) {
             {my && !my.is_beta && (
               <p className="mb-4 text-xs text-muted-foreground">
                 Seu plano: <b className="text-foreground">{my.plan_name}</b>
-                {my.expires_at && ` · até ${new Date(my.expires_at).toLocaleDateString("pt-BR")}`}
-                {audience === "cliente" && ` · ${my.credits.chamado} crédito(s) de chamado`}
+                {my.expires_at && ` · válido até ${new Date(my.expires_at).toLocaleDateString("pt-BR")}`}
+                {my.expires_at && (new Date(my.expires_at).getTime() - Date.now()) < 3 * 864e5 && (
+                  <span className="ml-1 font-semibold text-yellow-400">· vence em breve, renove para não perder os recursos</span>
+                )}
               </p>
             )}
 
@@ -111,9 +115,10 @@ export function PlansButton({ audience }: { audience: UserRole }) {
                           </li>
                         ))}
                       </ul>
-                      {Number(p.price_month) > 0 && !current && (
-                        <Button className="mt-3 h-9 w-full" disabled={!my?.billing_enabled}>
-                          {my?.billing_enabled ? `Assinar ${p.name}` : "Assinatura disponível em breve"}
+                      {Number(p.price_month) > 0 && (
+                        <Button className="mt-3 h-9 w-full" disabled={!my?.can_buy}
+                          onClick={() => setCheckout({ type: "plano", code: p.code, name: `Plano ${p.name}`, price: Number(p.price_month) })}>
+                          {!my?.can_buy ? "Assinatura disponível em breve" : current && my?.source === "gateway" ? "Renovar +30 dias" : `Assinar ${p.name}`}
                         </Button>
                       )}
                     </article>
@@ -133,6 +138,10 @@ export function PlansButton({ audience }: { audience: UserRole }) {
             </div>
           </div>
         </div>
+      )}
+      {checkout && (
+        <CheckoutSheet item={checkout} cardBlocked={!!my?.card_blocked} isAdmin={!!my?.is_admin}
+          onClose={() => setCheckout(null)} onPaid={() => refresh()} />
       )}
     </>
   );

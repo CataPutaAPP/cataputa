@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { useMyPlan, featureLimit } from "@/lib/plans";
+import { ReportButton } from "@/components/ReportButton";
 import { serviceFlags, getSubLabel, type ServiceType } from "@/lib/service-options";
 import type { Profile } from "@/context/AuthContext";
 
@@ -74,7 +75,10 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between bg-background/90 px-4 py-3 backdrop-blur-md">
           <h2 className="text-lg font-semibold">Perfil</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>
+          <div className="flex items-center gap-1">
+            <ReportButton reportedId={providerId} />
+            <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>
+          </div>
         </div>
 
         {/* Photo gallery */}
