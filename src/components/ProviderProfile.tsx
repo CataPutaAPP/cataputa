@@ -38,6 +38,8 @@ interface PhotoUploadProps {
 /* ─── Public: View a provider's profile (for clients) ──────────────── */
 
 export function ProviderProfileView({ providerId, onClose }: ProviderProfileViewProps) {
+  // conta a visita (1 por pessoa por dia) — alimenta as estatísticas do prestador
+  useEffect(() => { supabase.rpc("log_profile_view", { p_provider_id: providerId }); }, [providerId]);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [photos, setPhotos] = useState<ProviderPhoto[]>([]);
   const [currentPhoto, setCurrentPhoto] = useState(0);
