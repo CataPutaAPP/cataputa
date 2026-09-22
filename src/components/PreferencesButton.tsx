@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Settings, X, EyeOff, Smartphone, Lock, Check, Download } from "lucide-react";
+import { Settings, X, EyeOff, Smartphone, Lock, Check, Download, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { ModalPortal } from "@/components/ModalPortal";
 import { useMyPlan } from "@/lib/plans";
+import { supabase } from "@/lib/supabase";
 import { useDiscreet } from "@/lib/discreet";
+import { useAuth } from "@/context/AuthContext";
 
 // evento do navegador que permite oferecer a instalação na tela inicial
 interface PromptInstalacao extends Event { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
@@ -17,6 +19,23 @@ export function PreferencesButton() {
   const { ligado, alternar } = useDiscreet(liberado);
   const [instalar, setInstalar] = useState<PromptInstalacao | null>(null);
   const [instalado, setInstalado] = useState(false);
+  const { signOut } = useAuth();
+  const [excluindo, setExcluindo] = useState(false);
+
+  async function excluirConta() {
+    const confirmacao = window.prompt(
+      "Isto apaga sua conta, fotos, anúncios, conversas e histórico. Não dá para desfazer.\n\nPara confirmar, escreva EXCLUIR:",
+    );
+    if (confirmacao?.trim().toUpperCase() !== "EXCLUIR") return;
+    const motivo = window.prompt("Se quiser, conte por que está saindo (opcional):") || null;
+    setExcluindo(true);
+    const { error } = await supabase.rpc("delete_my_account", { p_reason: motivo });
+    setExcluindo(false);
+    if (error) return toast.error(error.message);
+    toast.success("Conta excluída. Até logo.");
+    signOut();
+    window.location.href = "/";
+  }
 
   useEffect(() => {
     const aoPoderInstalar = (e: Event) => { e.preventDefault(); setInstalar(e as PromptInstalacao); };
@@ -87,6 +106,20 @@ export function PreferencesButton() {
                 </p>
                 <Button variant="secondary" className="mt-3 w-full" disabled={instalado} onClick={instalarApp}>
                   <Download className="mr-2 size-4" /> {instalado ? "Já instalado" : "Instalar"}
+                </Button>
+              </section>
+
+              {/* Excluir conta */}
+              <section className="mt-3 rounded-2xl border border-destructive/30 p-4">
+                <p className="flex items-center gap-2 font-semibold text-destructive"><Trash2 className="size-4" /> Excluir minha conta</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  Apaga perfil, fotos, anúncios, conversas e histórico. Guardamos apenas o registro de que
+                  a verificação de idade foi feita, por 5 anos, como exige a lei. Não dá para desfazer.
+                </p>
+                <Button variant="ghost" className="mt-3 w-full text-destructive hover:bg-destructive/10"
+                  disabled={excluindo} onClick={excluirConta}>
+                  {excluindo ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Trash2 className="mr-2 size-4" />}
+                  Excluir conta
                 </Button>
               </section>
             </div>
