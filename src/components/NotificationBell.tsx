@@ -3,6 +3,8 @@ import { Bell, Check, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
+import { useRealtime } from "@/lib/realtime";
+import { playNotificationSound } from "@/lib/notifications";
 import { useAuth } from "@/context/AuthContext";
 
 type Notificacao = {
@@ -55,12 +57,15 @@ export function NotificationBell() {
     if (data) setItens(data as Notificacao[]);
   }, [user]);
 
-  useEffect(() => {
-    if (!user) return;
-    buscar();
-    const t = setInterval(buscar, 20000);
-    return () => clearInterval(t);
-  }, [user, buscar]);
+  useEffect(() => { if (user) buscar(); }, [user, buscar]);
+
+  // chega na hora, com som — a consulta de segurança fica a cada 60s
+  useRealtime(
+    `sino-${user?.id ?? "anon"}`,
+    [{ table: "notifications", event: "INSERT", filter: `user_id=eq.${user?.id}` }],
+    () => { buscar(); playNotificationSound("proposal"); },
+    { enabled: !!user },
+  );
 
   // Fecha ao tocar fora
   useEffect(() => {
