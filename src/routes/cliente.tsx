@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell, DollarSign,
+  Loader2, Star, Home, Users, Clock, Inbox, Bell, DollarSign, Car, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +10,7 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
 import { MatchView, type ActiveService } from "@/components/MatchView";
 import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderProfile";
+import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -17,8 +18,9 @@ import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
 import {
   type ServiceType, type LocalOption, serviceSubTypes, serviceFlags,
-  genderOptions, radiusOptions, localOptions, getSubLabel,
+  genderOptions, radiusOptions, localOptions, getSubLabel, getLocalLabel, isCarro,
 } from "@/lib/service-options";
+import { brl, type ProposalQuote } from "@/lib/fees";
 
 export const Route = createFileRoute("/cliente")({
   head: () => ({
@@ -38,6 +40,9 @@ interface DBRequest {
   gender_pref: string[];
   local_option: LocalOption;
   status: string;
+  lat: number;
+  lng: number;
+  room_booking_id: string | null;
   created_at: string;
 }
 
@@ -63,7 +68,7 @@ interface DBProposal {
 function ClienteContent() {
   const { user, updateLocation } = useAuth();
   const [coords, setCoords] = useState<MapCoords | null>(null);
-  const [view, setView] = useState<"map" | "request" | "proposals" | "match">("map");
+  const [view, setView] = useState<"map" | "request" | "proposals" | "match" | "payment" | "room">("map");
   const [radius, setRadius] = useState(10);
 
   const [myRequests, setMyRequests] = useState<DBRequest[]>([]);
@@ -73,6 +78,10 @@ function ClienteContent() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [viewingProfileId, setViewingProfileId] = useState<string | null>(null);
   const [payingProposal, setPayingProposal] = useState<DBProposal | null>(null);
+  const [quote, setQuote] = useState<ProposalQuote | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
+  const [pickingRoomFor, setPickingRoomFor] = useState<DBProposal | null>(null);
+  const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
   const prevProposalCount = useRef(0);
 
   const [activeService, setActiveService] = useState<ActiveService | null>(null);
@@ -190,6 +199,8 @@ function ClienteContent() {
   useEffect(() => { setSubType(""); setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [serviceType]);
   useEffect(() => { setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [subType]);
   useEffect(() => { setSelectedGenders([]); }, [localChoice]);
+  // "No carro": local é sempre 'carro' — ponto de encontro = localização do prestador
+  useEffect(() => { if (isCarro(subType)) setLocalChoice("carro"); }, [subType]);
 
   function toggleArr(arr: string[], set: (v: string[]) => void, val: string) {
     set(arr.includes(val) ? arr.filter((v) => v !== val) : [...arr, val]);
@@ -221,13 +232,42 @@ function ClienteContent() {
     resetForm(); setView("map"); fetchMyRequests();
   }
 
+  const selectedRequest = myRequests.find((r) => r.id === selectedRequestId) ?? null;
+
+  async function openPayment(proposal: DBProposal) {
+    setPayingProposal(proposal);
+    setQuote(null);
+    setView("payment" as any);
+    setLoadingQuote(true);
+    const { data, error } = await supabase.rpc("quote_proposal", { p_proposal_id: proposal.id });
+    setLoadingQuote(false);
+    if (error || !data) {
+      console.error("quote_proposal", error);
+      toast.error("Não foi possível calcular o valor. Tente novamente.");
+      setPayingProposal(null); setView("proposals");
+      return;
+    }
+    setQuote(data as ProposalQuote);
+  }
+
   async function handleAcceptProposal(proposalId: string) {
-    // Find the proposal to get the price
     const proposal = proposals.find(p => p.id === proposalId);
     if (!proposal) return;
-    // Show payment screen instead of accepting directly
-    setPayingProposal(proposal);
-    setView("payment" as any);
+    // Parceiro: é obrigatório escolher o quarto ANTES de pagar
+    if (proposal.local_option === "parceiro") {
+      setPickingRoomFor(proposal);
+      setView("room" as any);
+      return;
+    }
+    openPayment(proposal);
+  }
+
+  function handleRoomBooked(room: NearbyRoom) {
+    setBookedRoom(room);
+    const proposal = pickingRoomFor;
+    setPickingRoomFor(null);
+    fetchMyRequests();
+    if (proposal) openPayment(proposal);
   }
 
   async function handlePaymentConfirmed() {
@@ -240,6 +280,8 @@ function ClienteContent() {
     playNotificationSound("accepted");
     toast.success("Pagamento confirmado! O prestador foi notificado.");
     setPayingProposal(null);
+    setQuote(null);
+    setBookedRoom(null);
     if (selectedRequestId) fetchProposals(selectedRequestId);
     fetchMyRequests();
     await fetchActiveService();
@@ -251,6 +293,7 @@ function ClienteContent() {
       case "aberta": return { text: "Aberta", cls: "" };
       case "com_propostas": return { text: "Com propostas!", cls: "bg-primary/20 text-primary animate-pulse" };
       case "aceita": return { text: "Aceita", cls: "bg-green-500/20 text-green-400" };
+      case "a_caminho": return { text: "A caminho", cls: "bg-green-500/20 text-green-400" };
       case "em_andamento": return { text: "Em andamento", cls: "bg-yellow-500/20 text-yellow-400" };
       default: return { text: s, cls: "" };
     }
@@ -292,7 +335,7 @@ function ClienteContent() {
                     {r.status === "com_propostas" && <Bell className="mr-1 inline size-3" />}{st.text}
                   </Badge>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{r.gender_pref.join(", ")} · {r.local_option === "local_atendente" ? "Local do atendente" : "Parceiro"}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{r.gender_pref.join(", ")} · {getLocalLabel(r.local_option)}</p>
                 <p className="mt-1.5 text-xs font-medium text-primary">Toque para ver propostas →</p>
               </button>
             );
@@ -339,12 +382,17 @@ function ClienteContent() {
                       <p className="text-xl font-bold text-primary">R$ {Number(p.client_price).toFixed(2)}</p>
                     </div>
                     <ProviderPhotoStrip providerId={p.provider_id} onClick={() => setViewingProfileId(p.provider_id)} />
+                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      {p.local_option === "parceiro" ? <Building2 className="size-3.5" /> : p.local_option === "carro" ? <Car className="size-3.5" /> : <Home className="size-3.5" />}
+                      <span>{getLocalLabel(p.local_option)}</span>
+                      {p.local_option === "parceiro" && <span className="text-[10px]">· quarto escolhido por você, somado ao total</span>}
+                    </div>
                     {p.message && <p className="mt-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground italic">"{p.message}"</p>}
                     <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}</p>
                     {p.status === "pendente" && (
                       <Button className="mt-3 h-10 w-full" disabled={acceptingId === p.id} onClick={() => handleAcceptProposal(p.id)}>
                         {acceptingId === p.id ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
-                        {acceptingId === p.id ? "Processando..." : `Pagar R$ ${Number(p.client_price).toFixed(2)}`}
+                        {acceptingId === p.id ? "Processando..." : p.local_option === "parceiro" ? "Escolher quarto e pagar" : `Pagar ${brl(p.client_price)}`}
                       </Button>
                     )}
                     {accepted && <div className="mt-3 rounded-lg bg-green-500/10 p-2.5 text-center text-sm font-medium text-green-400">✓ Proposta aceita</div>}
@@ -403,8 +451,9 @@ function ClienteContent() {
             <Field label="Tipo de serviço"><div className="flex gap-2">{(["massagem", "acompanhante"] as ServiceType[]).map((t) => (<Chip key={t} active={serviceType === t} onClick={() => setServiceType(t)} className="capitalize">{t}</Chip>))}</div></Field>
             {serviceType && (<Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}><div className="flex flex-wrap gap-2">{serviceSubTypes[serviceType].map((s) => (<Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>))}</div></Field>)}
             {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{serviceFlags.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
-            {flagsComplete && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => { const active = localChoice === opt.value; const Icon = opt.value === "local_atendente" ? Home : Users; return (<button key={opt.value} onClick={() => setLocalChoice(opt.value)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}><div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div><div className="flex-1"><p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p><p className="text-xs text-muted-foreground">{opt.desc}</p></div>{active && <Check className="size-5 text-primary" />}</button>); })}</div></Field>)}
-            {localChoice && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{genderOptions.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
+            {flagsComplete && isCarro(subType) && (<Field label="Local do atendimento"><div className="flex items-center gap-3 rounded-xl border border-primary bg-primary/10 p-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Car className="size-5" /></div><div className="flex-1"><p className="text-sm font-medium text-primary">No carro</p><p className="text-xs text-muted-foreground">O ponto de encontro é a localização do prestador</p></div><Check className="size-5 text-primary" /></div></Field>)}
+            {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => { const active = localChoice === opt.value; const Icon = opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users; return (<button key={opt.value} onClick={() => setLocalChoice(opt.value)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}><div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div><div className="flex-1"><p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p><p className="text-xs text-muted-foreground">{opt.desc}</p></div>{active && <Check className="size-5 text-primary" />}</button>); })}</div></Field>)}
+            {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{genderOptions.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
             {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
           </div>
         </div>
@@ -415,21 +464,38 @@ function ClienteContent() {
           <div className="mx-auto max-w-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Pagamento</h2>
-              <Button variant="ghost" size="icon" onClick={() => { setPayingProposal(null); setView("proposals"); }}>
+              <Button variant="ghost" size="icon" onClick={() => { setPayingProposal(null); setQuote(null); setView("proposals"); }}>
                 <X className="size-5" />
               </Button>
             </div>
 
-            {/* Resumo */}
+            {/* Resumo — cliente vê atendimento (já com taxa) + quarto, nunca o split */}
             <div className="mb-5 rounded-2xl border border-border bg-card p-5">
-              <p className="text-sm text-muted-foreground">Valor total</p>
-              <p className="mt-1 text-3xl font-bold text-primary">
-                R$ {Number(payingProposal.client_price).toFixed(2)}
-              </p>
-              <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                <p>Prestador: {payingProposal.provider?.full_name ?? "—"}</p>
-                <p>Serviço: {selectedRequestId ? "Acompanhante" : "Serviço"}</p>
-              </div>
+              {loadingQuote || !quote ? (
+                <div className="flex justify-center py-6"><Loader2 className="size-6 animate-spin text-primary" /></div>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Valor total</p>
+                  <p className="mt-1 text-3xl font-bold text-primary">{brl(quote.client_total)}</p>
+                  <div className="mt-4 space-y-1.5 border-t border-border pt-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Atendimento</span>
+                      <span>{brl(Number(quote.service_price) + Number(quote.client_fee))}</span>
+                    </div>
+                    {Number(quote.room_price) > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Quarto{bookedRoom ? ` · ${bookedRoom.room_name}` : ""}</span>
+                        <span>{brl(quote.room_price)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                    <p>Prestador: {payingProposal.provider?.full_name ?? "—"}</p>
+                    {selectedRequest && <p>Serviço: {getSubLabel(selectedRequest.service_type, selectedRequest.sub_type)} · {getLocalLabel(payingProposal.local_option)}</p>}
+                    {bookedRoom && <p>Local: {bookedRoom.partner_name ?? "Parceiro"}{bookedRoom.local_address ? ` — ${bookedRoom.local_address}` : ""}</p>}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* PIX info */}
@@ -439,8 +505,8 @@ function ClienteContent() {
               </div>
               <p className="text-sm font-semibold text-yellow-400">Pagamento via PIX</p>
               <p className="mt-2 text-xs text-muted-foreground">
-                O valor fica retido (escrow) até o serviço ser concluído.
-                Se cancelar antes do início, reembolso total.
+                O valor fica retido até o serviço ser concluído.
+                Se o prestador cancelar, reembolso total. Se você cancelar antes do início, reembolso de 60%.
               </p>
             </div>
 
@@ -455,19 +521,30 @@ function ClienteContent() {
 
             <Button
               className="h-14 w-full bg-green-600 text-base text-white hover:bg-green-700"
-              disabled={!!acceptingId}
+              disabled={!!acceptingId || !quote}
               onClick={handlePaymentConfirmed}
             >
               {acceptingId ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Check className="mr-2 size-5" />}
-              {acceptingId ? "Processando..." : `Confirmar pagamento · R$ ${Number(payingProposal.client_price).toFixed(2)}`}
+              {acceptingId ? "Processando..." : `Confirmar pagamento · ${brl(quote?.client_total ?? 0)}`}
             </Button>
 
             <Button variant="ghost" className="mt-2 h-10 w-full text-sm text-muted-foreground"
-              onClick={() => { setPayingProposal(null); setView("proposals"); }}>
+              onClick={() => { setPayingProposal(null); setQuote(null); setView("proposals"); }}>
               Voltar às propostas
             </Button>
           </div>
         </div>
+      )}
+
+      {/* ── Escolha de quarto (parceiro) ───────────────────────── */}
+      {(view as string) === "room" && pickingRoomFor && selectedRequest && (
+        <RoomPicker
+          requestId={selectedRequest.id}
+          lat={selectedRequest.lat}
+          lng={selectedRequest.lng}
+          onClose={() => { setPickingRoomFor(null); setView("proposals"); }}
+          onBooked={handleRoomBooked}
+        />
       )}
 
       {/* Provider profile overlay */}

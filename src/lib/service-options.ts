@@ -1,7 +1,7 @@
 /* ─── Shared service options (cliente + prestador) ──────────────────── */
 
 export type ServiceType = "massagem" | "acompanhante";
-export type LocalOption = "local_atendente" | "parceiro";
+export type LocalOption = "local_atendente" | "parceiro" | "local_cliente" | "carro";
 
 export const serviceSubTypes: Record<ServiceType, { value: string; label: string }[]> = {
   massagem: [
@@ -50,10 +50,33 @@ export const radiusOptions = [
   { value: 10, label: "10 km" },
 ];
 
+/** Opções que o CLIENTE escolhe ao abrir um chamado */
 export const localOptions: { value: LocalOption; label: string; desc: string }[] = [
-  { value: "local_atendente", label: "Atendente tem local", desc: "O atendimento será no local do prestador" },
-  { value: "parceiro", label: "Usar parceiro", desc: "Um parceiro fornecerá o local de atendimento" },
+  { value: "local_cliente", label: "Tenho local", desc: "O prestador vem até você" },
+  { value: "local_atendente", label: "No local do prestador", desc: "Você vai até o prestador" },
+  { value: "parceiro", label: "Usar parceiro", desc: "Você escolhe um quarto de parceiro antes de pagar" },
 ];
+
+/** Opções que o PRESTADOR escolhe ao propor ou ofertar */
+export const providerLocalOptions: { value: LocalOption; label: string }[] = [
+  { value: "local_atendente", label: "Tenho local" },
+  { value: "local_cliente", label: "Vou até o cliente" },
+  { value: "parceiro", label: "Parceiro" },
+];
+
+/** Subtipo "no carro": local é sempre 'carro' e o ponto é a localização do prestador */
+export const CARRO_SUBTYPE = "no_carro";
+export const isCarro = (subType?: string | null) => subType === CARRO_SUBTYPE;
+
+export function getLocalLabel(v: LocalOption | string | null | undefined, perspective: "cliente" | "prestador" = "cliente"): string {
+  switch (v) {
+    case "local_atendente": return perspective === "cliente" ? "Local do prestador" : "Meu local";
+    case "local_cliente": return perspective === "cliente" ? "Meu local" : "Local do cliente";
+    case "parceiro": return "Parceiro";
+    case "carro": return "No carro";
+    default: return "—";
+  }
+}
 
 export function getSubLabel(type: ServiceType, sub: string): string {
   return serviceSubTypes[type]?.find((x) => x.value === sub)?.label ?? sub;

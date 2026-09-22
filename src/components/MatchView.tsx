@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
-import { getSubLabel, type ServiceType, type LocalOption } from "@/lib/service-options";
+import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "@/lib/service-options";
+import { netAfterFee, brl } from "@/lib/fees";
 import type { Profile } from "@/context/AuthContext";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -27,6 +28,8 @@ export interface ActiveService {
   lng: number;
   meeting_lat: number | null;
   meeting_lng: number | null;
+  provider_fee_pct?: number | null;
+  room_booking_id?: string | null;
   client_id: string;
   accepted_provider_id: string | null;
   accepted_proposal_id: string | null;
@@ -119,6 +122,23 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
     onRefresh();
     return true;
   }, [onRefresh]);
+
+  // ─── Ponto de encontro (carro / local do prestador) ───
+  const providerSetsPoint = ["carro", "local_atendente"].includes(service.local_option);
+  function handleSendMyLocation() {
+    if (!navigator.geolocation) return toast.error("Geolocalização não disponível.");
+    setLoading("set_meeting_point");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        setLoading(null);
+        await callRpc("set_meeting_point", {
+          p_request_id: service.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude,
+        }, "Ponto de encontro enviado ao cliente!");
+      },
+      () => { setLoading(null); toast.error("Não foi possível obter sua localização."); },
+      { enableHighAccuracy: true },
+    );
+  }
 
   // ─── Provider actions ───
   async function handleEnRoute() {
@@ -271,9 +291,9 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           </div>
           <div className="text-right">
             <p className="text-lg font-bold text-primary">
-              R$ {isClient
-                ? Number(service.proposal?.client_price ?? 0).toFixed(2)
-                : Number((service.proposal?.price ?? 0) * 0.93).toFixed(2)
+              {isClient
+                ? brl(service.proposal?.client_price ?? 0)
+                : brl(netAfterFee(Number(service.proposal?.price ?? 0), Number(service.provider_fee_pct ?? 7)))
               }
             </p>
             <p className="text-[10px] text-muted-foreground">
@@ -284,7 +304,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
 
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant="secondary">{getSubLabel(service.service_type, service.sub_type)}</Badge>
-          <Badge variant="secondary">{service.local_option === "local_atendente" ? "Local do atendente" : "Parceiro"}</Badge>
+          <Badge variant="secondary">{getLocalLabel(service.local_option, isClient ? "cliente" : "prestador")}</Badge>
         </div>
       </div>
 
@@ -306,6 +326,30 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         <StatusStep icon={<Square />} label={isDone ? "Concluído" : "Aguardando conclusão"}
           done={isDone} time={service.completed_at} />
       </div>
+
+      {/* Ponto de encontro */}
+      {service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
+        <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
+          {service.meeting_lat && service.meeting_lng ? (
+            <a className="mt-2 block text-sm font-medium text-primary underline"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${service.meeting_lat},${service.meeting_lng}`}
+              target="_blank" rel="noreferrer">
+              Abrir rota no Google Maps →
+            </a>
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isClient && providerSetsPoint ? "O prestador vai enviar a localização exata." : "Ponto ainda não definido."}
+            </p>
+          )}
+          {isProvider && providerSetsPoint && (
+            <Button variant="secondary" size="sm" className="mt-3 w-full" disabled={loading === "set_meeting_point"} onClick={handleSendMyLocation}>
+              {loading === "set_meeting_point" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Navigation className="mr-2 size-4" />}
+              {service.meeting_lat ? "Atualizar com minha localização atual" : "Enviar minha localização como ponto"}
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Timer (em andamento) */}
       {service.status === "em_andamento" && (

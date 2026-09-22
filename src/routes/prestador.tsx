@@ -17,6 +17,7 @@ import {
   MapPin,
   Sparkles,
   Send,
+  Car,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,9 +40,12 @@ import {
   serviceFlags,
   genderOptions,
   radiusOptions,
-  localOptions,
+  providerLocalOptions,
   getSubLabel,
+  getLocalLabel,
+  isCarro,
 } from "@/lib/service-options";
+import { useProviderFeePct, netAfterFee, brl } from "@/lib/fees";
 
 export const Route = createFileRoute("/prestador")({
   head: () => ({
@@ -126,6 +130,16 @@ function PrestadorContent() {
   const [offerLocal, setOfferLocal] = useState<LocalOption>("local_atendente");
   const [offerDesc, setOfferDesc] = useState("");
   const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  // Taxa da plataforma conforme a nota do prestador (5 / 7 / 10%)
+  const { pct: feePct } = useProviderFeePct(user?.id);
+
+  // Proposta começa com o local que o cliente pediu; "no carro" é fixo
+  useEffect(() => {
+    if (!selectedRequest) return;
+    setProposalLocal(isCarro(selectedRequest.sub_type) ? "carro" : selectedRequest.local_option);
+  }, [selectedRequest]);
+  useEffect(() => { if (isCarro(offerSubType)) setOfferLocal("carro"); else if (offerLocal === "carro") setOfferLocal("local_atendente"); }, [offerSubType]);
 
   const handleCoordsChange = useCallback((c: MapCoords) => {
     setCoords(c);
@@ -273,7 +287,7 @@ function PrestadorContent() {
       return;
     }
 
-    toast.success(`Proposta enviada! Você recebe R$ ${(price * 0.93).toFixed(2)} se aceita.`);
+    toast.success(`Proposta enviada! Você recebe ${brl(netAfterFee(price, feePct))} se aceita.`);
     setProposalPrice("");
     setProposalMessage("");
     setSelectedRequest(null);
@@ -315,7 +329,7 @@ function PrestadorContent() {
       return;
     }
 
-    toast.success(`Oferta publicada! Você recebe R$ ${(price * 0.93).toFixed(2)} por atendimento.`);
+    toast.success(`Oferta publicada! Você recebe ${brl(netAfterFee(price, feePct))} por atendimento.`);
     setOfferType("");
     setOfferSubType("");
     setOfferFlags([]);
@@ -326,7 +340,7 @@ function PrestadorContent() {
 
   const providerNet = (val: string) => {
     const n = parseFloat(val.replace(",", "."));
-    return isNaN(n) || n <= 0 ? null : (n * 0.93).toFixed(2);
+    return isNaN(n) || n <= 0 ? null : netAfterFee(n, feePct).toFixed(2);
   };
 
   return (
@@ -403,7 +417,7 @@ function PrestadorContent() {
                     {p.status === "pendente" ? "Aguardando cliente" : isAccepted ? "Paga! Toque →" : p.status}
                   </Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe R$ {(Number(p.price) * 0.93).toFixed(2)}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe {brl(netAfterFee(Number(p.price), feePct))}</p>
               </div>
             );
           })}
@@ -419,7 +433,7 @@ function PrestadorContent() {
                 <span className="text-xs text-muted-foreground">{r.distance_km} km</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                {r.gender_pref.join(", ")} · {r.local_option === "local_atendente" ? "Local do atendente" : "Parceiro"}
+                {r.gender_pref.join(", ")} · {getLocalLabel(isCarro(r.sub_type) ? "carro" : r.local_option, "prestador")}
               </p>
               <p className="mt-1 text-xs font-medium text-primary">Toque para enviar proposta →</p>
             </button>
@@ -468,7 +482,7 @@ function PrestadorContent() {
 
             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
               <span>Gênero: {selectedRequest.gender_pref.join(", ")}</span>
-              <span>Local: {selectedRequest.local_option === "local_atendente" ? "Atendente" : "Parceiro"}</span>
+              <span>Local pedido: {getLocalLabel(isCarro(selectedRequest.sub_type) ? "carro" : selectedRequest.local_option, "prestador")}</span>
             </div>
             <p className="text-xs text-muted-foreground">
               <Clock className="mr-1 inline size-3" />
@@ -491,28 +505,38 @@ function PrestadorContent() {
               {providerNet(proposalPrice) && (
                 <p className="text-xs text-muted-foreground">
                   Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(proposalPrice)}</span>
-                  <span className="ml-1">(após comissão da plataforma)</span>
+                  <span className="ml-1">(taxa de {feePct}% pela sua nota)</span>
                 </p>
               )}
+              <p className="text-[11px] text-muted-foreground">
+                Inclua deslocamento e todos os custos — você recebe só o valor combinado, nada por fora.
+                {proposalLocal === "parceiro" && " O quarto do parceiro é pago pelo cliente."}
+              </p>
             </div>
 
             <div className="space-y-1.5">
               <Label>Local do atendimento</Label>
-              <div className="flex gap-2">
-                {localOptions.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setProposalLocal(opt.value)}
-                    className={`flex-1 rounded-xl border p-2.5 text-center text-xs font-medium transition-all ${
-                      proposalLocal === opt.value
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    {opt.value === "local_atendente" ? "Tenho local" : "Usar parceiro"}
-                  </button>
-                ))}
-              </div>
+              {isCarro(selectedRequest.sub_type) ? (
+                <div className="flex items-center gap-2 rounded-xl border border-primary bg-primary/10 p-3 text-xs text-primary">
+                  <Car className="size-4" /> No carro — o ponto de encontro é a sua localização
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {providerLocalOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setProposalLocal(opt.value)}
+                      className={`flex-1 rounded-xl border p-2.5 text-center text-xs font-medium transition-all ${
+                        proposalLocal === opt.value
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -594,7 +618,7 @@ function PrestadorContent() {
                 {providerNet(offerPrice) && (
                   <p className="mt-1.5 text-xs text-muted-foreground">
                     Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(offerPrice)}</span>
-                    <span className="ml-1">(após comissão)</span>
+                    <span className="ml-1">(taxa de {feePct}% pela sua nota)</span>
                   </p>
                 )}
               </Field>
@@ -603,13 +627,19 @@ function PrestadorContent() {
             {/* Local */}
             {offerSubType && (
               <Field label="Local">
-                <div className="flex gap-2">
-                  {localOptions.map((opt) => (
-                    <Chip key={opt.value} active={offerLocal === opt.value} onClick={() => setOfferLocal(opt.value)}>
-                      {opt.value === "local_atendente" ? "Tenho local" : "Parceiro"}
-                    </Chip>
-                  ))}
-                </div>
+                {isCarro(offerSubType) ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-primary bg-primary/10 p-3 text-xs text-primary">
+                    <Car className="size-4" /> No carro — o ponto de encontro é a sua localização
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    {providerLocalOptions.map((opt) => (
+                      <Chip key={opt.value} active={offerLocal === opt.value} onClick={() => setOfferLocal(opt.value)}>
+                        {opt.label}
+                      </Chip>
+                    ))}
+                  </div>
+                )}
               </Field>
             )}
 
