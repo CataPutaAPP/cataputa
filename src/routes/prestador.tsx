@@ -156,6 +156,42 @@ function PrestadorContent() {
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   // não deixa propor "Parceiro" onde não existe nenhum cadastrado
   const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
+  const [minhasOfertas, setMinhasOfertas] = useState<{ offer_id: string; service_type: string; sub_type: string; price: number; local_option: string; ativa: boolean }[]>([]);
+  const [acaoOferta, setAcaoOferta] = useState<string | null>(null);
+
+  const fetchMinhasOfertas = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.rpc("my_offers");
+    setMinhasOfertas((data as typeof minhasOfertas) ?? []);
+  }, [user]);
+  useEffect(() => { fetchMinhasOfertas(); }, [fetchMinhasOfertas]);
+
+  async function retirarProposta(id: string) {
+    if (!window.confirm("Retirar esta proposta? O cliente deixa de vê-la.")) return;
+    const { error } = await supabase.rpc("withdraw_proposal", { p_proposal_id: id });
+    if (error) return toast.error(error.message);
+    toast.success("Proposta retirada.");
+    fetchMyProposals();
+  }
+
+  async function pausarOferta(id: string, ativa: boolean) {
+    setAcaoOferta(id);
+    const { error } = await supabase.rpc("toggle_offer", { p_offer_id: id, p_active: !ativa });
+    setAcaoOferta(null);
+    if (error) return toast.error(error.message);
+    toast.success(ativa ? "Oferta pausada." : "Oferta reativada.");
+    fetchMinhasOfertas();
+  }
+
+  async function apagarOferta(id: string) {
+    if (!window.confirm("Apagar esta oferta? Não dá para desfazer.")) return;
+    setAcaoOferta(id);
+    const { error } = await supabase.rpc("delete_offer", { p_offer_id: id });
+    setAcaoOferta(null);
+    if (error) return toast.error(error.message);
+    toast.success("Oferta apagada.");
+    fetchMinhasOfertas();
+  }
   useEffect(() => {
     if (!coords) return;
     supabase.rpc("nearby_partner_rooms", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
@@ -498,6 +534,12 @@ function PrestadorContent() {
                 </div>
                 <div className="mt-1 flex items-center justify-between">
                   <p className="text-xs text-muted-foreground">Você recebe {brl(p.price)} integral</p>
+                  {p.status === "pendente" && (
+                    <button onClick={(e) => { e.stopPropagation(); retirarProposta(p.id); }}
+                      className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:border-destructive hover:text-destructive">
+                      Retirar
+                    </button>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); setChatProposalId(p.id); }}
                     className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-secondary">
                     <MessageCircle className="size-3.5" /> Chat
@@ -677,6 +719,34 @@ function PrestadorContent() {
           <div className="mb-5">
             <ProviderStats />
           </div>
+
+          {minhasOfertas.length > 0 && (
+            <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+              <p className="mb-2 font-semibold">Minhas ofertas publicadas</p>
+              <div className="space-y-2">
+                {minhasOfertas.map((o) => (
+                  <div key={o.offer_id} className={`flex items-center gap-2 rounded-xl border border-border p-2.5 ${o.ativa ? "" : "opacity-50"}`}>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {getSubLabel(o.service_type as ServiceType, o.sub_type)} · {brl(o.price)}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {getLocalLabel(o.local_option, "prestador")} · {o.ativa ? "no ar" : "pausada"}
+                      </p>
+                    </div>
+                    <Button size="sm" variant="secondary" className="h-8 px-2 text-xs" disabled={acaoOferta === o.offer_id}
+                      onClick={() => pausarOferta(o.offer_id, o.ativa)}>
+                      {o.ativa ? "Pausar" : "Reativar"}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 px-2 text-xs text-destructive" disabled={acaoOferta === o.offer_id}
+                      onClick={() => apagarOferta(o.offer_id)}>
+                      Apagar
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
 

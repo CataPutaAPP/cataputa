@@ -90,6 +90,18 @@ function ClienteContent() {
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   const [showOffers, setShowOffers] = useState(false);
   const [showRadar, setShowRadar] = useState(false);
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
+
+  async function cancelarChamado(id: string) {
+    if (!window.confirm("Cancelar este chamado? As propostas recebidas serão encerradas.")) return;
+    setCancelandoId(id);
+    const { error } = await supabase.rpc("cancel_request", { p_request_id: id, p_reason: null });
+    setCancelandoId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Chamado cancelado.");
+    if (selectedRequestId === id) { setSelectedRequestId(null); setView("map"); }
+    fetchMyRequests();
+  }
   const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
   useEffect(() => {
     if (!coords) return;
@@ -389,7 +401,17 @@ function ClienteContent() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{r.gender_pref.join(", ")} · {getLocalLabel(r.local_option)}</p>
-                <p className="mt-1.5 text-xs font-medium text-primary">Toque para ver propostas →</p>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <p className="text-xs font-medium text-primary">Toque para ver propostas →</p>
+                  {["aberta", "com_propostas"].includes(r.status) && (
+                    <span role="button" tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); cancelarChamado(r.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); cancelarChamado(r.id); } }}
+                      className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:border-destructive hover:text-destructive">
+                      {cancelandoId === r.id ? "Cancelando…" : "Cancelar"}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -400,6 +422,13 @@ function ClienteContent() {
         <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Propostas recebidas</h2>
+            {selectedRequest && ["aberta", "com_propostas"].includes(selectedRequest.status) && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive"
+                disabled={cancelandoId === selectedRequest.id}
+                onClick={() => cancelarChamado(selectedRequest.id)}>
+                Cancelar chamado
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); setSelectedRequestId(null); prevProposalCount.current = 0; }}><X className="size-5" /></Button>
           </div>
           {loadingProposals ? (
