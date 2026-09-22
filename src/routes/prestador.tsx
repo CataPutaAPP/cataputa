@@ -29,6 +29,7 @@ import { MatchView, type ActiveService } from "@/components/MatchView";
 import { PhotoManager } from "@/components/ProviderProfile";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
+import { ProviderStats } from "@/components/ProviderStats";
 import { useMyPlan } from "@/lib/plans";
 import { useRealtime } from "@/lib/realtime";
 import { Button } from "@/components/ui/button";
@@ -659,6 +660,10 @@ function PrestadorContent() {
               ? `Mínimo obrigatório: ${MIN_PHOTOS} fotos (você tem ${photoCount}).`
               : "Perfil completo — você já pode propor e ofertar."}
           </div>
+          <div className="mb-5">
+            <ProviderStats />
+          </div>
+
           <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
 
           {boostProduct && (
