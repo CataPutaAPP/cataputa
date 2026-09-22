@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CadastroRouteImport } from './routes/cadastro'
 import { Route as ClienteRouteImport } from './routes/cliente'
 import { Route as LoginRouteImport } from './routes/login'
@@ -19,6 +20,11 @@ import { Route as PrestadorRouteImport } from './routes/prestador'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CadastroRoute = CadastroRouteImport.update({
@@ -49,6 +55,7 @@ const PrestadorRoute = PrestadorRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/cadastro': typeof CadastroRoute
   '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
@@ -57,6 +64,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/cadastro': typeof CadastroRoute
   '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
@@ -66,6 +74,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/cadastro': typeof CadastroRoute
   '/cliente': typeof ClienteRoute
   '/login': typeof LoginRoute
@@ -75,12 +84,26 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/cadastro' | '/cliente' | '/login' | '/parceiro' | '/prestador'
+    | '/'
+    | '/admin'
+    | '/cadastro'
+    | '/cliente'
+    | '/login'
+    | '/parceiro'
+    | '/prestador'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/cadastro' | '/cliente' | '/login' | '/parceiro' | '/prestador'
+  to:
+    | '/'
+    | '/admin'
+    | '/cadastro'
+    | '/cliente'
+    | '/login'
+    | '/parceiro'
+    | '/prestador'
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/cadastro'
     | '/cliente'
     | '/login'
@@ -90,6 +113,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   CadastroRoute: typeof CadastroRoute
   ClienteRoute: typeof ClienteRoute
   LoginRoute: typeof LoginRoute
@@ -104,6 +128,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cadastro': {
@@ -146,6 +177,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   CadastroRoute: CadastroRoute,
   ClienteRoute: ClienteRoute,
   LoginRoute: LoginRoute,
