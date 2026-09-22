@@ -12,7 +12,7 @@ import type { UserRole } from "@/types";
 import { ModalPortal } from "@/components/ModalPortal";
 
 interface Plan { id: string; code: string; name: string; description: string | null; price_month: number; sort_order: number }
-interface Feature { feature: string; label: string; kind: "limite" | "recurso" }
+interface Feature { feature: string; label: string; kind: "limite" | "recurso"; sort_order?: number }
 interface PlanFeature { plan_id: string; feature: string; value: number }
 
 function fmtValue(kind: Feature["kind"], v: number | undefined) {
@@ -38,7 +38,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
       const [{ data: p }, { data: f }] = await Promise.all([
         supabase.from("plans").select("id, code, name, description, price_month, sort_order")
           .eq("audience", audience).eq("is_active", true).order("sort_order"),
-        supabase.from("feature_catalog").select("feature, label, kind").eq("audience", audience),
+        supabase.from("feature_catalog").select("feature, label, kind, sort_order").eq("audience", audience).order("sort_order").order("label"),
       ]);
       const list = (p as Plan[]) ?? [];
       setPlans(list); setFeatures((f as Feature[]) ?? []);
