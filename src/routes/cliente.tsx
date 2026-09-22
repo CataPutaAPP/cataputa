@@ -13,6 +13,7 @@ import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderPr
 import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { OffersSheet } from "@/components/OffersSheet";
+import { RadarSheet } from "@/components/RadarSheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -88,6 +89,7 @@ function ClienteContent() {
   const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   const [showOffers, setShowOffers] = useState(false);
+  const [showRadar, setShowRadar] = useState(false);
   const { counts: unread } = useUnreadChats(user?.id);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const providerKey = proposals.map((p) => p.provider_id).join(",");
@@ -352,6 +354,12 @@ function ClienteContent() {
           ))}
         </div>
         {coords && (
+          <button onClick={() => setShowRadar(true)} aria-label="Quem está online"
+            className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
+            <Radar className="size-4 text-primary" />
+          </button>
+        )}
+        {coords && (
           <button onClick={() => window.dispatchEvent(new CustomEvent("map:center"))} className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
             <Navigation className="size-4 text-primary" />
           </button>
@@ -581,6 +589,15 @@ function ClienteContent() {
           lng={selectedRequest.lng}
           onClose={() => { setPickingRoomFor(null); setView("proposals"); }}
           onBooked={handleRoomBooked}
+        />
+      )}
+
+      {showRadar && coords && (
+        <RadarSheet
+          lat={coords.lat} lng={coords.lng} radius={radius}
+          onClose={() => setShowRadar(false)}
+          onViewProfile={(id) => setViewingProfileId(id)}
+          onSeeOffers={() => { setShowRadar(false); setShowOffers(true); }}
         />
       )}
 

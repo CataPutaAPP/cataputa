@@ -111,6 +111,20 @@ function PrestadorContent() {
   const [radius, setRadius] = useState(10);
   const [available, setAvailable] = useState(true);
 
+  // "Online" agora fica salvo no banco e manda sinal de vida — é o que alimenta
+  // o radar do cliente. Sem sinal por alguns minutos, o perfil sai do radar.
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc("my_availability").then(({ data }) => { if (data != null) setAvailable(!!data); });
+  }, [user]);
+  useEffect(() => {
+    if (!user) return;
+    supabase.rpc("set_availability", { p_available: available });
+    if (!available) return;
+    const beat = setInterval(() => { supabase.rpc("set_availability", { p_available: true }); }, 120000);
+    return () => clearInterval(beat);
+  }, [user, available]);
+
   // Requests from clients
   const [requests, setRequests] = useState<NearbyRequest[]>([]);
   const [selectedRequest, setSelectedRequest] = useState<NearbyRequest | null>(null);
