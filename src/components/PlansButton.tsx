@@ -9,6 +9,7 @@ import { brl } from "@/lib/fees";
 import { useMyPlan } from "@/lib/plans";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import type { UserRole } from "@/types";
+import { ModalPortal } from "@/components/ModalPortal";
 
 interface Plan { id: string; code: string; name: string; description: string | null; price_month: number; sort_order: number }
 interface Feature { feature: string; label: string; kind: "limite" | "recurso" }
@@ -67,6 +68,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
         <Crown className="size-5 text-yellow-500" />
       </Button>
       {open && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center" onClick={() => setOpen(false)}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
@@ -138,6 +140,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
       {checkout && (
         <CheckoutSheet item={checkout} cardBlocked={!!my?.card_blocked} isAdmin={!!my?.is_admin}

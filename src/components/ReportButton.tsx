@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
+import { ModalPortal } from "@/components/ModalPortal";
 
 const reasons = [
   { value: "suspeita_menor", label: "Suspeita de menor de idade", hint: "O perfil é suspenso na hora até a análise." },
@@ -40,6 +41,7 @@ export function ReportButton({ reportedId, requestId, variant = "ghost", classNa
         <Flag className="mr-1.5 size-3.5" /> Denunciar
       </Button>
       {open && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center" onClick={() => setOpen(false)}>
           <div className="w-full max-w-md rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
@@ -62,6 +64,7 @@ export function ReportButton({ reportedId, requestId, variant = "ghost", classNa
             <p className="mt-2 text-center text-[10px] text-muted-foreground">Denúncias falsas podem levar à suspensão de quem denunciou.</p>
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );

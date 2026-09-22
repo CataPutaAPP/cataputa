@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ReportButton } from "@/components/ReportButton";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { ModalPortal } from "@/components/ModalPortal";
 
 interface ThreadInfo {
   proposal_id: string; request_id: string; other_id: string; other_name: string | null;
@@ -73,6 +74,7 @@ export function ChatPanel({ proposalId, onClose }: { proposalId: string; onClose
   const fmt = (d: string) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   return (
+    <ModalPortal>
     <div data-chat-open={proposalId} className="fixed inset-0 z-[65] flex flex-col bg-background">
       <div className="flex items-center justify-between border-b border-border px-4 py-3" style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" }}>
         <div className="min-w-0">
@@ -127,6 +129,7 @@ export function ChatPanel({ proposalId, onClose }: { proposalId: string; onClose
         )}
       </div>
     </div>
+    </ModalPortal>
   );
 }
 

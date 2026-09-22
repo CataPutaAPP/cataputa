@@ -3,6 +3,7 @@ import { HelpCircle, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import type { UserRole } from "@/types";
+import { ModalPortal } from "@/components/ModalPortal";
 
 interface HelpItem { id: string; title: string; body: string; sort_order: number }
 
@@ -28,6 +29,7 @@ export function HelpButton({ screen }: { screen: UserRole }) {
         <HelpCircle className="size-5" />
       </Button>
       {open && (
+        <ModalPortal>
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center" onClick={() => setOpen(false)}>
           <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-center justify-between">
@@ -50,6 +52,7 @@ export function HelpButton({ screen }: { screen: UserRole }) {
             )}
           </div>
         </div>
+        </ModalPortal>
       )}
     </>
   );
