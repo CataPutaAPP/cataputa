@@ -154,6 +154,13 @@ function PrestadorContent() {
   const [submittingOffer, setSubmittingOffer] = useState(false);
 
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  // não deixa propor "Parceiro" onde não existe nenhum cadastrado
+  const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
+  useEffect(() => {
+    if (!coords) return;
+    supabase.rpc("nearby_partner_rooms", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
+      .then(({ data }) => setQuartosPerto(((data as unknown[]) ?? []).length));
+  }, [coords, radius]);
   const [vips, setVips] = useState<Set<string>>(new Set());
   const { plan: myPlan, refresh: refreshPlan } = useMyPlan();
   const [boostCheckout, setBoostCheckout] = useState<CheckoutItem | null>(null);
@@ -602,19 +609,25 @@ function PrestadorContent() {
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  {providerLocalOptions.map((opt) => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setProposalLocal(opt.value)}
-                      className={`flex-1 rounded-xl border p-2.5 text-center text-xs font-medium transition-all ${
-                        proposalLocal === opt.value
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-secondary"
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                  {providerLocalOptions.map((opt) => {
+                    const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
+                    return (
+                      <button
+                        key={opt.value}
+                        disabled={semParceiro}
+                        title={semParceiro ? `Nenhum parceiro em ${radius} km` : undefined}
+                        onClick={() => setProposalLocal(opt.value)}
+                        className={`flex-1 rounded-xl border p-2.5 text-center text-xs font-medium transition-all ${
+                          semParceiro ? "cursor-not-allowed border-border opacity-40"
+                            : proposalLocal === opt.value
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -772,7 +785,7 @@ function PrestadorContent() {
                   </div>
                 ) : (
                   <div className="flex gap-2">
-                    {providerLocalOptions.map((opt) => (
+                    {providerLocalOptions.filter((opt) => !(opt.value === "parceiro" && quartosPerto === 0)).map((opt) => (
                       <Chip key={opt.value} active={offerLocal === opt.value} onClick={() => setOfferLocal(opt.value)}>
                         {opt.label}
                       </Chip>

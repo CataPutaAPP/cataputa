@@ -90,6 +90,12 @@ function ClienteContent() {
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   const [showOffers, setShowOffers] = useState(false);
   const [showRadar, setShowRadar] = useState(false);
+  const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
+  useEffect(() => {
+    if (!coords) return;
+    supabase.rpc("nearby_partner_rooms", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
+      .then(({ data }) => setQuartosPerto(((data as unknown[]) ?? []).length));
+  }, [coords, radius]);
   const { counts: unread } = useUnreadChats(user?.id);
   const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
   const providerKey = proposals.map((p) => p.provider_id).join(",");
@@ -511,7 +517,29 @@ function ClienteContent() {
             {serviceType && (<Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}><div className="flex flex-wrap gap-2">{serviceSubTypes[serviceType].map((s) => (<Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>))}</div></Field>)}
             {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{serviceFlags.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
             {flagsComplete && isCarro(subType) && (<Field label="Local do atendimento"><div className="flex items-center gap-3 rounded-xl border border-primary bg-primary/10 p-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Car className="size-5" /></div><div className="flex-1"><p className="text-sm font-medium text-primary">No carro</p><p className="text-xs text-muted-foreground">O ponto de encontro é a localização do prestador</p></div><Check className="size-5 text-primary" /></div></Field>)}
-            {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => { const active = localChoice === opt.value; const Icon = opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users; return (<button key={opt.value} onClick={() => setLocalChoice(opt.value)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}><div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div><div className="flex-1"><p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p><p className="text-xs text-muted-foreground">{opt.desc}</p></div>{active && <Check className="size-5 text-primary" />}</button>); })}</div></Field>)}
+            {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => {
+              const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
+              const active = localChoice === opt.value;
+              const Icon = opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users;
+              const desc = opt.value === "parceiro"
+                ? (quartosPerto === null ? opt.desc
+                   : semParceiro ? `Nenhum parceiro em ${radius} km ainda — aumente o raio ou escolha outro local`
+                   : `${quartosPerto} ${quartosPerto === 1 ? "quarto disponível" : "quartos disponíveis"} em até ${radius} km`)
+                : opt.desc;
+              return (
+                <button key={opt.value} disabled={semParceiro} onClick={() => setLocalChoice(opt.value)}
+                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
+                    semParceiro ? "cursor-not-allowed border-border opacity-45"
+                    : active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}>
+                  <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p>
+                    <p className="text-xs text-muted-foreground">{desc}</p>
+                  </div>
+                  {active && <Check className="size-5 text-primary" />}
+                </button>
+              );
+            })}</div></Field>)}
             {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{genderOptions.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
             {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
           </div>
