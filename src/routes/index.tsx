@@ -43,7 +43,9 @@ function Welcome() {
           <Link to="/login">Já sou membro</Link>
         </Button>
         <p className="pt-2 text-center text-xs text-muted-foreground">
-          Ao continuar você declara ter 18 anos ou mais e aceita os termos de uso da Privora.
+          Ao continuar você declara ter 18 anos ou mais e aceita os{" "}
+          <Link to="/termos" className="underline hover:text-primary">termos de uso</Link> e a{" "}
+          <Link to="/privacidade" className="underline hover:text-primary">política de privacidade</Link>.
         </p>
       </div>
     </main>
