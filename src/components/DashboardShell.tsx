@@ -8,6 +8,8 @@ import { HelpButton } from "@/components/HelpButton";
 import { PlansButton } from "@/components/PlansButton";
 import { VerificationGate } from "@/components/VerificationGate";
 import { ChatNotifier } from "@/components/ChatNotifier";
+import { PreferencesButton } from "@/components/PreferencesButton";
+import { useDiscreet, usePrivacyBlur } from "@/lib/discreet";
 import { useMyPlan } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +32,9 @@ export function DashboardShell({
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { plan } = useMyPlan(!!user);
+  const discretoLiberado = Number(plan?.features?.["discreet_mode"] ?? 0) === 1;
+  const { ligado: discreto } = useDiscreet(discretoLiberado);
+  const telaOculta = usePrivacyBlur(discreto);
 
   // TODO: Reativar guard quando Supabase estiver conectado
   // useEffect(() => {
@@ -57,6 +62,7 @@ export function DashboardShell({
             </Link>
           )}
           {user && <PlansButton audience={role} />}
+          <PreferencesButton />
           <HelpButton screen={role} />
           {user && <NotificationBell />}
           {user && (
@@ -75,6 +81,12 @@ export function DashboardShell({
         </div>
       </header>
       {user && <ChatNotifier userId={user.id} />}
+      {telaOculta && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background"
+             style={{ backdropFilter: "blur(24px)" }}>
+          <p className="text-sm text-muted-foreground">Agenda</p>
+        </div>
+      )}
       {user ? <VerificationGate>{children}</VerificationGate> : children}
     </div>
   );
