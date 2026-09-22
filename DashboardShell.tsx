@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { HelpButton } from "@/components/HelpButton";
 import { PlansButton } from "@/components/PlansButton";
 import { VerificationGate } from "@/components/VerificationGate";
+import { ChatNotifier } from "@/components/ChatNotifier";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -65,6 +66,7 @@ export function DashboardShell({
           )}
         </div>
       </header>
+      {user && <ChatNotifier userId={user.id} />}
       {user ? <VerificationGate>{children}</VerificationGate> : children}
     </div>
   );
