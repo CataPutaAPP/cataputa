@@ -129,7 +129,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required"]);
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled"]);
     setSettings((data as Setting[]) ?? []);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -145,6 +145,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     billing_enabled: "Cobrança ligada (usuários podem assinar)",
     beta_all_features: "Beta: todos com recursos do plano mais alto",
     verification_required: "Exigir verificação de idade para usar o app",
+    sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
   };
 
   return (
