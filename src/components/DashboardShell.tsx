@@ -7,6 +7,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { HelpButton } from "@/components/HelpButton";
 import { PlansButton } from "@/components/PlansButton";
 import { VerificationGate } from "@/components/VerificationGate";
+import { TermsGate } from "@/components/TermsGate";
 import { ChatNotifier } from "@/components/ChatNotifier";
 import { PreferencesButton } from "@/components/PreferencesButton";
 import { useDiscreet, usePrivacyBlur } from "@/lib/discreet";
@@ -87,7 +88,7 @@ export function DashboardShell({
           <p className="text-sm text-muted-foreground">Agenda</p>
         </div>
       )}
-      {user ? <VerificationGate>{children}</VerificationGate> : children}
+      {user ? <TermsGate><VerificationGate>{children}</VerificationGate></TermsGate> : children}
     </div>
   );
 }
