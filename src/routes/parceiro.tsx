@@ -21,7 +21,7 @@ import { brl } from "@/lib/fees";
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
     meta: [
-      { title: "Painel do parceiro — CataPuta Web" },
+      { title: "Painel do parceiro — Privora" },
       { name: "description", content: "Cadastre seus quartos e ganhe com cada atendimento." },
     ],
   }),
@@ -375,7 +375,7 @@ function ParceiroContent() {
               <p className="text-xs text-muted-foreground">
                 O cliente paga <span className="font-semibold text-green-400">
                   {brl(parseFloat(String(roomForm.price).replace(",", ".")))}
-                </span> direto no seu estabelecimento. O CataPuta não cobra comissão sobre reservas.
+                </span> direto no seu estabelecimento. A Privora não cobra comissão sobre reservas.
               </p>
             )}
           </div>

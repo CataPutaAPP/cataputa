@@ -17,10 +17,10 @@ import { genderOptions } from "@/lib/service-options";
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
     meta: [
-      { title: "Criar conta — CataPuta Web" },
+      { title: "Criar conta — Privora" },
       {
         name: "description",
-        content: "Escolha seu perfil e crie sua conta no CataPuta Web.",
+        content: "Escolha seu perfil e crie sua conta na Privora.",
       },
     ],
   }),

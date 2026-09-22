@@ -29,7 +29,7 @@ import { useRealtime } from "@/lib/realtime";
 export const Route = createFileRoute("/cliente")({
   head: () => ({
     meta: [
-      { title: "Painel do cliente — CataPuta Web" },
+      { title: "Painel do cliente — Privora" },
       { name: "description", content: "Solicite serviços e acompanhe suas solicitações." },
     ],
   }),
@@ -561,7 +561,7 @@ function ClienteContent() {
             <div className="mb-5 rounded-2xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
               <p className="mb-1 font-semibold text-foreground">Como funciona o pagamento</p>
               Você paga o atendimento direto ao prestador, como combinarem. O quarto de parceiro é pago no próprio estabelecimento.
-              O CataPuta não recebe nenhuma parte desses valores. Cancelamentos ficam registrados na sua reputação.
+              A Privora não recebe nenhuma parte desses valores. Cancelamentos ficam registrados na sua reputação.
             </div>
 
             <Button

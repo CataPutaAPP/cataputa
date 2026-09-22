@@ -79,13 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "CataPuta Web — Serviços sob demanda" },
+      { title: "Privora Private Club" },
       {
         name: "description",
         content:
-          "CataPuta Web conecta clientes, prestadores e parceiros para serviços sob demanda perto de você.",
+          "Privora Private Club — acesso reservado e verificado, com privacidade em primeiro lugar.",
       },
-      { property: "og:title", content: "CataPuta Web — Serviços sob demanda" },
+      { property: "og:title", content: "Privora Private Club" },
       {
         property: "og:description",
         content: "Solicite, ofereça e negocie serviços sob demanda, sem rodeios.",
@@ -100,9 +100,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Caudex:wght@400;700&family=Open+Sans:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap",
       },
-      { rel: "icon", href: "/logo-cataputa.png", type: "image/png" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
     ],
   }),
   shellComponent: RootShell,

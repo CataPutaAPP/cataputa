@@ -58,7 +58,7 @@ import { brl } from "@/lib/fees";
 export const Route = createFileRoute("/prestador")({
   head: () => ({
     meta: [
-      { title: "Painel do prestador — ServiHub" },
+      { title: "Painel do prestador — Privora" },
       {
         name: "description",
         content: "Receba demandas, envie propostas e oferte seus serviços.",

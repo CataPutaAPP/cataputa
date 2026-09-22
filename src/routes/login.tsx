@@ -13,12 +13,12 @@ import { dashboardPath, useAuth } from "@/context/AuthContext";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Entrar — ServiHub" },
+      { title: "Entrar — Privora" },
       {
         name: "description",
-        content: "Acesse sua conta ServiHub com username e senha e vá direto ao seu painel.",
+        content: "Acesse sua conta Privora com usuário e senha.",
       },
-      { property: "og:title", content: "Entrar — ServiHub" },
+      { property: "og:title", content: "Entrar — Privora" },
       { property: "og:description", content: "Login de clientes, prestadores e parceiros." },
     ],
   }),

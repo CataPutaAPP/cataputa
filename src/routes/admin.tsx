@@ -16,7 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { brl } from "@/lib/fees";
 
 export const Route = createFileRoute("/admin")({
-  head: () => ({ meta: [{ title: "Administração — CataPuta" }] }),
+  head: () => ({ meta: [{ title: "Administração — Privora" }] }),
   component: () => <DashboardShell role="cliente"><AdminContent /></DashboardShell>,
 });
 
