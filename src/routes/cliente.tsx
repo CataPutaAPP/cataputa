@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2,
+  Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,6 +11,7 @@ import { LeafletMap, type MapCoords, type MapMarker } from "@/components/Leaflet
 import { MatchView, type ActiveService } from "@/components/MatchView";
 import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderProfile";
 import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
+import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -83,6 +84,16 @@ function ClienteContent() {
   const [loadingQuote, setLoadingQuote] = useState(false);
   const [pickingRoomFor, setPickingRoomFor] = useState<DBProposal | null>(null);
   const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
+  const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  const { counts: unread } = useUnreadChats(user?.id);
+  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const providerKey = proposals.map((p) => p.provider_id).join(",");
+  useEffect(() => {
+    const ids = [...new Set(proposals.map((p) => p.provider_id))];
+    if (!ids.length) { setHighlighted(new Set()); return; }
+    supabase.rpc("highlighted_providers", { p_ids: ids }).then(({ data }) => setHighlighted(new Set((data as string[]) ?? [])));
+  }, [providerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sortedProposals = [...proposals].sort((a, b) => Number(highlighted.has(b.provider_id)) - Number(highlighted.has(a.provider_id)));
   const prevProposalCount = useRef(0);
 
   const [activeService, setActiveService] = useState<ActiveService | null>(null);
@@ -360,7 +371,7 @@ function ClienteContent() {
             </div>
           ) : (
             <div className="space-y-3">
-              {proposals.map((p) => {
+              {sortedProposals.map((p) => {
                 const accepted = p.status === "aceita";
                 const refused = p.status === "recusada";
                 return (
@@ -373,6 +384,7 @@ function ClienteContent() {
                             {p.provider?.full_name ?? "Prestador"}
                           </button>
                           {p.provider?.has_local && <span className="flex items-center gap-0.5 text-[10px] text-primary"><Home className="size-3" /> Local</span>}
+                          {highlighted.has(p.provider_id) && <span className="rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">⚡ Destaque</span>}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {Number(p.provider?.rating_avg ?? 0).toFixed(1)}</span>
@@ -390,8 +402,14 @@ function ClienteContent() {
                     </div>
                     {p.message && <p className="mt-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground italic">"{p.message}"</p>}
                     <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}</p>
+                    {p.status !== "recusada" && (
+                      <Button variant="secondary" className="mt-3 h-9 w-full" onClick={() => setChatProposalId(p.id)}>
+                        <MessageCircle className="mr-2 size-4" /> Conversar
+                        {unread[p.id] ? <span className="ml-2 rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread[p.id]}</span> : null}
+                      </Button>
+                    )}
                     {p.status === "pendente" && (
-                      <Button className="mt-3 h-10 w-full" disabled={acceptingId === p.id} onClick={() => handleAcceptProposal(p.id)}>
+                      <Button className="mt-2 h-10 w-full" disabled={acceptingId === p.id} onClick={() => handleAcceptProposal(p.id)}>
                         {acceptingId === p.id ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Check className="mr-2 size-4" />}
                         {acceptingId === p.id ? "Processando..." : p.local_option === "parceiro" ? "Escolher quarto e aceitar" : `Aceitar · ${brl(p.price)}`}
                       </Button>
@@ -533,6 +551,8 @@ function ClienteContent() {
           onBooked={handleRoomBooked}
         />
       )}
+
+      {chatProposalId && <ChatPanel proposalId={chatProposalId} onClose={() => setChatProposalId(null)} />}
 
       {/* Provider profile overlay */}
       {viewingProfileId && (

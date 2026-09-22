@@ -18,6 +18,7 @@ import {
   Sparkles,
   Send,
   Car,
+  MessageCircle,
   UserCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,9 @@ import { DashboardShell } from "@/components/DashboardShell";
 import { LeafletMap, type MapCoords, type MapMarker } from "@/components/LeafletMap";
 import { MatchView, type ActiveService } from "@/components/MatchView";
 import { PhotoManager } from "@/components/ProviderProfile";
+import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
+import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
+import { useMyPlan } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -131,6 +135,17 @@ function PrestadorContent() {
   const [offerLocal, setOfferLocal] = useState<LocalOption>("local_atendente");
   const [offerDesc, setOfferDesc] = useState("");
   const [submittingOffer, setSubmittingOffer] = useState(false);
+
+  const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  const { plan: myPlan, refresh: refreshPlan } = useMyPlan();
+  const [boostCheckout, setBoostCheckout] = useState<CheckoutItem | null>(null);
+  const [boostProduct, setBoostProduct] = useState<{ code: string; name: string; price: number; duration_hours: number } | null>(null);
+  useEffect(() => {
+    supabase.from("billing_products").select("code, name, price, duration_hours").eq("code", "impulso_24h").eq("is_active", true).maybeSingle()
+      .then(({ data }) => setBoostProduct(data as typeof boostProduct));
+  }, []);
+  const boostActive = !!myPlan?.boost_until && new Date(myPlan.boost_until).getTime() > Date.now();
+  const { counts: unread } = useUnreadChats(user?.id);
 
   // Fotos do perfil: mínimo obrigatório para propor e ofertar
   const MIN_PHOTOS = 3;
@@ -440,10 +455,17 @@ function PrestadorContent() {
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">Proposta R$ {Number(p.price).toFixed(2)}</p>
                   <Badge variant="secondary" className={`text-[10px] ${isAccepted ? "bg-green-500/20 text-green-400" : ""}`}>
-                    {p.status === "pendente" ? "Aguardando cliente" : isAccepted ? "Paga! Toque →" : p.status}
+                    {p.status === "pendente" ? "Aguardando cliente" : isAccepted ? "Aceita! Toque →" : p.status}
                   </Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-muted-foreground">Você recebe {brl(p.price)} integral</p>
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">Você recebe {brl(p.price)} integral</p>
+                  <button onClick={(e) => { e.stopPropagation(); setChatProposalId(p.id); }}
+                    className="flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-medium hover:bg-secondary">
+                    <MessageCircle className="size-3.5" /> Chat
+                    {unread[p.id] ? <span className="rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">{unread[p.id]}</span> : null}
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -608,8 +630,30 @@ function PrestadorContent() {
               : "Perfil completo — você já pode propor e ofertar."}
           </div>
           <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
+
+          {boostProduct && (
+            <div className="mt-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">
+              <p className="font-semibold">⚡ {boostProduct.name}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">Seu perfil aparece em destaque nas propostas por {boostProduct.duration_hours}h.</p>
+              {boostActive && (
+                <p className="mt-2 text-xs font-medium text-green-400">
+                  Ativo até {new Date(myPlan!.boost_until!).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+              <Button className="mt-3 h-10 w-full" disabled={!myPlan?.can_buy}
+                onClick={() => setBoostCheckout({ type: "impulso", code: boostProduct.code, name: boostProduct.name, price: Number(boostProduct.price) })}>
+                {!myPlan?.can_buy ? "Disponível em breve" : `${boostActive ? "Somar mais " + boostProduct.duration_hours + "h" : "Impulsionar"} · ${brl(boostProduct.price)}`}
+              </Button>
+            </div>
+          )}
           <Button className="mt-5 h-12 w-full" onClick={() => { fetchPhotoCount(); setView("map"); }}>Concluir</Button>
         </div>
+      )}
+
+      {chatProposalId && <ChatPanel proposalId={chatProposalId} onClose={() => setChatProposalId(null)} />}
+      {boostCheckout && (
+        <CheckoutSheet item={boostCheckout} cardBlocked={!!myPlan?.card_blocked} isAdmin={!!myPlan?.is_admin}
+          onClose={() => setBoostCheckout(null)} onPaid={() => refreshPlan()} />
       )}
 
       {/* ── FAB ─────────────────────────────────────────────────── */}
