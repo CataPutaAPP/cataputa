@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 interface Review { created_at: string; stars: number; comment: string | null; author_name: string | null; bloqueado: boolean }
 interface Summary { total: number; media: number; estrela5: number; estrela4: number; estrela3: number; estrela2: number; estrela1: number }
 
-/** Avaliações do prestador. Comentários são um recurso do CataPuta Pass. */
+/** Avaliações do prestador. Comentários são um recurso do Privora Pass. */
 export function ProviderReviews({ providerId }: { providerId: string }) {
   const [rows, setRows] = useState<Review[] | null>(null);
   const [sum, setSum] = useState<Summary | null>(null);
@@ -55,7 +55,7 @@ export function ProviderReviews({ providerId }: { providerId: string }) {
       {bloqueado && (
         <div className="flex items-start gap-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
           <Lock className="mt-0.5 size-4 shrink-0 text-primary" />
-          <span>Os comentários das avaliações fazem parte do <b className="text-primary">CataPuta Pass</b>. Assine no ícone da coroa.</span>
+          <span>Os comentários das avaliações fazem parte do <b className="text-primary">Privora Pass</b>. Assine no ícone da coroa.</span>
         </div>
       )}
 

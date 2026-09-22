@@ -73,7 +73,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
     if (!v) return;
     if (v.status !== "pendente" && v.status !== "em_analise") setWaiting(false);
     if (v.cleared && returning) {
-      toast.success("Verificação concluída! Bem-vindo ao CataPuta.");
+      toast.success("Verificação concluída! Bem-vindo à Privora.");
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [v, returning]);
@@ -127,7 +127,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
       <h1 className="text-xl font-semibold">Verificação obrigatória</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         {isClient
-          ? "Por lei (ECA Digital), o CataPuta é exclusivo para maiores de 18 anos. Confirme sua idade com uma selfie rápida."
+          ? "Por lei (ECA Digital), a Privora é exclusiva para maiores de 18 anos. Confirme sua idade com uma selfie rápida."
           : "Para a segurança de todos, confirmamos identidade e idade com documento e selfie antes de você aparecer no app."}
       </p>
 
@@ -174,7 +174,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
       )}
 
       <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
-        A verificação é feita pela Didit, empresa especializada. O CataPuta não recebe nem guarda sua selfie ou documento — apenas o resultado.
+        A verificação é feita pela Didit, empresa especializada. A Privora não recebe nem guarda sua selfie ou documento — apenas o resultado.
       </p>
     </Card>
   );

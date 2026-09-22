@@ -93,7 +93,7 @@ export function ChatPanel({ proposalId, onClose }: { proposalId: string; onClose
         ) : msgs.length === 0 ? (
           <div className="mx-auto mt-10 max-w-xs text-center text-xs text-muted-foreground">
             <ShieldCheck className="mx-auto mb-2 size-8 text-primary/60" />
-            Combine horário, local e detalhes por aqui. O pagamento é feito diretamente no encontro — o CataPuta não processa pagamentos.
+            Combine horário, local e detalhes por aqui. O pagamento é feito diretamente no encontro — a Privora não processa pagamentos.
           </div>
         ) : msgs.map((m) => {
           const mine = m.sender_id === user?.id;

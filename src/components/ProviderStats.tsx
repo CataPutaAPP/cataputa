@@ -85,7 +85,7 @@ export function ProviderStats() {
       )}
 
       <p className="text-[11px] text-muted-foreground">
-        O valor das propostas é 100% seu — o CataPuta não cobra comissão sobre atendimentos.
+        O valor das propostas é 100% seu — o Privora não cobra comissão sobre atendimentos.
       </p>
     </section>
   );

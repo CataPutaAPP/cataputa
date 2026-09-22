@@ -31,7 +31,7 @@ export function ReportButton({ reportedId, requestId, variant = "ghost", classNa
     });
     setSending(false);
     if (error) return toast.error(error.message || "Não foi possível enviar.");
-    toast.success("Denúncia enviada. Obrigado por ajudar a manter o CataPuta seguro.");
+    toast.success("Denúncia enviada. Obrigado por ajudar a manter a Privora segura.");
     setOpen(false); setReason(""); setDetails("");
   }
 

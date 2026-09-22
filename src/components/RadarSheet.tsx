@@ -14,7 +14,7 @@ interface OnlineProvider {
   has_local: boolean; tem_oferta: boolean; distance_km: number; online_desde: string;
 }
 
-/** Radar de quem está online agora — recurso do CataPuta Pass. */
+/** Radar de quem está online agora — recurso do Privora Pass. */
 export function RadarSheet({ lat, lng, radius, onClose, onViewProfile, onSeeOffers }: {
   lat: number; lng: number; radius: number;
   onClose: () => void; onViewProfile: (id: string) => void; onSeeOffers: () => void;
