@@ -106,23 +106,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sign up — profile is created automatically by database trigger
   const signUp = useCallback<AuthContextValue["signUp"]>(async (input) => {
-    // 1. Check username
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .ilike("username", input.username)
-      .maybeSingle();
+    // 1. Username livre? (a função do banco responde só sim/não)
+    const { data: livre } = await supabase.rpc("username_available", { p_username: input.username });
+    if (livre === false) return { error: "Este username já está em uso." };
 
-    if (existing) return { error: "Este username já está em uso." };
-
-    // 2. Check CPF
-    const { data: cpfExists } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("cpf", input.cpf)
-      .maybeSingle();
-
-    if (cpfExists) return { error: "Este CPF já está cadastrado." };
+    // 2. CPF: NÃO consultamos. Uma consulta pública permitiria descobrir
+    //    quem tem conta aqui. A duplicidade é barrada pelo banco, abaixo.
 
     // 3. Create auth user — trigger handles profile insert automatically
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -141,7 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     });
 
-    if (authError) return { error: authError.message };
+    if (authError) {
+      const m = (authError.message || "").toLowerCase();
+      if (m.includes("ux_profiles_cpf") || (m.includes("duplicate") && m.includes("cpf"))) {
+        return { error: "Este CPF já está cadastrado. Se a conta é sua, use 'Esqueci minha senha'." };
+      }
+      if (m.includes("ux_profiles_username") || (m.includes("duplicate") && m.includes("username"))) {
+        return { error: "Este username já está em uso." };
+      }
+      if (m.includes("already registered") || m.includes("already been registered")) {
+        return { error: "Já existe conta com este e-mail. Use 'Esqueci minha senha'." };
+      }
+      return { error: authError.message };
+    }
     if (!authData.user) return { error: "Erro ao criar usuário." };
 
     // 4. Sign out (user needs to login explicitly)
@@ -191,12 +192,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isUsernameTaken = useCallback(async (username: string): Promise<boolean> => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id")
-      .ilike("username", username)
-      .maybeSingle();
-    return !!data;
+    // consulta pelo banco (sem ler a tabela): responde só sim/não
+    const { data, error } = await supabase.rpc("username_available", { p_username: username });
+    if (error) return false;            // na dúvida, deixa seguir: o banco barra no fim
+    return data === false;
   }, []);
 
   const requestPasswordReset = useCallback<AuthContextValue["requestPasswordReset"]>(
