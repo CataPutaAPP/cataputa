@@ -198,6 +198,7 @@ function PrestadorContent() {
       .then(({ data }) => setQuartosPerto(((data as unknown[]) ?? []).length));
   }, [coords, radius]);
   const [vips, setVips] = useState<Set<string>>(new Set());
+  const [prioritarios, setPrioritarios] = useState<Set<string>>(new Set());
   const { plan: myPlan, refresh: refreshPlan } = useMyPlan();
   const [boostCheckout, setBoostCheckout] = useState<CheckoutItem | null>(null);
   const [boostProduct, setBoostProduct] = useState<{ code: string; name: string; price: number; duration_hours: number } | null>(null);
@@ -344,9 +345,14 @@ function PrestadorContent() {
     const ids = [...new Set(requests.map((r) => r.client_id))];
     if (!ids.length) { setVips(new Set()); return; }
     supabase.rpc("vip_clients", { p_ids: ids }).then(({ data }) => setVips(new Set((data as string[]) ?? [])));
+    supabase.rpc("priority_clients", { p_ids: ids }).then(({ data }) => setPrioritarios(new Set((data as string[]) ?? [])));
   }, [clientKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Map markers from client requests
+  // chamado de quem tem prioridade (Pass Black) aparece primeiro
+  const requestsOrdenados = [...requests].sort((a, b) =>
+    Number(prioritarios.has(b.client_id)) - Number(prioritarios.has(a.client_id)));
+
   const mapMarkers: MapMarker[] = requests.map((r) => ({
     id: r.id,
     lat: r.lat,

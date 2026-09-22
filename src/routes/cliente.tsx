@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useMyPlan, featureLimit } from "@/lib/plans";
 import { playNotificationSound } from "@/lib/notifications";
 import {
   type ServiceType, type LocalOption, serviceSubTypes, serviceFlags,
@@ -74,7 +75,12 @@ function ClienteContent() {
   const { user, updateLocation } = useAuth();
   const [coords, setCoords] = useState<MapCoords | null>(null);
   const [view, setView] = useState<"map" | "request" | "proposals" | "match" | "payment" | "room">("map");
+  const { plan } = useMyPlan();
   const [radius, setRadius] = useState(10);
+  // o raio máximo vem do plano: grátis 5 km, Pass 10 km, Black 20 km
+  const raioMax = featureLimit(plan, "raio_max", 10);
+  const raiosDisponiveis = radiusOptions.filter((r) => r.value <= raioMax);
+  useEffect(() => { if (radius > raioMax) setRadius(raioMax); }, [raioMax, radius]);
 
   const [myRequests, setMyRequests] = useState<DBRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
@@ -367,7 +373,7 @@ function ClienteContent() {
       <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <Radar className="size-3.5 text-primary" />
-          {radiusOptions.map((r) => (
+          {raiosDisponiveis.map((r) => (
             <button key={r.value} onClick={() => setRadius(r.value)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${radius === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
           ))}
         </div>
@@ -541,7 +547,19 @@ function ClienteContent() {
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); resetForm(); }}><X className="size-5" /></Button>
           </div>
           <div className="space-y-5">
-            <Field label="Raio de busca"><div className="flex gap-2">{radiusOptions.map((r) => (<Chip key={r.value} active={radius === r.value} onClick={() => setRadius(r.value)}>{r.label}</Chip>))}</div></Field>
+            <Field label="Raio de busca">
+              <div className="flex flex-wrap gap-2">
+                {radiusOptions.map((r) => {
+                  const bloqueado = r.value > raioMax;
+                  return (
+                    <Chip key={r.value} active={radius === r.value}
+                      onClick={() => { if (bloqueado) { toast("Raio maior faz parte do Pass Black.", { icon: "👑" }); return; } setRadius(r.value); }}>
+                      {bloqueado ? `${r.label} 🔒` : r.label}
+                    </Chip>
+                  );
+                })}
+              </div>
+            </Field>
             <Field label="Tipo de serviço"><div className="flex gap-2">{(["massagem", "acompanhante"] as ServiceType[]).map((t) => (<Chip key={t} active={serviceType === t} onClick={() => setServiceType(t)} className="capitalize">{t}</Chip>))}</div></Field>
             {serviceType && (<Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}><div className="flex flex-wrap gap-2">{serviceSubTypes[serviceType].map((s) => (<Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>))}</div></Field>)}
             {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{serviceFlags.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
