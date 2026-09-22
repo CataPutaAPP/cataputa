@@ -83,6 +83,13 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   const otherName = other?.full_name ?? (isClient ? "Prestador" : "Cliente");
   const otherId = isClient ? service.accepted_provider_id : service.client_id;
 
+  const [otherBadges, setOtherBadges] = useState<{ vip: boolean; verificado: boolean; atendimentos: number } | null>(null);
+  useEffect(() => {
+    if (!otherId) return;
+    supabase.rpc("user_public_badges", { p_user_id: otherId })
+      .then(({ data }) => setOtherBadges(data as typeof otherBadges));
+  }, [otherId]);
+
   // Timer for em_andamento
   useEffect(() => {
     if (service.status === "em_andamento" && service.started_at) {
@@ -288,7 +295,13 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold">{otherName}</p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {otherBadges?.vip && (
+                <span className="rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">★ VIP</span>
+              )}
+              {otherBadges && otherBadges.atendimentos > 0 && (
+                <span className="text-[11px]">{otherBadges.atendimentos} atendimento(s)</span>
+              )}
               {other?.gender && <span>{other.gender}</span>}
               <span className="flex items-center gap-0.5">
                 <Star className="size-3 fill-yellow-500 text-yellow-500" />

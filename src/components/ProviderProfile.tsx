@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 import { useMyPlan, featureLimit } from "@/lib/plans";
 import { ReportButton } from "@/components/ReportButton";
+import { ProviderReviews } from "@/components/ProviderReviews";
 import { serviceFlags, getSubLabel, type ServiceType } from "@/lib/service-options";
 import type { Profile } from "@/context/AuthContext";
 
@@ -152,6 +153,10 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
               <Shield className="size-3.5" />
               <span>Verificado · Desde {new Date(profile.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</span>
             </div>
+          </div>
+
+          <div className="mt-4">
+            <ProviderReviews providerId={providerId} />
           </div>
         </div>
       </div>
