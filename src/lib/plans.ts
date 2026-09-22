@@ -8,6 +8,11 @@ export interface MyPlan {
   is_beta: boolean;
   billing_enabled: boolean;
   expires_at: string | null;
+  can_buy: boolean;
+  is_admin: boolean;
+  source: string | null;
+  card_blocked: boolean;
+  boost_until: string | null;
   features: Record<string, number>;
   credits: { chamado: number; turbo: number; impulso: number };
 }
