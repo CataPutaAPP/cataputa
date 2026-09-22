@@ -23,6 +23,7 @@ import {
   genderOptions, radiusOptions, localOptions, getSubLabel, getLocalLabel, isCarro,
 } from "@/lib/service-options";
 import { brl, type ProposalQuote } from "@/lib/fees";
+import { useRealtime } from "@/lib/realtime";
 
 export const Route = createFileRoute("/cliente")({
   head: () => ({
@@ -203,12 +204,21 @@ function ClienteContent() {
     if (!user || !coords) return;
     fetchMyRequests();
     fetchActiveService();
-    const interval = setInterval(() => {
-      fetchMyRequests();
-      if (selectedRequestId) fetchProposals(selectedRequestId);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [user, coords, selectedRequestId, fetchActiveService]);
+  }, [user, coords, fetchActiveService]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tempo real: meus chamados e as propostas que chegam neles
+  useRealtime(
+    `cliente-${user?.id ?? "anon"}`,
+    [{ table: "service_requests", filter: `client_id=eq.${user?.id}` }],
+    () => { fetchMyRequests(); fetchActiveService(); },
+    { enabled: !!user },
+  );
+  useRealtime(
+    `propostas-${selectedRequestId ?? "none"}`,
+    [{ table: "proposals", filter: `request_id=eq.${selectedRequestId}` }],
+    () => { if (selectedRequestId) fetchProposals(selectedRequestId); },
+    { enabled: !!selectedRequestId },
+  );
 
   useEffect(() => { setSubType(""); setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [serviceType]);
   useEffect(() => { setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [subType]);

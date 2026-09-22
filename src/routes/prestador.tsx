@@ -30,6 +30,7 @@ import { PhotoManager } from "@/components/ProviderProfile";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import { useMyPlan } from "@/lib/plans";
+import { useRealtime } from "@/lib/realtime";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -256,18 +257,23 @@ function PrestadorContent() {
     }
   }, [user]);
 
-  // Poll for requests every 15s
   useEffect(() => {
     if (!coords || !available) return;
     fetchRequests();
     fetchMyProposals();
     fetchActiveService();
-    const interval = setInterval(() => {
-      fetchRequests();
-      fetchMyProposals();
-    }, 15000);
-    return () => clearInterval(interval);
   }, [coords, available, fetchRequests, fetchMyProposals, fetchActiveService]);
+
+  // Tempo real: chamados novos na região e respostas às minhas propostas
+  useRealtime(
+    `prestador-${user?.id ?? "anon"}`,
+    [
+      { table: "service_requests" },
+      { table: "proposals", filter: `provider_id=eq.${user?.id}` },
+    ],
+    () => { fetchRequests(); fetchMyProposals(); fetchActiveService(); },
+    { enabled: !!user && !!coords && available },
+  );
 
   // Reset offer form when type changes
   useEffect(() => { setOfferSubType(""); setOfferFlags([]); }, [offerType]);
