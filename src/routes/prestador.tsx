@@ -30,6 +30,7 @@ import { PhotoManager } from "@/components/ProviderProfile";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import { ProviderStats } from "@/components/ProviderStats";
+import { ProviderVideoManager } from "@/components/ProviderVideo";
 import { useMyPlan } from "@/lib/plans";
 import { useRealtime } from "@/lib/realtime";
 import { Button } from "@/components/ui/button";
@@ -665,6 +666,10 @@ function PrestadorContent() {
           </div>
 
           <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
+
+          <div className="mt-5">
+            <ProviderVideoManager userId={user.id} />
+          </div>
 
           {boostProduct && (
             <div className="mt-5 rounded-2xl border border-primary/30 bg-primary/5 p-4">

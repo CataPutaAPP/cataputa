@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
-  Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw,
+  Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,7 +57,7 @@ const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", {
 function AdminContent() {
   const { user } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"resumo" | "denuncias" | "usuarios" | "pagamentos" | "planos" | "campanhas">("resumo");
+  const [tab, setTab] = useState<"resumo" | "denuncias" | "usuarios" | "videos" | "pagamentos" | "planos" | "campanhas">("resumo");
   const [dash, setDash] = useState<Dash | null>(null);
 
   const loadDash = useCallback(async () => {
@@ -80,6 +80,7 @@ function AdminContent() {
     { id: "resumo", label: "Resumo", icon: <Settings className="size-4" /> },
     { id: "denuncias", label: `Denúncias${dash?.denuncias_abertas ? ` (${dash.denuncias_abertas})` : ""}`, icon: <Flag className="size-4" /> },
     { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
+    { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
     { id: "pagamentos", label: "Pagamentos", icon: <CreditCard className="size-4" /> },
     { id: "planos", label: "Planos e preços", icon: <Ticket className="size-4" /> },
     { id: "campanhas", label: "Campanhas", icon: <Ticket className="size-4" /> },
@@ -102,6 +103,7 @@ function AdminContent() {
         {tab === "resumo" && <Resumo dash={dash} onRefresh={loadDash} />}
         {tab === "denuncias" && <Denuncias onChange={loadDash} />}
         {tab === "usuarios" && <Usuarios onChange={loadDash} />}
+        {tab === "videos" && <Videos />}
         {tab === "pagamentos" && <Pagamentos />}
         {tab === "planos" && <Planos />}
         {tab === "campanhas" && <Campanhas />}
@@ -334,6 +336,62 @@ function Usuarios({ onChange }: { onChange: () => void }) {
               {!u.is_suspended
                 ? <Button size="sm" variant="secondary" disabled={busy === u.id} onClick={() => act(u, "suspender")}><Ban className="mr-1.5 size-3.5" /> Suspender</Button>
                 : <Button size="sm" variant="secondary" disabled={busy === u.id} onClick={() => act(u, "reativar")}>Reativar</Button>}
+            </div>
+          </article>
+        ))}
+    </div>
+  );
+}
+
+/* ─── Moderação de vídeos ───────────────────────────────────────────── */
+interface AdminVideo { user_id: string; provider_name: string; video_url: string; status: string; admin_note: string | null; updated_at: string }
+
+function Videos() {
+  const [status, setStatus] = useState("em_revisao");
+  const [rows, setRows] = useState<AdminVideo[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setRows(null);
+    const { data, error } = await supabase.rpc("admin_videos", { p_status: status });
+    if (error) toast.error(error.message);
+    setRows((data as AdminVideo[]) ?? []);
+  }, [status]);
+  useEffect(() => { load(); }, [load]);
+
+  async function moderar(v: AdminVideo, novo: string) {
+    const nota = novo === "reprovado" ? window.prompt("Motivo da reprovação (o prestador vê):") : null;
+    if (novo === "reprovado" && !nota) return;
+    setBusy(v.user_id);
+    const { error } = await supabase.rpc("admin_moderate_video", { p_user_id: v.user_id, p_status: novo, p_note: nota });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success("Feito."); load();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2">
+        {["em_revisao", "aprovado", "reprovado", "todos"].map((s) => (
+          <button key={s} onClick={() => setStatus(s)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium ${status === s ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            {s.replace("_", " ")}
+          </button>
+        ))}
+      </div>
+      {!rows ? <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" />
+        : rows.length === 0 ? <p className="py-10 text-center text-sm text-muted-foreground">Nenhum vídeo.</p>
+        : rows.map((v) => (
+          <article key={v.user_id} className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <p className="font-semibold">{v.provider_name}</p>
+              <Badge variant="secondary" className="text-[10px]">{v.status.replace("_", " ")}</Badge>
+            </div>
+            <video src={v.video_url} controls playsInline className="mt-2 w-full rounded-xl bg-black" />
+            {v.admin_note && <p className="mt-2 text-xs text-muted-foreground">{v.admin_note}</p>}
+            <div className="mt-3 flex gap-2">
+              {v.status !== "aprovado" && <Button size="sm" disabled={busy === v.user_id} onClick={() => moderar(v, "aprovado")}>Aprovar</Button>}
+              {v.status !== "reprovado" && <Button size="sm" variant="destructive" disabled={busy === v.user_id} onClick={() => moderar(v, "reprovado")}>Reprovar</Button>}
             </div>
           </article>
         ))}
