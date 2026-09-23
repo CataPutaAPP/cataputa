@@ -26,6 +26,24 @@ import {
 import { brl, type ProposalQuote } from "@/lib/fees";
 import { useRealtime } from "@/lib/realtime";
 
+/** Ponto de oferta no mapa. A coordenada vem borrada pelo banco. */
+export interface OfferPoint {
+  offer_id: string;
+  provider_id: string;
+  provider_name: string | null;
+  gender: string | null;
+  rating_avg: number | null;
+  rating_count: number;
+  destaque: boolean;
+  service_type: ServiceType;
+  sub_type: string;
+  price: number;
+  local_option: string;
+  distance_km: number;
+  lat_aprox: number;
+  lng_aprox: number;
+}
+
 export const Route = createFileRoute("/cliente")({
   head: () => ({
     meta: [
@@ -95,6 +113,29 @@ function ClienteContent() {
   const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   const [showOffers, setShowOffers] = useState(false);
+
+  // ── Ofertas plotadas no mapa ──────────────────────────────────────────
+  // O mapa do cliente recebia markers={[]} fixo — nunca mostrou nada.
+  // offers_map_points() devolve a coordenada JA BORRADA (~300 m), para nao
+  // expor onde o prestador esta. O borrao e fixo por oferta, entao o ponto
+  // nao dança entre atualizacoes.
+  const [mapOffers, setMapOffers] = useState<OfferPoint[]>([]);
+  const [offerOnMap, setOfferOnMap] = useState<OfferPoint | null>(null);
+
+  const fetchMapOffers = useCallback(async () => {
+    if (!coords) return;
+    const { data, error } = await supabase.rpc("offers_map_points", {
+      p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius,
+    });
+    if (error) { console.error("offers_map_points", error); return; }
+    setMapOffers((data as OfferPoint[]) ?? []);
+  }, [coords, radius]);
+
+  useEffect(() => {
+    fetchMapOffers();
+    const t = setInterval(fetchMapOffers, 60000); // reflete quem publicou agora
+    return () => clearInterval(t);
+  }, [fetchMapOffers]);
   const [showRadar, setShowRadar] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
@@ -343,7 +384,11 @@ function ClienteContent() {
     // After payment confirmed, mark proposal as accepted
     const { error } = await supabase.from("proposals").update({ status: "aceita" }).eq("id", payingProposal.id);
     setAcceptingId(null);
-    if (error) { toast.error("Erro ao processar. Tente novamente."); return; }
+    if (error) {
+      console.error("proposals update -> aceita", error);
+      toast.error(`Não consegui confirmar: ${error.message}`);
+      return;
+    }
     playNotificationSound("accepted");
     toast.success("Atendimento confirmado! O prestador foi notificado.");
     setPayingProposal(null);
@@ -369,8 +414,73 @@ function ClienteContent() {
   return (
     <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
-        <LeafletMap onCoordsChange={handleCoordsChange} markers={[]} radiusKm={radius} />
+        <LeafletMap
+          onCoordsChange={handleCoordsChange}
+          radiusKm={radius}
+          markers={mapOffers.map((o) => ({
+            id: o.offer_id,
+            lat: o.lat_aprox,
+            lng: o.lng_aprox,
+            color: o.destaque ? "#eab308" : o.service_type === "massagem" ? "#22c55e" : "#e879a6",
+            size: o.destaque ? 26 : 20,
+            onClick: () => setOfferOnMap(o),
+          }))}
+        />
       </div>
+
+      {/* ── Resumo da oferta tocada no mapa ─────────────────────────── */}
+      {offerOnMap && (
+        <div className="fixed inset-x-4 bottom-28 z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => { setViewingProfileId(offerOnMap.provider_id); setOfferOnMap(null); }}
+                  className="truncate text-left font-semibold hover:text-primary">
+                  {offerOnMap.provider_name ?? "Prestador"}
+                </button>
+                {offerOnMap.destaque && (
+                  <span className="rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">
+                    ⚡ Destaque
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Star className="size-3 fill-yellow-500 text-yellow-500" />
+                  {Number(offerOnMap.rating_avg ?? 0).toFixed(1)} ({offerOnMap.rating_count})
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="size-3" />aprox. {Number(offerOnMap.distance_km).toFixed(1)} km
+                </span>
+              </div>
+            </div>
+            <p className="shrink-0 text-lg font-bold text-primary">{brl(offerOnMap.price)}</p>
+            <button onClick={() => setOfferOnMap(null)} aria-label="Fechar"
+              className="shrink-0 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <Badge variant="secondary" className="text-[10px]">
+              {opcoes.rotulo(offerOnMap.service_type) || offerOnMap.service_type}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px]">
+              {opcoes.rotulo(offerOnMap.sub_type) || getSubLabel(offerOnMap.service_type, offerOnMap.sub_type)}
+            </Badge>
+            <span className="text-muted-foreground">{getLocalLabel(offerOnMap.local_option)}</span>
+          </div>
+
+          <ProviderPhotoStrip providerId={offerOnMap.provider_id}
+            onClick={() => { setViewingProfileId(offerOnMap.provider_id); setOfferOnMap(null); }} />
+
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Posição aproximada — o ponto exato não é divulgado.
+          </p>
+
+          <Button className="mt-2 h-10 w-full" onClick={() => { setOfferOnMap(null); setShowOffers(true); }}>
+            Ver e aceitar
+          </Button>
+        </div>
+      )}
 
       <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
@@ -540,7 +650,7 @@ function ClienteContent() {
               <Plus className="mr-1 size-5" /> Solicitar
             </Button>
             <Button size="lg" variant="secondary" onClick={() => setShowOffers(true)} className="h-14 rounded-full px-6 text-base">
-              <Sparkles className="mr-1 size-5" /> Ver ofertas
+              <Sparkles className="mr-1 size-5" /> Ver ofertas{mapOffers.length > 0 ? ` (${mapOffers.length})` : ""}
             </Button>
           </div>
         </>
