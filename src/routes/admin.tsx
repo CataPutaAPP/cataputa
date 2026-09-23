@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
   Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video, TrendingUp,
+  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,7 +58,11 @@ const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", {
 function AdminContent() {
   const { user } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "pagamentos" | "planos" | "campanhas">("resumo");
+  const [tab, setTab] = useState<
+    "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "excluidas" |
+    "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda"
+  >("resumo");
+  const [menuAberto, setMenuAberto] = useState(false);
   const [dash, setDash] = useState<Dash | null>(null);
 
   const loadDash = useCallback(async () => {
@@ -76,46 +81,133 @@ function AdminContent() {
     </Center>
   );
 
-  const tabs = [
-    { id: "resumo", label: "Resumo", icon: <Settings className="size-4" /> },
-    { id: "denuncias", label: `Denúncias${dash?.denuncias_abertas ? ` (${dash.denuncias_abertas})` : ""}`, icon: <Flag className="size-4" /> },
-    { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
-    { id: "funil", label: "Funil", icon: <TrendingUp className="size-4" /> },
-    { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
-    { id: "pagamentos", label: "Pagamentos", icon: <CreditCard className="size-4" /> },
-    { id: "planos", label: "Planos e preços", icon: <Ticket className="size-4" /> },
-    { id: "campanhas", label: "Campanhas", icon: <Ticket className="size-4" /> },
-  ] as const;
+  interface ItemNav { id: string; label: string; icon: React.ReactNode; aviso?: number }
+  const grupos: { titulo: string; itens: ItemNav[] }[] = [
+    {
+      titulo: "Visão geral",
+      itens: [
+        { id: "resumo", label: "Resumo", icon: <Gauge className="size-4" /> },
+        { id: "funil", label: "Funil e saúde", icon: <TrendingUp className="size-4" /> },
+      ],
+    },
+    {
+      titulo: "Moderação",
+      itens: [
+        { id: "denuncias", label: "Denúncias", icon: <Flag className="size-4" />, aviso: dash?.denuncias_abertas ?? 0 },
+        { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
+        { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
+        { id: "excluidas", label: "Contas excluídas", icon: <UserMinus className="size-4" /> },
+      ],
+    },
+    {
+      titulo: "Receita",
+      itens: [
+        { id: "pagamentos", label: "Pagamentos", icon: <CreditCard className="size-4" /> },
+        { id: "planos", label: "Planos e preços", icon: <Ticket className="size-4" /> },
+        { id: "campanhas", label: "Campanhas", icon: <Gift className="size-4" /> },
+      ],
+    },
+    {
+      titulo: "Conteúdo",
+      itens: [
+        { id: "legais", label: "Termos e privacidade", icon: <ScrollText className="size-4" /> },
+        { id: "ajuda", label: "Textos de ajuda", icon: <HelpCircle className="size-4" /> },
+      ],
+    },
+  ];
+
+  const tituloAtual = grupos.flatMap((g) => g.itens).find((i) => i.id === tab)?.label ?? "Administração";
+
+  const Navegacao = ({ aoEscolher }: { aoEscolher?: () => void }) => (
+    <nav className="space-y-5">
+      {grupos.map((g) => (
+        <div key={g.titulo}>
+          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g.titulo}</p>
+          <div className="space-y-0.5">
+            {g.itens.map((i) => (
+              <button key={i.id} onClick={() => { setTab(i.id as typeof tab); aoEscolher?.(); }}
+                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors ${
+                  tab === i.id ? "bg-primary/15 font-medium text-primary" : "text-muted-foreground hover:bg-secondary"}`}>
+                {i.icon}
+                <span className="flex-1 text-left">{i.label}</span>
+                {Number(i.aviso ?? 0) > 0 && (
+                  <span className="rounded-full bg-destructive px-1.5 py-0.5 text-[10px] font-semibold text-destructive-foreground">
+                    {i.aviso}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </nav>
+  );
 
   return (
-    <main className="min-h-screen px-4 pb-16 pt-20" style={{ background: "#0a0a12" }}>
-      <div className="mx-auto max-w-4xl">
-        <h1 className="mb-4 text-xl font-semibold">Administração</h1>
-
-        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium ${tab === t.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
-              {t.icon}{t.label}
-            </button>
-          ))}
+    <div className="min-h-screen" style={{ background: "#1E0E1A" }}>
+      {/* Barra lateral fixa no desktop */}
+      <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-card/40 px-3 py-5 lg:flex">
+        <div className="mb-6 flex items-center gap-2 px-3">
+          <img src="/privora-selo.png" alt="" className="size-8 object-contain" />
+          <div>
+            <p className="text-sm font-semibold leading-tight">Privora</p>
+            <p className="text-[10px] text-muted-foreground">Administração</p>
+          </div>
         </div>
+        <div className="flex-1 overflow-y-auto"><Navegacao /></div>
+        <Button variant="ghost" size="sm" className="mt-3 justify-start text-muted-foreground" onClick={loadDash}>
+          <RefreshCw className="mr-2 size-4" /> Atualizar
+        </Button>
+      </aside>
 
-        {tab === "resumo" && <Resumo dash={dash} onRefresh={loadDash} />}
-        {tab === "denuncias" && <Denuncias onChange={loadDash} />}
-        {tab === "usuarios" && <Usuarios onChange={loadDash} />}
-        {tab === "funil" && <Funil />}
-        {tab === "videos" && <Videos />}
-        {tab === "pagamentos" && <Pagamentos />}
-        {tab === "planos" && <Planos />}
-        {tab === "campanhas" && <Campanhas />}
-      </div>
-    </main>
+      {/* Gaveta no celular */}
+      {menuAberto && (
+        <div className="fixed inset-0 z-50 lg:hidden" onClick={() => setMenuAberto(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <aside className="absolute inset-y-0 left-0 w-64 overflow-y-auto border-r border-border bg-card px-3 py-5"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="mb-6 flex items-center justify-between px-3">
+              <p className="font-semibold">Administração</p>
+              <Button variant="ghost" size="icon" onClick={() => setMenuAberto(false)}><X className="size-5" /></Button>
+            </div>
+            <Navegacao aoEscolher={() => setMenuAberto(false)} />
+          </aside>
+        </div>
+      )}
+
+      <main className="px-4 pb-16 pt-4 lg:ml-60 lg:px-8">
+        <header className="mb-5 flex items-center gap-3 pt-2">
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMenuAberto(true)}>
+            <Menu className="size-5" />
+          </Button>
+          <h1 className="flex-1 text-xl font-semibold">{tituloAtual}</h1>
+          {dash && (
+            <span className="hidden text-xs text-muted-foreground sm:block">
+              {dash.usuarios} usuários · {dash.atendimentos_30d} atendimentos em 30d
+            </span>
+          )}
+        </header>
+
+        <div className="mx-auto max-w-4xl lg:mx-0">
+          {tab === "resumo" && <Resumo dash={dash} onRefresh={loadDash} />}
+          {tab === "denuncias" && <Denuncias onChange={loadDash} />}
+          {tab === "usuarios" && <Usuarios onChange={loadDash} />}
+          {tab === "funil" && <Funil />}
+          {tab === "videos" && <Videos />}
+          {tab === "excluidas" && <Excluidas />}
+          {tab === "pagamentos" && <Pagamentos />}
+          {tab === "planos" && <Planos />}
+          {tab === "campanhas" && <Campanhas />}
+          {tab === "legais" && <Legais />}
+          {tab === "ajuda" && <Ajuda />}
+        </div>
+      </main>
+    </div>
   );
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center" style={{ background: "#0a0a12" }}>{children}</main>;
+  return <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center" style={{ background: "#1E0E1A" }}>{children}</main>;
 }
 function Card({ label, value, alert = false }: { label: string; value: string | number; alert?: boolean }) {
   return (
@@ -448,6 +540,178 @@ function Funil() {
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+
+/* ─── Contas excluídas ──────────────────────────────────────────────── */
+interface ContaExcluida { deleted_at: string; role: string; verification_status: string; had_reports: number; reason: string | null }
+
+function Excluidas() {
+  const [rows, setRows] = useState<ContaExcluida[] | null>(null);
+  useEffect(() => {
+    supabase.rpc("admin_deleted_accounts", { p_limit: 50 }).then(({ data, error }) => {
+      if (error) toast.error(error.message);
+      setRows((data as ContaExcluida[]) ?? []);
+    });
+  }, []);
+
+  if (!rows) return <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" />;
+  if (!rows.length) return <p className="py-10 text-center text-sm text-muted-foreground">Nenhuma conta excluída.</p>;
+
+  return (
+    <div className="space-y-2">
+      <p className="mb-3 text-xs text-muted-foreground">
+        Guardamos só o registro de que a verificação de idade foi feita, por 5 anos. Sem nome, CPF ou telefone.
+      </p>
+      {rows.map((r, i) => (
+        <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+          <div className="min-w-0">
+            <p className="font-medium">{r.role} · verificação {r.verification_status ?? "—"}</p>
+            {r.reason && <p className="truncate text-xs italic text-muted-foreground">"{r.reason}"</p>}
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="text-xs text-muted-foreground">{new Date(r.deleted_at).toLocaleDateString("pt-BR")}</p>
+            {r.had_reports > 0 && <p className="text-[10px] text-destructive">{r.had_reports} denúncia(s)</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ─── Termos e privacidade ──────────────────────────────────────────── */
+function Legais() {
+  const [slug, setSlug] = useState<"termos" | "privacidade">("termos");
+  const [doc, setDoc] = useState<{ version: number; title: string; body: string } | null>(null);
+  const [texto, setTexto] = useState("");
+  const [titulo, setTitulo] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [aceites, setAceites] = useState<{ slug: string; version: number; aceitaram: number; total_usuarios: number }[]>([]);
+
+  const load = useCallback(async () => {
+    setDoc(null);
+    const [d, a] = await Promise.all([
+      supabase.rpc("legal_document", { p_slug: slug }),
+      supabase.rpc("admin_agreements_report"),
+    ]);
+    const atual = d.data as { version: number; title: string; body: string } | null;
+    setDoc(atual);
+    setTexto(atual?.body ?? "");
+    setTitulo(atual?.title ?? (slug === "termos" ? "Termos de Uso" : "Política de Privacidade"));
+    setAceites((a.data as typeof aceites) ?? []);
+  }, [slug]);
+  useEffect(() => { load(); }, [load]);
+
+  async function publicar() {
+    if (!window.confirm("Publicar nova versão? Todos os usuários terão de aceitar de novo no próximo acesso.")) return;
+    setSalvando(true);
+    const { error } = await supabase.rpc("admin_publish_legal", { p_slug: slug, p_title: titulo, p_body: texto });
+    setSalvando(false);
+    if (error) return toast.error(error.message);
+    toast.success("Nova versão publicada.");
+    load();
+  }
+
+  const aceite = aceites.find((a) => a.slug === slug);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {(["termos", "privacidade"] as const).map((v) => (
+          <button key={v} onClick={() => setSlug(v)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium ${slug === v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            {v === "termos" ? "Termos de Uso" : "Política de Privacidade"}
+          </button>
+        ))}
+      </div>
+
+      {doc && (
+        <p className="text-xs text-muted-foreground">
+          Versão {doc.version} no ar
+          {aceite && ` · ${aceite.aceitaram} de ${aceite.total_usuarios} usuários aceitaram`}
+        </p>
+      )}
+
+      <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título" />
+      <textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={22}
+        className="w-full rounded-xl border border-border bg-background p-3 font-mono text-xs leading-relaxed"
+        placeholder="Cole aqui o texto revisado pelo advogado. Use ## para títulos e - para listas." />
+
+      <div className="flex items-center gap-2">
+        <Button disabled={salvando || texto.length < 200} onClick={publicar}>
+          {salvando ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
+          Publicar nova versão
+        </Button>
+        <p className="text-[11px] text-muted-foreground">A versão anterior fica guardada como histórico.</p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Textos de ajuda ───────────────────────────────────────────────── */
+interface Ajudinha { id: string; screen: string; title: string; body: string; sort_order: number }
+
+function Ajuda() {
+  const [tela, setTela] = useState("cliente");
+  const [itens, setItens] = useState<Ajudinha[] | null>(null);
+  const [editando, setEditando] = useState<string | null>(null);
+  const [rascunho, setRascunho] = useState("");
+
+  const load = useCallback(async () => {
+    setItens(null);
+    const { data, error } = await supabase
+      .from("help_content").select("id, screen, title, body, sort_order")
+      .eq("screen", tela).order("sort_order");
+    if (error) toast.error(error.message);
+    setItens((data as Ajudinha[]) ?? []);
+  }, [tela]);
+  useEffect(() => { load(); }, [load]);
+
+  async function salvar(id: string) {
+    const { error } = await supabase.from("help_content").update({ body: rascunho }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Texto atualizado.");
+    setEditando(null); load();
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        {["cliente", "prestador", "parceiro"].map((t) => (
+          <button key={t} onClick={() => setTela(t)}
+            className={`rounded-full border px-3 py-1.5 text-xs font-medium ${tela === t ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">São os textos do botão "?" dentro do app.</p>
+
+      {!itens ? <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" /> :
+        itens.map((i) => (
+          <div key={i.id} className="rounded-xl border border-border bg-card p-3">
+            <p className="text-sm font-semibold">{i.title}</p>
+            {editando === i.id ? (
+              <>
+                <textarea value={rascunho} onChange={(e) => setRascunho(e.target.value)} rows={5}
+                  className="mt-2 w-full rounded-lg border border-border bg-background p-2 text-xs" />
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" onClick={() => salvar(i.id)}>Salvar</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditando(null)}>Cancelar</Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{i.body}</p>
+                <Button size="sm" variant="ghost" className="mt-1 h-7 px-2 text-xs"
+                  onClick={() => { setEditando(i.id); setRascunho(i.body); }}>
+                  Editar
+                </Button>
+              </>
+            )}
+          </div>
+        ))}
     </div>
   );
 }
