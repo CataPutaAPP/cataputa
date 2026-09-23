@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
-  Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video,
+  Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,7 +57,7 @@ const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", {
 function AdminContent() {
   const { user } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
-  const [tab, setTab] = useState<"resumo" | "denuncias" | "usuarios" | "videos" | "pagamentos" | "planos" | "campanhas">("resumo");
+  const [tab, setTab] = useState<"resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "pagamentos" | "planos" | "campanhas">("resumo");
   const [dash, setDash] = useState<Dash | null>(null);
 
   const loadDash = useCallback(async () => {
@@ -80,6 +80,7 @@ function AdminContent() {
     { id: "resumo", label: "Resumo", icon: <Settings className="size-4" /> },
     { id: "denuncias", label: `Denúncias${dash?.denuncias_abertas ? ` (${dash.denuncias_abertas})` : ""}`, icon: <Flag className="size-4" /> },
     { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
+    { id: "funil", label: "Funil", icon: <TrendingUp className="size-4" /> },
     { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
     { id: "pagamentos", label: "Pagamentos", icon: <CreditCard className="size-4" /> },
     { id: "planos", label: "Planos e preços", icon: <Ticket className="size-4" /> },
@@ -103,6 +104,7 @@ function AdminContent() {
         {tab === "resumo" && <Resumo dash={dash} onRefresh={loadDash} />}
         {tab === "denuncias" && <Denuncias onChange={loadDash} />}
         {tab === "usuarios" && <Usuarios onChange={loadDash} />}
+        {tab === "funil" && <Funil />}
         {tab === "videos" && <Videos />}
         {tab === "pagamentos" && <Pagamentos />}
         {tab === "planos" && <Planos />}
@@ -340,6 +342,112 @@ function Usuarios({ onChange }: { onChange: () => void }) {
             </div>
           </article>
         ))}
+    </div>
+  );
+}
+
+/* ─── Funil e saúde do marketplace ──────────────────────────────────── */
+interface EtapaFunil { publico: string; etapa: string; ordem: number; pessoas: number; pct_do_topo: number }
+interface Sinal { indicador: string; valor: string; situacao: string }
+interface Dia { dia: string; cadastros: number; chamados: number; propostas: number; concluidos: number; receita: number }
+
+function Funil() {
+  const [dias, setDias] = useState(30);
+  const [etapas, setEtapas] = useState<EtapaFunil[] | null>(null);
+  const [sinais, setSinais] = useState<Sinal[]>([]);
+  const [atividade, setAtividade] = useState<Dia[]>([]);
+
+  const load = useCallback(async () => {
+    setEtapas(null);
+    const [f, h, a] = await Promise.all([
+      supabase.rpc("admin_funnel", { p_days: dias }),
+      supabase.rpc("admin_health"),
+      supabase.rpc("admin_activity", { p_days: 14 }),
+    ]);
+    if (f.error) toast.error(f.error.message);
+    setEtapas((f.data as EtapaFunil[]) ?? []);
+    setSinais((h.data as Sinal[]) ?? []);
+    setAtividade((a.data as Dia[]) ?? []);
+  }, [dias]);
+  useEffect(() => { load(); }, [load]);
+
+  const publicos = ["cliente", "prestador", "parceiro"];
+  const maxDia = Math.max(1, ...atividade.map((d) => Math.max(d.cadastros, d.chamados, d.concluidos)));
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">Onde as pessoas param</h2>
+        <div className="flex gap-1">
+          {[7, 30, 90].map((d) => (
+            <button key={d} onClick={() => setDias(d)}
+              className={`rounded-full border px-2.5 py-1 text-[11px] ${dias === d ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Sinais de alerta */}
+      <div className="space-y-1.5 rounded-2xl border border-border bg-card p-4">
+        <p className="mb-2 text-xs font-semibold text-muted-foreground">SAÚDE DO MARKETPLACE</p>
+        {sinais.map((s) => (
+          <div key={s.indicador} className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">{s.indicador}</span>
+            <span className="shrink-0"><b>{s.valor}</b> <span className="text-xs">{s.situacao}</span></span>
+          </div>
+        ))}
+      </div>
+
+      {/* Funil por público */}
+      {!etapas ? <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" /> :
+        publicos.map((pub) => {
+          const linhas = etapas.filter((e) => e.publico === pub);
+          if (!linhas.length) return null;
+          return (
+            <div key={pub} className="rounded-2xl border border-border bg-card p-4">
+              <p className="mb-3 text-xs font-semibold uppercase text-muted-foreground">{pub}</p>
+              <div className="space-y-2">
+                {linhas.map((e) => (
+                  <div key={e.etapa}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span>{e.etapa}</span>
+                      <span className="text-muted-foreground">{e.pessoas} · {e.pct_do_topo}%</span>
+                    </div>
+                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-secondary">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, e.pct_do_topo)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
+      {/* Atividade diária */}
+      {atividade.length > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4">
+          <p className="mb-3 text-xs font-semibold text-muted-foreground">ÚLTIMOS 14 DIAS</p>
+          <div className="flex h-24 items-end gap-1">
+            {atividade.map((d) => (
+              <div key={d.dia} className="flex flex-1 flex-col items-center gap-1"
+                title={`${new Date(d.dia).toLocaleDateString("pt-BR")}: ${d.cadastros} cadastros, ${d.chamados} chamados, ${d.concluidos} concluídos`}>
+                <div className="flex w-full flex-1 items-end gap-px">
+                  <div className="flex-1 rounded-t bg-primary/70" style={{ height: `${(d.chamados / maxDia) * 100}%` }} />
+                  <div className="flex-1 rounded-t bg-accent" style={{ height: `${(d.cadastros / maxDia) * 100}%` }} />
+                  <div className="flex-1 rounded-t bg-green-500/70" style={{ height: `${(d.concluidos / maxDia) * 100}%` }} />
+                </div>
+                <span className="text-[9px] text-muted-foreground">{new Date(d.dia).getDate()}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            <span className="text-primary">■</span> chamados ·
+            <span className="text-accent"> ■</span> cadastros ·
+            <span className="text-green-500"> ■</span> concluídos
+          </p>
+        </div>
+      )}
     </div>
   );
 }
