@@ -34,6 +34,7 @@ import { ProviderVideoManager } from "@/components/ProviderVideo";
 import { HistorySheet } from "@/components/HistorySheet";
 import { useMyPlan } from "@/lib/plans";
 import { useRealtime } from "@/lib/realtime";
+import { useServiceOptions } from "@/lib/options";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -158,6 +159,8 @@ function PrestadorContent() {
   // não deixa propor "Parceiro" onde não existe nenhum cadastrado
   const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const opcoes = useServiceOptions();
+  const [offerAudience, setOfferAudience] = useState<string[]>([]);
   const [minhasOfertas, setMinhasOfertas] = useState<{ offer_id: string; service_type: string; sub_type: string; price: number; local_option: string; ativa: boolean }[]>([]);
   const [acaoOferta, setAcaoOferta] = useState<string | null>(null);
 
@@ -427,6 +430,8 @@ function PrestadorContent() {
       provider_id: user.id,
       service_type: offerType,
       sub_type: offerSubType,
+      duration: opcoes.detalheDoTipo(offerType) === "duracao" ? offerSubType : null,
+      audience: offerAudience.length ? offerAudience : null,
       flags: offerFlags,
       gender: user.gender ?? "mulheres",
       price,
@@ -449,6 +454,7 @@ function PrestadorContent() {
     setOfferType("");
     setOfferSubType("");
     setOfferFlags([]);
+    setOfferAudience([]);
     setOfferPrice("");
     setOfferDesc("");
     setView("map");
@@ -811,29 +817,48 @@ function PrestadorContent() {
           <div className="space-y-5">
             {/* Type */}
             <Field label="Tipo de serviço">
-              <div className="flex gap-2">
-                {(["massagem", "acompanhante"] as ServiceType[]).map((t) => (
-                  <Chip key={t} active={offerType === t} onClick={() => setOfferType(t)} className="capitalize">{t}</Chip>
+              <div className="flex flex-wrap gap-2">
+                {opcoes.tipos.map((t) => (
+                  <Chip key={t.value} active={offerType === t.value}
+                    onClick={() => { setOfferType(t.value as ServiceType); setOfferSubType(""); }}>
+                    {t.label}
+                  </Chip>
                 ))}
               </div>
             </Field>
 
             {/* Sub-type */}
-            {offerType && (
-              <Field label={offerType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}>
+            {offerType && opcoes.detalheDoTipo(offerType) !== "nenhum" && (
+              <Field label={opcoes.detalheDoTipo(offerType) === "estilo" ? "Tipo de massagem" : "Duração"}>
                 <div className="flex flex-wrap gap-2">
-                  {serviceSubTypes[offerType].map((s) => (
-                    <Pill key={s.value} active={offerSubType === s.value} onClick={() => setOfferSubType(s.value)}>{s.label}</Pill>
+                  {(opcoes.detalheDoTipo(offerType) === "estilo" ? opcoes.estilos : opcoes.duracoes(offerType))
+                    .map((s) => (
+                      <Pill key={s.value} active={offerSubType === s.value} onClick={() => setOfferSubType(s.value)}>
+                        {s.label}
+                      </Pill>
+                    ))}
+                </div>
+              </Field>
+            )}
+
+            {offerType && opcoes.publicos.length > 0 && (
+              <Field label="Quem você atende">
+                <div className="flex flex-wrap gap-2">
+                  {opcoes.publicos.map((p) => (
+                    <Pill key={p.value} active={offerAudience.includes(p.value)} showCheck small
+                      onClick={() => setOfferAudience((v) => v.includes(p.value) ? v.filter((x) => x !== p.value) : [...v, p.value])}>
+                      {p.label}
+                    </Pill>
                   ))}
                 </div>
               </Field>
             )}
 
             {/* Flags (for acompanhante) */}
-            {offerType === "acompanhante" && offerSubType && (
+            {offerType && offerType !== "massagem" && (
               <Field label="Serviços que você oferece">
                 <div className="flex flex-wrap gap-2">
-                  {serviceFlags.map((f) => (
+                  {opcoes.praticas.map((f) => (
                     <Pill key={f.value} active={offerFlags.includes(f.value)} onClick={() => toggleFlag(f.value)} showCheck small>
                       {f.label}
                     </Pill>

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useMyPlan, featureLimit } from "@/lib/plans";
+import { useServiceOptions } from "@/lib/options";
 import { playNotificationSound } from "@/lib/notifications";
 import {
   type ServiceType, type LocalOption, serviceSubTypes, serviceFlags,
@@ -74,6 +75,7 @@ function ClienteContent() {
   const [coords, setCoords] = useState<MapCoords | null>(null);
   const [view, setView] = useState<"map" | "request" | "proposals" | "match" | "payment" | "room">("map");
   const { plan } = useMyPlan();
+  const opcoes = useServiceOptions();
   const [radius, setRadius] = useState(10);
   // o raio máximo vem do plano: grátis 5 km, Pass 10 km, Black 20 km
   const raioMax = featureLimit(plan, "raio_max", 10);
@@ -272,6 +274,7 @@ function ClienteContent() {
       client_id: user.id, service_type: serviceType, sub_type: subType,
       flags: serviceType === "acompanhante" ? selectedFlags : [],
       gender_pref: selectedGenders, local_option: localChoice,
+      duration: serviceType && opcoes.detalheDoTipo(serviceType) === "duracao" ? subType : null,
       radius_km: radius, lat: coords.lat, lng: coords.lng,
     });
     setSubmitting(false);
@@ -563,9 +566,29 @@ function ClienteContent() {
                 })}
               </div>
             </Field>
-            <Field label="Tipo de serviço"><div className="flex gap-2">{(["massagem", "acompanhante"] as ServiceType[]).map((t) => (<Chip key={t} active={serviceType === t} onClick={() => setServiceType(t)} className="capitalize">{t}</Chip>))}</div></Field>
-            {serviceType && (<Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}><div className="flex flex-wrap gap-2">{serviceSubTypes[serviceType].map((s) => (<Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>))}</div></Field>)}
-            {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{serviceFlags.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
+            <Field label="Tipo de serviço">
+              <div className="flex flex-wrap gap-2">
+                {opcoes.tipos.map((t) => (
+                  <Chip key={t.value} active={serviceType === t.value}
+                    onClick={() => { setServiceType(t.value as ServiceType); setSubType(""); }}>
+                    {t.label}
+                  </Chip>
+                ))}
+              </div>
+            </Field>
+            {serviceType && opcoes.detalheDoTipo(serviceType) !== "nenhum" && (
+              <Field label={opcoes.detalheDoTipo(serviceType) === "estilo" ? "Tipo de massagem" : "Duração"}>
+                <div className="flex flex-wrap gap-2">
+                  {(opcoes.detalheDoTipo(serviceType) === "estilo" ? opcoes.estilos : opcoes.duracoes(serviceType))
+                    .map((s) => (
+                      <Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>
+                        {s.label}
+                      </Pill>
+                    ))}
+                </div>
+              </Field>
+            )}
+            {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{opcoes.praticas.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
             {flagsComplete && isCarro(subType) && (<Field label="Local do atendimento"><div className="flex items-center gap-3 rounded-xl border border-primary bg-primary/10 p-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Car className="size-5" /></div><div className="flex-1"><p className="text-sm font-medium text-primary">No carro</p><p className="text-xs text-muted-foreground">O ponto de encontro é a localização do prestador</p></div><Check className="size-5 text-primary" /></div></Field>)}
             {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => {
               const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
@@ -590,7 +613,7 @@ function ClienteContent() {
                 </button>
               );
             })}</div></Field>)}
-            {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{genderOptions.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
+            {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{opcoes.generos.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
             {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
           </div>
         </div>
