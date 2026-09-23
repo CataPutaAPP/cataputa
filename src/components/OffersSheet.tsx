@@ -8,7 +8,8 @@ import { ModalPortal } from "@/components/ModalPortal";
 import { ProviderPhotoStrip } from "@/components/ProviderProfile";
 import { supabase } from "@/lib/supabase";
 import { brl } from "@/lib/fees";
-import { getSubLabel, getLocalLabel, serviceFlags, genderOptions, type ServiceType } from "@/lib/service-options";
+import { getSubLabel, getLocalLabel, type ServiceType } from "@/lib/service-options";
+import { useServiceOptions } from "@/lib/options";
 
 export interface NearbyOffer {
   offer_id: string; provider_id: string; provider_name: string | null; gender: string | null;
@@ -16,12 +17,6 @@ export interface NearbyOffer {
   service_type: ServiceType; sub_type: string; flags: string[] | null; price: number;
   local_option: string; description: string | null; distance_km: number; created_at: string;
 }
-
-const tipos = [
-  { value: null as string | null, label: "Todos" },
-  { value: "massagem", label: "Massagem" },
-  { value: "acompanhante", label: "Acompanhante" },
-];
 
 /**
  * Vitrine de ofertas publicadas pelos prestadores.
@@ -33,6 +28,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
   onAccepted: (r: { request_id: string; proposal_id: string }) => void;
   onViewProfile: (providerId: string) => void;
 }) {
+  const opcoes = useServiceOptions();
   const [tipo, setTipo] = useState<string | null>(null);
   const [offers, setOffers] = useState<NearbyOffer[] | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
@@ -96,7 +92,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
         </div>
 
         <div className="flex items-center gap-2 px-4 pb-3">
-          {tipos.map((t) => (
+          {[{ value: null as string | null, label: "Todos" }, ...opcoes.tipos].map((t) => (
             <button key={t.label} onClick={() => setTipo(t.value)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${tipo === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
               {t.label}
@@ -140,7 +136,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
             <div>
               <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">QUEM ATENDE</p>
               <div className="flex flex-wrap gap-1.5">
-                {genderOptions.map((g) => (
+                {opcoes.generos.map((g) => (
                   <button key={g.value} onClick={() => alterna(generos, setGeneros, g.value)}
                     className={`rounded-full border px-2.5 py-1 text-[11px] ${generos.includes(g.value) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
                     {g.label}
@@ -165,7 +161,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
             <div>
               <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">INCLUI</p>
               <div className="flex flex-wrap gap-1.5">
-                {serviceFlags.map((f) => (
+                {opcoes.praticas.map((f) => (
                   <button key={f.value} onClick={() => alterna(flags, setFlags, f.value)}
                     className={`rounded-full border px-2.5 py-1 text-[11px] ${flags.includes(f.value) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
                     {f.label}
@@ -217,14 +213,14 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
               <ProviderPhotoStrip providerId={o.provider_id} onClick={() => onViewProfile(o.provider_id)} />
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <Badge variant="secondary" className="text-[10px]">{getSubLabel(o.service_type, o.sub_type)}</Badge>
+                <Badge variant="secondary" className="text-[10px]">{opcoes.rotulo(o.sub_type) || getSubLabel(o.service_type, o.sub_type)}</Badge>
                 <span className="flex items-center gap-1 text-muted-foreground"><LocalIcon v={o.local_option} />{getLocalLabel(o.local_option)}</span>
               </div>
               {o.flags && o.flags.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {o.flags.map((f) => (
                     <span key={f} className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">
-                      {serviceFlags.find((x) => x.value === f)?.label ?? f}
+                      {opcoes.rotulo(f)}
                     </span>
                   ))}
                 </div>
