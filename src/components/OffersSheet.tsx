@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { X, Loader2, Sparkles, Star, MapPin, Home, Users, Building2, Car, Check, Inbox } from "lucide-react";
+import { X, Loader2, Sparkles, Star, MapPin, Home, Users, Building2, Car, Check, Inbox, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { ModalPortal } from "@/components/ModalPortal";
 import { ProviderPhotoStrip } from "@/components/ProviderProfile";
 import { supabase } from "@/lib/supabase";
 import { brl } from "@/lib/fees";
-import { getSubLabel, getLocalLabel, serviceFlags, type ServiceType } from "@/lib/service-options";
+import { getSubLabel, getLocalLabel, serviceFlags, genderOptions, type ServiceType } from "@/lib/service-options";
 
 export interface NearbyOffer {
   offer_id: string; provider_id: string; provider_name: string | null; gender: string | null;
@@ -36,15 +36,40 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
   const [tipo, setTipo] = useState<string | null>(null);
   const [offers, setOffers] = useState<NearbyOffer[] | null>(null);
   const [accepting, setAccepting] = useState<string | null>(null);
+  const [mostrarFiltros, setMostrarFiltros] = useState(false);
+  const [generos, setGeneros] = useState<string[]>([]);
+  const [locais, setLocais] = useState<string[]>([]);
+  const [flags, setFlags] = useState<string[]>([]);
+  const [precoMax, setPrecoMax] = useState<number | null>(null);
+  const [ordem, setOrdem] = useState("relevancia");
+  const [faixa, setFaixa] = useState<{ minimo: number; maximo: number; total: number } | null>(null);
+
+  const alterna = (lista: string[], set: (v: string[]) => void, v: string) =>
+    set(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v]);
+
+  const filtrosAtivos =
+    generos.length + locais.length + flags.length + (precoMax ? 1 : 0) + (ordem !== "relevancia" ? 1 : 0);
+
+  useEffect(() => {
+    supabase.rpc("offers_price_range", { p_lat: lat, p_lng: lng, p_radius_km: radius })
+      .then(({ data }) => setFaixa(data as typeof faixa));
+  }, [lat, lng, radius]);
 
   const load = useCallback(async () => {
     setOffers(null);
     const { data, error } = await supabase.rpc("nearby_offers", {
-      p_lat: lat, p_lng: lng, p_radius_km: radius, p_service_type: tipo, p_genders: null,
+      p_lat: lat, p_lng: lng, p_radius_km: radius,
+      p_service_type: tipo,
+      p_genders: generos.length ? generos : null,
+      p_min_price: null,
+      p_max_price: precoMax,
+      p_locals: locais.length ? locais : null,
+      p_flags: flags.length ? flags : null,
+      p_order: ordem,
     });
     if (error) { console.error("nearby_offers", error); toast.error("Erro ao buscar ofertas."); setOffers([]); return; }
     setOffers((data as NearbyOffer[]) ?? []);
-  }, [lat, lng, radius, tipo]);
+  }, [lat, lng, radius, tipo, generos, locais, flags, precoMax, ordem]);
   useEffect(() => { load(); }, [load]);
 
   async function accept(o: NearbyOffer) {
@@ -70,14 +95,93 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
           <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>
         </div>
 
-        <div className="flex gap-2 px-4 pb-3">
+        <div className="flex items-center gap-2 px-4 pb-3">
           {tipos.map((t) => (
             <button key={t.label} onClick={() => setTipo(t.value)}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${tipo === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
               {t.label}
             </button>
           ))}
+          <button onClick={() => setMostrarFiltros((v) => !v)}
+            className={`ml-auto flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-medium ${
+              filtrosAtivos ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+            <SlidersHorizontal className="size-3.5" />
+            {filtrosAtivos ? `Filtros (${filtrosAtivos})` : "Filtros"}
+          </button>
         </div>
+
+        {mostrarFiltros && (
+          <div className="space-y-3 border-y border-border bg-card/50 px-4 py-3">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">ORDENAR POR</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([["relevancia", "Relevância"], ["preco_menor", "Menor preço"], ["preco_maior", "Maior preço"],
+                  ["nota", "Melhor nota"], ["recentes", "Mais recentes"]] as [string, string][]).map(([v, l]) => (
+                  <button key={v} onClick={() => setOrdem(v)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${ordem === v ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {faixa && faixa.total > 0 && faixa.maximo > faixa.minimo && (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">
+                  ATÉ {precoMax ? brl(precoMax) : brl(faixa.maximo)}
+                </p>
+                <input type="range" min={faixa.minimo} max={faixa.maximo} step={10}
+                  value={precoMax ?? faixa.maximo}
+                  onChange={(e) => setPrecoMax(Number(e.target.value) >= faixa.maximo ? null : Number(e.target.value))}
+                  className="w-full accent-[var(--primary)]" />
+              </div>
+            )}
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">QUEM ATENDE</p>
+              <div className="flex flex-wrap gap-1.5">
+                {genderOptions.map((g) => (
+                  <button key={g.value} onClick={() => alterna(generos, setGeneros, g.value)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${generos.includes(g.value) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">ONDE</p>
+              <div className="flex flex-wrap gap-1.5">
+                {([["local_atendente", "No local dele(a)"], ["local_cliente", "Vai até você"],
+                  ["parceiro", "Motel parceiro"], ["carro", "No carro"]] as [string, string][]).map(([v, l]) => (
+                  <button key={v} onClick={() => alterna(locais, setLocais, v)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${locais.includes(v) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-muted-foreground">INCLUI</p>
+              <div className="flex flex-wrap gap-1.5">
+                {serviceFlags.map((f) => (
+                  <button key={f.value} onClick={() => alterna(flags, setFlags, f.value)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] ${flags.includes(f.value) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {filtrosAtivos > 0 && (
+              <button onClick={() => { setGeneros([]); setLocais([]); setFlags([]); setPrecoMax(null); setOrdem("relevancia"); }}
+                className="text-xs text-muted-foreground underline">
+                Limpar filtros
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-8">
           {!offers ? (
@@ -85,7 +189,9 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
           ) : offers.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               <Inbox className="size-12 text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Nenhuma oferta em {radius} km agora.</p>
+              <p className="text-sm text-muted-foreground">
+                {filtrosAtivos ? "Nenhuma oferta com esses filtros." : `Nenhuma oferta em ${radius} km agora.`}
+              </p>
               <p className="text-xs text-muted-foreground">Abra um chamado e os prestadores próximos enviam propostas.</p>
             </div>
           ) : offers.map((o) => (
