@@ -22,6 +22,7 @@ interface ProviderPhoto {
   id: string;
   user_id: string;
   photo_url: string;
+  storage_path: string | null;
   sort_order: number;
   created_at: string;
 }
@@ -54,7 +55,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
         supabase.from("provider_photos").select("*").eq("user_id", providerId).order("sort_order"),
       ]);
       if (prof) setProfile(prof as Profile);
-      if (pics) setPhotos(pics as ProviderPhoto[]);
+      setPhotos((pics as ProviderPhoto[]) ?? []);
       setLoading(false);
     })();
   }, [providerId]);
@@ -174,6 +175,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
 export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
   // Máximo de fotos vem do plano (prestador); parceiro e demais ficam com 5
   const { plan } = useMyPlan();
+  const planoCarregando = plan === null;
   const maxPhotos = featureLimit(plan, "max_photos", 5);
   const maxLabel = Number.isFinite(maxPhotos) ? String(maxPhotos) : "∞";
   const [photos, setPhotos] = useState<ProviderPhoto[]>([]);
@@ -182,12 +184,13 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const fetchPhotos = useCallback(async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("provider_photos")
       .select("*")
       .eq("user_id", userId)
       .order("sort_order");
-    if (data) setPhotos(data as ProviderPhoto[]);
+    if (error) { console.error("provider_photos select", error); toast.error(error.message); return; }
+    setPhotos((data as ProviderPhoto[]) ?? []);
   }, [userId]);
 
   useEffect(() => { fetchPhotos(); }, [fetchPhotos]);
@@ -195,16 +198,28 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+
+    // Enquanto o plano nao carregou nao da para saber o limite real:
+    // melhor avisar do que bloquear com um numero errado.
+    if (planoCarregando) {
+      toast.error("Carregando seu plano... tente de novo em 1 segundo.");
+      return;
+    }
     if (photos.length + files.length > maxPhotos) {
-      toast.error(`Seu plano permite até ${maxLabel} fotos. Veja os planos (ícone de coroa) para liberar mais.`);
+      toast.error(
+        `Limite de fotos do seu plano: ${maxLabel}. Voce ja tem ${photos.length} e tentou somar ${files.length}.`
+      );
       return;
     }
 
     setUploading(true);
+    let enviadas = 0;
+    let falhas = 0;
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file.type.startsWith("image/")) { toast.error("Apenas imagens."); continue; }
-      if (file.size > 5 * 1024 * 1024) { toast.error("Máximo 5MB por foto."); continue; }
+      if (!file.type.startsWith("image/")) { toast.error(`${file.name}: apenas imagens.`); falhas++; continue; }
+      if (file.size > 5 * 1024 * 1024) { toast.error(`${file.name}: maximo 5MB por foto.`); falhas++; continue; }
 
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${userId}/${Date.now()}_${i}.${ext}`;
@@ -214,7 +229,9 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
         .upload(path, file, { upsert: false });
 
       if (uploadError) {
-        toast.error(`Erro no upload: ${uploadError.message}`);
+        console.error("storage upload", uploadError);
+        toast.error(`Upload falhou: ${uploadError.message}`);
+        falhas++;
         continue;
       }
 
@@ -224,32 +241,43 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
         user_id: userId,
         photo_url: publicUrl,
         storage_path: path,
-        sort_order: photos.length + i,
+        sort_order: photos.length + enviadas,
       });
+
       if (insertError) {
-        // limite do plano (ou outra regra do banco): desfaz o upload para não deixar arquivo órfão
+        // desfaz o upload para nao deixar arquivo orfao no storage
         await supabase.storage.from("photos").remove([path]);
-        toast.error(insertError.message || "Não foi possível salvar a foto.");
+        console.error("provider_photos insert", insertError);
+        toast.error(`Nao salvou no banco: ${insertError.message}`);
+        falhas++;
         break;
       }
+      enviadas++;
     }
+
     setUploading(false);
-    fetchPhotos(); onDone();
-    toast.success("Fotos enviadas!");
+    await fetchPhotos();
+    onDone();
+
+    // So diz que deu certo se deu certo de verdade.
+    if (enviadas > 0 && falhas === 0) toast.success(`${enviadas} foto(s) enviada(s).`);
+    else if (enviadas > 0) toast.success(`${enviadas} enviada(s), ${falhas} falharam.`);
+
     if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleDelete(photo: ProviderPhoto) {
     setDeleting(photo.id);
-    // Delete from storage
-    const storagePath = photo.photo_url.split("/photos/")[1];
+    // Caminho real gravado no insert; o split da URL fica so como plano B
+    // para as fotos antigas que nao tem storage_path.
+    const storagePath = photo.storage_path ?? photo.photo_url.split("/photos/")[1];
     if (storagePath) {
       await supabase.storage.from("photos").remove([decodeURIComponent(storagePath)]);
     }
-    // Delete from DB
-    await supabase.from("provider_photos").delete().eq("id", photo.id);
+    const { error } = await supabase.from("provider_photos").delete().eq("id", photo.id);
     setDeleting(null);
-    fetchPhotos(); onDone();
+    if (error) { console.error("provider_photos delete", error); toast.error(error.message); return; }
+    await fetchPhotos(); onDone();
     toast.success("Foto removida.");
   }
 
@@ -311,13 +339,17 @@ export function ProviderPhotoStrip({ providerId, onClick }: { providerId: string
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      // BUG CORRIGIDO: antes pedia .select("url"), coluna que nao existe.
+      // O Supabase devolvia erro, data vinha null, e NENHUMA foto aparecia
+      // em nenhum card de oferta ou proposta.
+      const { data, error } = await supabase
         .from("provider_photos")
-        .select("url")
+        .select("photo_url, sort_order")
         .eq("user_id", providerId)
         .order("sort_order")
         .limit(3);
-      if (data) setPhotos(data.map((p) => p.photo_url));
+      if (error) { console.error("ProviderPhotoStrip", error); return; }
+      setPhotos((data ?? []).map((p) => p.photo_url as string).filter(Boolean));
     })();
   }, [providerId]);
 
