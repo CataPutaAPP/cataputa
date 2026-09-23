@@ -115,18 +115,50 @@ function PrestadorContent() {
   const [radius, setRadius] = useState(10);
   const [available, setAvailable] = useState(true);
 
-  // "Online" agora fica salvo no banco e manda sinal de vida — é o que alimenta
-  // o radar do cliente. Sem sinal por alguns minutos, o perfil sai do radar.
+  // "Online" fica salvo no banco e manda sinal de vida — e o que alimenta o
+  // radar do cliente. Sem sinal por alguns minutos, o perfil sai do radar.
+  //
+  // CORRIGIDO: antes havia dois efeitos brigando. Um lia my_availability() e o
+  // outro gravava set_availability() ja no mount com o valor inicial "true",
+  // sobrescrevendo o que estava no banco antes mesmo da leitura voltar.
+  // Agora a leitura acontece uma vez, a gravacao so acontece quando VOCE
+  // alterna o botao, e o sinal de vida bate a cada 60s.
+  const disponibilidadeLida = useRef(false);
+
   useEffect(() => {
-    if (!user) return;
-    supabase.rpc("my_availability").then(({ data }) => { if (data != null) setAvailable(!!data); });
+    if (!user || disponibilidadeLida.current) return;
+    disponibilidadeLida.current = true;
+    supabase.rpc("my_availability").then(({ data, error }) => {
+      if (error) { console.error("my_availability", error); return; }
+      if (data != null) setAvailable(!!data);
+    });
   }, [user]);
+
+  // Alternar o botao: grava e confirma com o banco.
+  const alternarDisponibilidade = useCallback(async (novo: boolean) => {
+    setAvailable(novo);
+    const { error } = await supabase.rpc("set_availability", { p_available: novo });
+    if (error) {
+      console.error("set_availability", error);
+      toast.error(`Nao consegui salvar: ${error.message}`);
+      setAvailable(!novo); // volta o botao, para a tela nao mentir
+      return;
+    }
+    toast.success(novo
+      ? "Voce esta online. Aparece no radar dos clientes por perto."
+      : "Voce esta offline. Suas ofertas continuam publicadas.");
+  }, []);
+
+  // Sinal de vida: 60s enquanto online. Tambem bate ao voltar para a aba,
+  // porque o navegador congela timers em aba de fundo.
   useEffect(() => {
-    if (!user) return;
-    supabase.rpc("set_availability", { p_available: available });
-    if (!available) return;
-    const beat = setInterval(() => { supabase.rpc("set_availability", { p_available: true }); }, 120000);
-    return () => clearInterval(beat);
+    if (!user || !available) return;
+    const bater = () => { supabase.rpc("set_availability", { p_available: true }); };
+    bater();
+    const beat = setInterval(bater, 60000);
+    const aoVoltar = () => { if (document.visibilityState === "visible") bater(); };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => { clearInterval(beat); document.removeEventListener("visibilitychange", aoVoltar); };
   }, [user, available]);
 
   // Requests from clients
@@ -217,11 +249,17 @@ function PrestadorContent() {
   // Fotos do perfil: mínimo obrigatório para propor e ofertar
   const MIN_PHOTOS = 3;
   const [photoCount, setPhotoCount] = useState<number | null>(null);
+  // CORRIGIDO: antes usava { count: "exact", head: true } e fazia
+  // setPhotoCount(count ?? 0) sem olhar o erro. Qualquer falha momentanea
+  // (renovacao de token, RLS piscando) virava "0 fotos" e ressuscitava o
+  // aviso de "Perfil incompleto 0/3" mesmo com as fotos salvas.
+  // Agora le as linhas de verdade e, em caso de erro, MANTEM o valor anterior.
   const fetchPhotoCount = useCallback(async () => {
     if (!user) return;
-    const { count } = await supabase.from("provider_photos")
-      .select("id", { count: "exact", head: true }).eq("user_id", user.id);
-    setPhotoCount(count ?? 0);
+    const { data, error } = await supabase.from("provider_photos")
+      .select("id").eq("user_id", user.id);
+    if (error) { console.error("provider_photos count", error); return; }
+    setPhotoCount(data?.length ?? 0);
   }, [user]);
   useEffect(() => { fetchPhotoCount(); }, [fetchPhotoCount]);
   const needsPhotos = photoCount !== null && photoCount < MIN_PHOTOS;
@@ -445,8 +483,8 @@ function PrestadorContent() {
     setSubmittingOffer(false);
 
     if (error) {
-      toast.error("Erro ao criar oferta.");
-      console.error(error);
+      console.error("service_offers insert", error);
+      toast.error(`Nao publicou: ${error.message}`);
       return;
     }
 
@@ -477,7 +515,7 @@ function PrestadorContent() {
         <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <div className={`size-2 rounded-full ${available ? "bg-green-500" : "bg-red-500"}`} />
           <span className="text-xs font-medium">{available ? "Online" : "Offline"}</span>
-          <Switch checked={available} onCheckedChange={setAvailable} className="scale-75" />
+          <Switch checked={available} onCheckedChange={alternarDisponibilidade} className="scale-75" />
         </div>
 
         {/* Meu perfil */}
