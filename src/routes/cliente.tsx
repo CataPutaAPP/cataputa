@@ -1,9 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle,
-} from "lucide-react";
+import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History } from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/DashboardShell";
@@ -14,6 +11,7 @@ import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { OffersSheet } from "@/components/OffersSheet";
 import { RadarSheet } from "@/components/RadarSheet";
+import { HistorySheet } from "@/components/HistorySheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
@@ -96,6 +94,7 @@ function ClienteContent() {
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   const [showOffers, setShowOffers] = useState(false);
   const [showRadar, setShowRadar] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
 
   async function cancelarChamado(id: string) {
@@ -377,6 +376,10 @@ function ClienteContent() {
             <button key={r.value} onClick={() => setRadius(r.value)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${radius === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
           ))}
         </div>
+        <button onClick={() => setShowHistory(true)} aria-label="Histórico"
+          className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
+          <History className="size-4" />
+        </button>
         {coords && (
           <button onClick={() => setShowRadar(true)} aria-label="Quem está online"
             className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
@@ -665,6 +668,10 @@ function ClienteContent() {
           onClose={() => { setPickingRoomFor(null); setView("proposals"); }}
           onBooked={handleRoomBooked}
         />
+      )}
+
+      {showHistory && (
+        <HistorySheet onClose={() => setShowHistory(false)} onViewProfile={(id) => { setShowHistory(false); setViewingProfileId(id); }} />
       )}
 
       {showRadar && coords && (

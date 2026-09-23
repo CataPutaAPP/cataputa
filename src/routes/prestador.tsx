@@ -31,6 +31,7 @@ import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import { ProviderStats } from "@/components/ProviderStats";
 import { ProviderVideoManager } from "@/components/ProviderVideo";
+import { HistorySheet } from "@/components/HistorySheet";
 import { useMyPlan } from "@/lib/plans";
 import { useRealtime } from "@/lib/realtime";
 import { Button } from "@/components/ui/button";
@@ -156,6 +157,7 @@ function PrestadorContent() {
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
   // não deixa propor "Parceiro" onde não existe nenhum cadastrado
   const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [minhasOfertas, setMinhasOfertas] = useState<{ offer_id: string; service_type: string; sub_type: string; price: number; local_option: string; ativa: boolean }[]>([]);
   const [acaoOferta, setAcaoOferta] = useState<string | null>(null);
 
@@ -722,6 +724,10 @@ function PrestadorContent() {
               ? `Mínimo obrigatório: ${MIN_PHOTOS} fotos (você tem ${photoCount}).`
               : "Perfil completo — você já pode propor e ofertar."}
           </div>
+          <Button variant="secondary" className="mb-4 w-full" onClick={() => setShowHistory(true)}>
+            Histórico de atendimentos
+          </Button>
+
           <div className="mb-5">
             <ProviderStats />
           </div>
@@ -778,6 +784,8 @@ function PrestadorContent() {
           <Button className="mt-5 h-12 w-full" onClick={() => { fetchPhotoCount(); setView("map"); }}>Concluir</Button>
         </div>
       )}
+
+      {showHistory && <HistorySheet onClose={() => setShowHistory(false)} />}
 
       {chatProposalId && <ChatPanel proposalId={chatProposalId} onClose={() => setChatProposalId(null)} />}
       {boostCheckout && (
