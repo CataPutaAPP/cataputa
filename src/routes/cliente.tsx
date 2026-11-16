@@ -28,6 +28,18 @@ import { brl, type ProposalQuote } from "@/lib/fees";
 import { useRealtime } from "@/lib/realtime";
 
 /** Ponto de oferta no mapa. A coordenada vem borrada pelo banco. */
+export interface PartnerPoint {
+  partner_id: string;
+  partner_name: string | null;
+  local_type: string | null;
+  lat: number;
+  lng: number;
+  min_price: number;
+  rooms_total: number;
+  rooms_free: number;
+  distance_km: number;
+}
+
 export interface OfferPoint {
   offer_id: string;
   provider_id: string;
@@ -151,6 +163,14 @@ function ClienteContent() {
     if (selectedRequestId === id) { setSelectedRequestId(null); setView("map"); }
     fetchMyRequests();
   }
+  // Parceiros (locais com quartos) no mapa principal — ponto roxo, endereço do estabelecimento
+  const [parceiros, setParceiros] = useState<PartnerPoint[]>([]);
+  const [parceiroNoMapa, setParceiroNoMapa] = useState<PartnerPoint | null>(null);
+  useEffect(() => {
+    if (!coords) return;
+    supabase.rpc("partners_map_points", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
+      .then(({ data, error }) => setParceiros(error ? [] : ((data as PartnerPoint[]) ?? [])));
+  }, [coords, radius]);
   const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
   useEffect(() => {
     if (!coords) return;
@@ -428,6 +448,7 @@ function ClienteContent() {
   useBackClose(view !== "map" && view !== "match", () => setView("map"));
   useBackClose((view as string) === "payment", () => { setPayingProposal(null); setQuote(null); setView("proposals"); });
   useBackClose(!!offerOnMap, () => setOfferOnMap(null));
+  useBackClose(!!parceiroNoMapa, () => setParceiroNoMapa(null));
 
   return (
     <main className="relative min-h-dvh">
@@ -441,10 +462,48 @@ function ClienteContent() {
             lng: o.lng_aprox,
             color: o.destaque ? "#eab308" : o.service_type === "massagem" ? "#22c55e" : "#e879a6",
             size: o.destaque ? 26 : 20,
-            onClick: () => setOfferOnMap(o),
-          }))}
+            onClick: () => { setParceiroNoMapa(null); setOfferOnMap(o); },
+          })).concat(parceiros.map((p) => ({
+            id: `parceiro-${p.partner_id}`,
+            lat: p.lat,
+            lng: p.lng,
+            color: p.rooms_free > 0 ? "#a855f7" : "#6b7280",
+            size: 22,
+            onClick: () => { setOfferOnMap(null); setParceiroNoMapa(p); },
+          })))}
         />
       </div>
+
+      {/* ── Parceiro tocado no mapa ─────────────────────────────────── */}
+      {parceiroNoMapa && (
+        <div className="fixed app-dock-hi z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#a855f7]/20 text-[#c084fc]">
+              <MapPin className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{parceiroNoMapa.partner_name ?? "Local parceiro"}</p>
+              <p className="text-xs capitalize text-muted-foreground">
+                {parceiroNoMapa.local_type ?? "Local parceiro"} · {Number(parceiroNoMapa.distance_km).toFixed(1)} km
+              </p>
+            </div>
+            <button onClick={() => setParceiroNoMapa(null)} aria-label="Fechar"
+              className="shrink-0 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Quartos a partir de</span>
+            <span className="text-lg font-bold text-primary">{brl(parceiroNoMapa.min_price)}</span>
+          </div>
+          <p className={`mt-1 text-xs font-medium ${parceiroNoMapa.rooms_free > 0 ? "text-green-400" : "text-muted-foreground"}`}>
+            {parceiroNoMapa.rooms_free > 0
+              ? `${parceiroNoMapa.rooms_free} de ${parceiroNoMapa.rooms_total} quarto(s) livre(s) agora`
+              : "Todos os quartos ocupados agora"}
+          </p>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            Você escolhe o quarto ao confirmar um atendimento com local "Parceiro". O quarto é pago direto no estabelecimento.
+          </p>
+        </div>
+      )}
 
       {/* ── Resumo da oferta tocada no mapa ─────────────────────────── */}
       {offerOnMap && (
