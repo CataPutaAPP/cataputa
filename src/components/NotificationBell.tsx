@@ -14,6 +14,11 @@ type Notificacao = {
   body: string | null;
   read: boolean;
   created_at: string;
+  // o vínculo com o atendimento pode vir em colunas diferentes conforme o gatilho do banco
+  request_id?: string | null;
+  reference_id?: string | null;
+  data?: { request_id?: string | null } | null;
+  metadata?: { request_id?: string | null } | null;
 };
 
 const ICONE: Record<string, string> = {
@@ -85,6 +90,17 @@ export function NotificationBell() {
     setMarcando(false);
   }
 
+  // Toque no aviso: marca como lido, fecha o painel e pede para a tela abrir o atendimento
+  async function abrirAviso(n: Notificacao) {
+    setAberto(false);
+    if (!n.read && user) {
+      setItens((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)));
+      supabase.rpc("mark_notifications_read", { p_user_id: user.id, p_ids: [n.id] }).then(() => {});
+    }
+    const requestId = n.request_id ?? n.reference_id ?? n.data?.request_id ?? n.metadata?.request_id ?? null;
+    window.dispatchEvent(new CustomEvent("privora:aviso", { detail: { type: n.type, requestId } }));
+  }
+
   if (!user) return null;
 
   return (
@@ -128,7 +144,11 @@ export function NotificationBell() {
               {itens.map((n) => (
                 <li
                   key={n.id}
-                  className={`flex gap-3 px-4 py-3 ${n.read ? "" : "bg-primary/5"}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => abrirAviso(n)}
+                  onKeyDown={(e) => { if (e.key === "Enter") abrirAviso(n); }}
+                  className={`flex cursor-pointer gap-3 px-4 py-3 transition-colors hover:bg-secondary/60 ${n.read ? "" : "bg-primary/5"}`}
                 >
                   <span className="text-lg leading-none">{ICONE[n.type] ?? "🔔"}</span>
                   <div className="min-w-0 flex-1">

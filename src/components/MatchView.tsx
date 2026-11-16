@@ -76,6 +76,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pediuNota = useRef(false);
 
   const isClient = role === "cliente";
   const isProvider = role === "prestador";
@@ -119,6 +120,11 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         .eq("from_user_id", userId)
         .maybeSingle();
       if (data) setRatingSubmitted(true);
+      else if (service.status === "concluida" && !pediuNota.current) {
+        // concluiu e ainda não avaliou: abre a avaliação sozinha, uma única vez
+        pediuNota.current = true;
+        setShowRating(true);
+      }
     })();
   }, [service.id, userId, service.status]);
 
@@ -190,7 +196,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
       p_from_user_id: userId,
       p_to_user_id: otherId,
       p_stars: myRating,
-      p_comment: myComment || null,
+      p_comment: isClient ? (myComment || null) : null,
     });
     setLoading(null);
     if (error) { toast.error(error.message); return; }
@@ -263,10 +269,13 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
               </button>
             ))}
           </div>
-          <Textarea rows={2} value={myComment} onChange={(e) => setMyComment(e.target.value)}
-            placeholder="Comentário (opcional)" className="mb-4" />
+          {/* Cliente é avaliado só por estrelas — sem comentário, para não virar exposição */}
+          {isClient && (
+            <Textarea rows={2} value={myComment} onChange={(e) => setMyComment(e.target.value)}
+              placeholder="Comentário (opcional)" className="mb-4" />
+          )}
           <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={() => { setShowRating(false); onClose(); }}>Pular</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => setShowRating(false)}>Agora não</Button>
             <Button className="flex-1" disabled={loading === "rating" || myRating < 1} onClick={handleSubmitRating}>
               {loading === "rating" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Heart className="mr-2 size-4" />}
               Enviar

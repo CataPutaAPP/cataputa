@@ -113,9 +113,12 @@ export function HistorySheet({ onClose, onViewProfile }: { onClose: () => void; 
                           </button>
                         ))}
                       </div>
-                      <textarea value={comentario} onChange={(e) => setComentario(e.target.value)}
-                        placeholder="Comentário (opcional)" rows={2}
-                        className="w-full rounded-xl border border-border bg-background p-2.5 text-sm" />
+                      {/* Cliente é avaliado só por estrelas; comentário só de cliente para prestador */}
+                      {i.papel === "cliente" && (
+                        <textarea value={comentario} onChange={(e) => setComentario(e.target.value)}
+                          placeholder="Comentário (opcional)" rows={2}
+                          className="w-full rounded-xl border border-border bg-background p-2.5 text-sm" />
+                      )}
                       <div className="flex gap-2">
                         <Button size="sm" className="flex-1" onClick={() => enviarNota(i.request_id)}>Enviar</Button>
                         <Button size="sm" variant="ghost" onClick={() => { setAvaliando(null); setNota(0); }}>Cancelar</Button>
