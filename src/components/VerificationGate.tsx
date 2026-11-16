@@ -32,7 +32,7 @@ const maskCnpj = (v: string) => v.replace(/\D/g, "").slice(0, 14)
 // Fora do componente: declarado dentro, o React recriaria o input a cada tecla (perde o foco)
 function Card({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 pt-20 pb-10" style={{ background: "#0a0a12" }}>
+    <main className="flex min-h-dvh items-center justify-center px-4 pt-header pb-10">
       <div className="w-full max-w-md rounded-3xl border border-border bg-card p-6 text-center">{children}</div>
     </main>
   );
@@ -95,7 +95,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
     load();
   }
 
-  if (!v) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
+  if (!v) return <div className="flex min-h-dvh items-center justify-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
   if (v.cleared) return <>{children}</>;
 
   if (v.suspended) return (

@@ -269,7 +269,7 @@ function ParceiroContent() {
   );
 
   return (
-    <main className="min-h-screen px-4 pb-16 pt-20" style={{ background: "#0a0a12" }}>
+    <main className="mx-auto min-h-dvh w-full max-w-3xl px-4 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-header">
       {/* Stats */}
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-border bg-card p-3 text-center">

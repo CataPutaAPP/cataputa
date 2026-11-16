@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { LogOut, ShieldCheck } from "lucide-react";
 
@@ -37,25 +37,30 @@ export function DashboardShell({
   const { ligado: discreto } = useDiscreet(discretoLiberado);
   const telaOculta = usePrivacyBlur(discreto);
 
-  // TODO: Reativar guard quando Supabase estiver conectado
-  // useEffect(() => {
-  //   if (!loading && !user) navigate({ to: "/login", replace: true });
-  // }, [loading, user, navigate]);
+  // Guarda de acesso: sem login vai para /login; perfil errado volta para a própria área.
+  // O admin (is_admin) pode abrir qualquer área para conferência.
+  const outraArea = !!user && user.role !== role && plan !== null && !plan.is_admin;
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { navigate({ to: "/login", replace: true }); return; }
+    if (outraArea) navigate({ to: `/${user.role}` as "/cliente", replace: true });
+  }, [loading, user, outraArea, navigate]);
 
-  if (loading) {
+  if (loading || !user || outraArea) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+      <div className="flex min-h-dvh items-center justify-center text-sm text-muted-foreground">
         Carregando…
       </div>
     );
   }
 
   return (
-    <div className="relative min-h-screen">
-      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-md">
+    <div className="relative min-h-dvh">
+      <header className="fixed inset-x-0 top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-background/80 px-3 backdrop-blur-md sm:px-4"
+        style={{ height: "var(--header-h)", paddingTop: "var(--safe-t)" }}>
         <Logo size="sm" />
-        <div className="flex items-center gap-2">
-          <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
+        <div className="flex items-center gap-0.5 sm:gap-2">
+          <Badge className="mr-1 hidden bg-accent text-accent-foreground sm:inline-flex">{roleLabel[role]}</Badge>
           {plan?.is_admin && (
             <Link to="/admin" aria-label="Administração"
               className="flex size-9 items-center justify-center rounded-md hover:bg-secondary">
@@ -88,7 +93,7 @@ export function DashboardShell({
           <p className="text-sm text-muted-foreground">Agenda</p>
         </div>
       )}
-      {user ? <TermsGate><VerificationGate>{children}</VerificationGate></TermsGate> : children}
+      <TermsGate><VerificationGate>{children}</VerificationGate></TermsGate>
     </div>
   );
 }

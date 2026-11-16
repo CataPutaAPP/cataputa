@@ -82,7 +82,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
 
   return (
     <ModalPortal>
-      <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 flex flex-col bg-background">
+      <div className="fixed app-page z-40 flex flex-col bg-background">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             <h2 className="text-lg font-semibold">Ofertas perto de você</h2>

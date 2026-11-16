@@ -10,12 +10,12 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Cadastre-se como cliente, prestador ou parceiro e comece a negociar serviços em minutos.",
+          "Clube reservado para maiores de 18 anos. Perfis verificados, conversa protegida e total discrição.",
       },
       { property: "og:title", content: "Privora Private Club" },
       {
         property: "og:description",
-        content: "Cliente, prestador ou parceiro: escolha seu perfil e comece agora.",
+        content: "Acesso reservado e verificado, com privacidade em primeiro lugar.",
       },
     ],
   }),
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/")({
 
 function Welcome() {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-between overflow-hidden px-6 py-14">
+    <main className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden px-6 pb-[calc(3.5rem+env(safe-area-inset-bottom))] pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <MapBackground />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10">

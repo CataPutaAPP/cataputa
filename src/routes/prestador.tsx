@@ -504,13 +504,13 @@ function PrestadorContent() {
   };
 
   return (
-    <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
+    <main className="relative min-h-dvh">
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
         <LeafletMap onCoordsChange={handleCoordsChange} markers={mapMarkers} radiusKm={radius} />
       </div>
 
       {/* ── Top controls ───────────────────────────────────────── */}
-      <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 top-header z-20 flex items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3 [scrollbar-width:none] *:shrink-0">
         {/* Availability toggle */}
         <div className="flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <div className={`size-2 rounded-full ${available ? "bg-green-500" : "bg-red-500"}`} />
@@ -544,7 +544,7 @@ function PrestadorContent() {
 
       {/* ── Request count badge ────────────────────────────────── */}
       {view === "map" && available && (
-        <div className="fixed left-4 top-[148px] z-20">
+        <div className={`fixed left-4 z-20 ${needsPhotos ? "top-[calc(var(--header-h)+8.5rem)]" : "top-[calc(var(--header-h)+4.25rem)]"}`}>
           <Badge variant="secondary" className="backdrop-blur-md">
             {loadingRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : <MapPin className="mr-1 size-3" />}
             {requests.length} solicitações no raio
@@ -555,7 +555,7 @@ function PrestadorContent() {
       {/* ── Active service card (floating) ─────────────────────── */}
       {view === "map" && activeService && ["aceita", "a_caminho", "em_andamento"].includes(activeService.status) && (
         <button onClick={() => setView("match")}
-          className="fixed inset-x-4 bottom-24 z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
+          className="fixed app-dock z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="size-5 text-primary" />
@@ -571,7 +571,7 @@ function PrestadorContent() {
 
       {/* ── Floating cards: proposals OU requests (sem sobreposição) ── */}
       {view === "map" && !activeService && !selectedRequest && (
-        <div className="fixed inset-x-4 bottom-24 z-20 max-h-48 space-y-2 overflow-y-auto">
+        <div className="fixed app-dock z-20 max-h-48 space-y-2 overflow-y-auto">
           {/* Propostas pendentes/aceitas primeiro */}
           {myProposals.map((p) => {
             const isAccepted = p.status === "aceita";
@@ -635,7 +635,7 @@ function PrestadorContent() {
 
       {/* ── Request detail + proposal form ─────────────────────── */}
       {view === "details" && selectedRequest && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[88vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+        <div className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Solicitação de cliente</h2>
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); setSelectedRequest(null); }}>
@@ -747,7 +747,7 @@ function PrestadorContent() {
       {/* ── Aviso de perfil incompleto ─────────────────────────── */}
       {view === "map" && needsPhotos && (
         <button onClick={() => setView("perfil")}
-          className="fixed inset-x-4 top-[132px] z-20 rounded-xl border border-yellow-500/40 bg-card/95 p-3 text-left text-xs backdrop-blur">
+          className="fixed inset-x-4 top-[calc(var(--header-h)+4rem)] lg:right-auto lg:w-[26rem] z-20 rounded-xl border border-yellow-500/40 bg-card/95 p-3 text-left text-xs backdrop-blur">
           <span className="font-semibold text-yellow-400">Perfil incompleto:</span>{" "}
           adicione pelo menos {MIN_PHOTOS} fotos ({photoCount}/{MIN_PHOTOS}) para enviar propostas e ofertas. Toque aqui →
         </button>
@@ -755,7 +755,7 @@ function PrestadorContent() {
 
       {/* ── Meu perfil (fotos) ─────────────────────────────────── */}
       {view === "perfil" && user && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+        <div className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
           <div className="mb-4 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Meu perfil</h2>
@@ -839,14 +839,14 @@ function PrestadorContent() {
 
       {/* ── FAB ─────────────────────────────────────────────────── */}
       {view === "map" && !selectedRequest && (
-        <Button size="lg" onClick={() => setView("offer")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
+        <Button size="lg" onClick={() => setView("offer")} className="fixed bottom-[calc(1.5rem+env(safe-area-inset-bottom))] left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
           <Plus className="mr-1 size-5" /> Ofertar Serviço
         </Button>
       )}
 
       {/* ── Offer bottom sheet ─────────────────────────────────── */}
       {view === "offer" && (
-        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+        <div className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Ofertar serviço</h2>
             <Button variant="ghost" size="icon" onClick={() => setView("map")}><X className="size-5" /></Button>

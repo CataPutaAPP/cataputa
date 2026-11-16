@@ -43,7 +43,7 @@ export function RadarSheet({ lat, lng, radius, onClose, onViewProfile, onSeeOffe
 
   return (
     <ModalPortal>
-      <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 flex flex-col bg-background">
+      <div className="fixed app-page z-40 flex flex-col bg-background">
         <div className="flex items-center justify-between px-4 py-3">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold"><Radar className="size-5 text-primary" /> Online agora</h2>

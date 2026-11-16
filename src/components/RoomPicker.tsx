@@ -88,7 +88,7 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
   const selectedRoom = rooms?.find((r) => r.room_id === selected);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 flex flex-col bg-background">
+    <div className="fixed app-page z-40 flex flex-col bg-background">
       <div className="flex items-center justify-between px-4 py-3">
         <div>
           <h2 className="text-lg font-semibold">Escolha o local</h2>
@@ -157,7 +157,7 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
       </div>
 
       {selectedRoom && (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-4 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur lg:right-auto lg:w-[var(--panel-w)]">
           <p className="mb-2 text-center text-xs text-muted-foreground">
             O valor do quarto ({brl(selectedRoom.price)}) é somado ao total do atendimento.
           </p>

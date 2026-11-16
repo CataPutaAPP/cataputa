@@ -16,7 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold text-foreground">Página não encontrada</h2>
@@ -44,7 +44,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold tracking-tight text-foreground">
           Esta página não carregou
@@ -78,7 +78,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { title: "Privora Private Club" },
       {
         name: "description",
@@ -86,14 +89,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "Privora Private Club — acesso reservado e verificado, com privacidade em primeiro lugar.",
       },
       { property: "og:title", content: "Privora Private Club" },
-      { name: "theme-color", content: "#3F1D36" },
+      { name: "theme-color", content: "#1E0E1A" },
       {
         property: "og:description",
-        content: "Solicite, ofereça e negocie serviços sob demanda, sem rodeios.",
+        content: "Clube reservado para maiores de 18 anos. Perfis verificados e total discrição.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "theme-color", content: "#961A19" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -135,7 +137,8 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
-        <Toaster position="top-center" />
+        <Toaster position="top-center" theme="dark"
+          offset="calc(var(--header-h) + 8px)" mobileOffset="calc(var(--header-h) + 8px)" />
       </AuthProvider>
     </QueryClientProvider>
   );

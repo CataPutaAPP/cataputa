@@ -31,7 +31,7 @@ export function useLegalDoc(slug: "termos" | "privacidade") {
 export function LegalPage({ slug }: { slug: "termos" | "privacidade" }) {
   const doc = useLegalDoc(slug);
   return (
-    <main className="min-h-screen px-4 pb-16 pt-10" style={{ background: "#1E0E1A" }}>
+    <main className="min-h-dvh px-4 pb-16 pt-10" style={{ background: "#1E0E1A" }}>
       <div className="mx-auto max-w-2xl">
         <img src="/privora-selo.png" alt="Privora" className="mx-auto mb-6 size-16 object-contain" />
         {!doc ? (

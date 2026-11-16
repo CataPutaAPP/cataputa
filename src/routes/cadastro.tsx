@@ -130,7 +130,7 @@ function Cadastro() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden px-5 py-8">
+    <main className="relative min-h-dvh overflow-hidden px-5 py-8">
       <MapBackground className="opacity-60" />
 
       <div className="relative z-10 mx-auto w-full max-w-md">

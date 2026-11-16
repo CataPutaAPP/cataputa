@@ -76,7 +76,7 @@ export function CheckoutSheet({ item, cardBlocked, isAdmin, onClose, onPaid }: {
   return (
     <ModalPortal>
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center" onClick={onClose}>
-      <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">{paid ? "Tudo certo!" : "Pagamento"}</h2>
           <Button variant="ghost" size="icon" onClick={onClose}><X className="size-5" /></Button>

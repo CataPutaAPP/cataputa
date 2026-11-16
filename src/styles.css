@@ -122,6 +122,12 @@
   --map-road: #78533D;
   --map-block: #1E1917;
   --map-pulse: rgba(150, 26, 25, 0.25);
+
+  /* Layout — fonte única de medidas. Mude aqui e todas as telas acompanham. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --header-h: calc(4rem + var(--safe-t));   /* altura do cabeçalho fixo */
+  --panel-w: 27.5rem;                        /* largura do painel lateral no desktop */
 }
 
 .dark {
@@ -133,10 +139,26 @@
     border-color: var(--color-border);
   }
 
+  html,
+  body {
+    overscroll-behavior-y: none; /* sem "puxar para recarregar" no meio do atendimento */
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* iOS dá zoom em campo com fonte menor que 16px — trava a tela "ampliada" */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
   }
 
   h1,
@@ -166,4 +188,61 @@
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+/* ── Layout responsivo ────────────────────────────────────────────────
+   Celular: painéis ocupam a tela / sobem de baixo.
+   Desktop (≥1024px): viram coluna à esquerda e o mapa continua visível. */
+
+@utility top-header {
+  top: var(--header-h);
+}
+
+@utility pt-header {
+  padding-top: calc(var(--header-h) + 1rem);
+}
+
+/* Tela cheia abaixo do cabeçalho (propostas, atendimento, histórico…) */
+@utility app-page {
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  @media (min-width: 1024px) {
+    right: auto;
+    width: var(--panel-w);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-panel);
+  }
+}
+
+/* Folha que sobe de baixo (nova solicitação, oferta, perfil…) */
+@utility app-sheet {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-height: calc(100dvh - var(--header-h) - 0.5rem);
+  @media (min-width: 1024px) {
+    top: var(--header-h);
+    right: auto;
+    width: var(--panel-w);
+    max-height: none;
+  }
+}
+
+/* Cartões flutuantes acima dos botões de ação */
+@utility app-dock {
+  right: 1rem;
+  left: 1rem;
+  bottom: calc(6rem + var(--safe-b));
+  @media (min-width: 1024px) {
+    right: auto;
+    width: calc(var(--panel-w) - 2rem);
+  }
+}
+
+@utility app-dock-hi {
+  right: 1rem;
+  left: 1rem;
+  bottom: calc(7rem + var(--safe-b));
 }

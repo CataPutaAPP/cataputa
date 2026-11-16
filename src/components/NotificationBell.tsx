@@ -104,7 +104,7 @@ export function NotificationBell() {
       </Button>
 
       {aberto && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[60vh] w-[min(78vw,300px)] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="absolute right-0 top-[calc(100%+8px)] z-50 max-h-[60dvh] w-[min(78vw,300px)] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-sm font-semibold">Avisos</p>
             {naoLidas > 0 && (

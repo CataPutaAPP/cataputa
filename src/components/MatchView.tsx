@@ -278,7 +278,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
+    <div className="fixed app-page z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">

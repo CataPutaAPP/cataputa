@@ -412,7 +412,7 @@ function ClienteContent() {
   }
 
   return (
-    <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
+    <main className="relative min-h-dvh">
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
         <LeafletMap
           onCoordsChange={handleCoordsChange}
@@ -430,7 +430,7 @@ function ClienteContent() {
 
       {/* ── Resumo da oferta tocada no mapa ─────────────────────────── */}
       {offerOnMap && (
-        <div className="fixed inset-x-4 bottom-28 z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+        <div className="fixed app-dock-hi z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -482,7 +482,7 @@ function ClienteContent() {
         </div>
       )}
 
-      <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
+      <div className="fixed inset-x-0 top-header z-20 flex items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3 [scrollbar-width:none] *:shrink-0">
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <Radar className="size-3.5 text-primary" />
           {raiosDisponiveis.map((r) => (
@@ -507,7 +507,7 @@ function ClienteContent() {
       </div>
 
       {view === "map" && myRequests.length > 0 && (
-        <div className="fixed inset-x-4 bottom-24 z-20 max-h-60 space-y-2 overflow-y-auto">
+        <div className="fixed app-dock z-20 max-h-60 space-y-2 overflow-y-auto">
           {myRequests.map((r) => {
             const st = statusLabel(r.status);
             return (
@@ -541,7 +541,7 @@ function ClienteContent() {
       )}
 
       {view === "proposals" && (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
+        <div className="fixed app-page z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Propostas recebidas</h2>
             {selectedRequest && ["aberta", "com_propostas"].includes(selectedRequest.status) && (
@@ -632,7 +632,7 @@ function ClienteContent() {
           {/* Show active service card if exists */}
           {activeService && ["aceita", "a_caminho", "em_andamento"].includes(activeService.status) && (
             <button onClick={() => setView("match")}
-              className="fixed inset-x-4 bottom-24 z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
+              className="fixed app-dock z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-5 text-primary" />
@@ -645,7 +645,7 @@ function ClienteContent() {
               <p className="mt-1.5 text-xs font-medium text-primary">Toque para acompanhar →</p>
             </button>
           )}
-          <div className="fixed inset-x-0 bottom-6 z-30 flex items-center justify-center gap-2 px-4">
+          <div className="fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-center gap-2 px-4">
             <Button size="lg" onClick={() => setView("request")} className="h-14 rounded-full px-6 text-base shadow-glow">
               <Plus className="mr-1 size-5" /> Solicitar
             </Button>
@@ -657,7 +657,7 @@ function ClienteContent() {
       )}
 
       {view === "request" && (
-        <div ref={sheetRef} className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
+        <div ref={sheetRef} className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Nova solicitação</h2>
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); resetForm(); }}><X className="size-5" /></Button>
@@ -730,7 +730,7 @@ function ClienteContent() {
       )}
       {/* ── Payment screen (PIX) ──────────────────────────────── */}
       {(view as string) === "payment" && payingProposal && (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
+        <div className="fixed app-page z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
           <div className="mx-auto max-w-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Confirmar atendimento</h2>

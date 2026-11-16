@@ -70,7 +70,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
       {open && (
         <ModalPortal>
         <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 sm:items-center" onClick={() => setOpen(false)}>
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Planos</h2>
               <Button variant="ghost" size="icon" onClick={() => setOpen(false)}><X className="size-5" /></Button>

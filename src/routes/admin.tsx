@@ -144,7 +144,7 @@ function AdminContent() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: "#1E0E1A" }}>
+    <div className="min-h-dvh" style={{ background: "#1E0E1A" }}>
       {/* Barra lateral fixa no desktop */}
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-card/40 px-3 py-5 lg:flex">
         <div className="mb-6 flex items-center gap-2 px-3">
@@ -207,7 +207,7 @@ function AdminContent() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <main className="flex min-h-screen flex-col items-center justify-center px-4 text-center" style={{ background: "#1E0E1A" }}>{children}</main>;
+  return <main className="flex min-h-dvh flex-col items-center justify-center px-4 text-center" style={{ background: "#1E0E1A" }}>{children}</main>;
 }
 function Card({ label, value, alert = false }: { label: string; value: string | number; alert?: boolean }) {
   return (
@@ -350,7 +350,7 @@ function Denuncias({ onChange }: { onChange: () => void }) {
       {chat && (
         <ModalPortal>
           <div className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 sm:items-center" onClick={() => setChat(null)}>
-            <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-3xl border border-border bg-card p-5 sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
               <div className="mb-3 flex items-center justify-between">
                 <p className="font-semibold">Conversa denunciada</p>
                 <Button variant="ghost" size="icon" onClick={() => setChat(null)}><X className="size-5" /></Button>

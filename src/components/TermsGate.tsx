@@ -43,7 +43,7 @@ export function TermsGate({ children }: { children: ReactNode }) {
   }
 
   if (pendentes === null) {
-    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
+    return <div className="flex min-h-dvh items-center justify-center"><Loader2 className="size-7 animate-spin text-primary" /></div>;
   }
   if (pendentes.length === 0) return <>{children}</>;
 
