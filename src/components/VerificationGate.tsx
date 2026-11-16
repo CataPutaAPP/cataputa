@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ShieldCheck, Loader2, ShieldAlert, Building2, ScanFace, IdCard, Clock } from "lucide-react";
+import { ShieldCheck, Loader2, ShieldAlert, Building2, ScanFace, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/context/AuthContext";
+import { AgeSelfie, AgeDocument } from "@/components/AgeCheck";
 
 interface MyVerification {
   required: boolean;
@@ -43,8 +45,10 @@ function Card({ children }: { children: ReactNode }) {
  * Com verification_required = 0 no banco, só barra contas suspensas.
  */
 export function VerificationGate({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [v, setV] = useState<MyVerification | null>(null);
-  const [starting, setStarting] = useState(false);
+  const [selfie, setSelfie] = useState(false);
+  const [querDocumento, setQuerDocumento] = useState(false);
   const [cnpj, setCnpj] = useState("");
   const [checkingCnpj, setCheckingCnpj] = useState(false);
   const returning = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("verificacao") === "retorno";
@@ -78,14 +82,6 @@ export function VerificationGate({ children }: { children: ReactNode }) {
     }
   }, [v, returning]);
 
-  async function start(kind?: "documento") {
-    setStarting(true);
-    const { data, error } = await supabase.functions.invoke("verification-start", { body: kind ? { kind } : {} });
-    if (error) { setStarting(false); return toast.error(await fnError(error, "Não foi possível iniciar a verificação.")); }
-    if (data?.already) { setStarting(false); return load(); }
-    window.location.href = data.url;
-  }
-
   async function checkCnpj() {
     setCheckingCnpj(true);
     const { data, error } = await supabase.functions.invoke("verify-cnpj", { body: { cnpj } });
@@ -116,7 +112,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
       {v.status === "em_analise" ? <Clock className="mx-auto mb-3 size-12 text-yellow-400" /> : <Loader2 className="mx-auto mb-3 size-12 animate-spin text-primary" />}
       <h1 className="text-xl font-semibold">{v.status === "em_analise" ? "Verificação em análise" : "Conferindo sua verificação…"}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {v.status === "em_analise" ? "Estamos revisando seus dados. Você será liberado automaticamente assim que aprovar." : "Isso leva alguns segundos. Não feche esta tela."}
+        {v.status === "em_analise" ? "Recebemos sua foto. A conferência é feita pela nossa equipe e você é liberado automaticamente assim que terminar." : "Isso leva alguns segundos. Não feche esta tela."}
       </p>
     </Card>
   );
@@ -128,7 +124,9 @@ export function VerificationGate({ children }: { children: ReactNode }) {
       <p className="mt-2 text-sm text-muted-foreground">
         {isClient
           ? "Por lei (ECA Digital), a Privora é exclusiva para maiores de 18 anos. Confirme sua idade com uma selfie rápida."
-          : "Para a segurança de todos, confirmamos identidade e idade com documento e selfie antes de você aparecer no app."}
+          : v.audience === "prestador"
+            ? "Para a segurança de todos, confirmamos a idade de quem anuncia com uma foto do documento antes de o perfil aparecer no app."
+            : "Por lei (ECA Digital), a Privora é exclusiva para maiores de 18 anos. Confirme a idade do responsável com uma selfie rápida."}
       </p>
 
       {v.status === "reprovado" && v.reject_reason && (
@@ -155,26 +153,36 @@ export function VerificationGate({ children }: { children: ReactNode }) {
 
       {needsIdentity && (
         <div className="mt-5 space-y-2">
-          {v.needs_cnpj && <p className="text-left text-sm font-semibold">2. Identidade do responsável</p>}
-          {isClient && v.status !== "documento_necessario" ? (
+          {v.needs_cnpj && <p className="text-left text-sm font-semibold">2. Idade do responsável</p>}
+          {/* anunciante sempre confirma com documento; cliente e parceiro começam pela selfie */}
+          {v.audience !== "prestador" && v.status !== "documento_necessario" && !querDocumento ? (
             <>
-              <Button className="h-12 w-full text-base" disabled={starting} onClick={() => start()}>
-                {starting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <ScanFace className="mr-2 size-5" />} Verificar com selfie
+              <Button className="h-12 w-full text-base" onClick={() => setSelfie(true)}>
+                <ScanFace className="mr-2 size-5" /> Verificar com selfie
               </Button>
-              <button className="text-xs text-muted-foreground underline" disabled={starting} onClick={() => start("documento")}>
+              <button className="text-xs text-muted-foreground underline" onClick={() => setQuerDocumento(true)}>
                 Prefiro usar documento
               </button>
             </>
           ) : (
-            <Button className="h-12 w-full text-base" disabled={starting} onClick={() => start("documento")}>
-              {starting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <IdCard className="mr-2 size-5" />} Verificar com documento e selfie
-            </Button>
+            user && <AgeDocument userId={user.id} onSent={load} />
           )}
         </div>
       )}
 
+      {selfie && (
+        <AgeSelfie
+          onClose={() => setSelfie(false)}
+          onDone={(r) => {
+            setSelfie(false);
+            if (r === "aprovado") toast.success("Idade confirmada. Bem-vindo à Privora.");
+            load();
+          }}
+        />
+      )}
+
       <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
-        A verificação é feita pela Didit, empresa especializada. A Privora não recebe nem guarda sua selfie ou documento — apenas o resultado.
+        A selfie é analisada no seu próprio aparelho e não é enviada nem guardada. A Privora registra apenas o resultado.
       </p>
     </Card>
   );
