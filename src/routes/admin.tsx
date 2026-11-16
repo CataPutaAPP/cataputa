@@ -60,18 +60,20 @@ function AdminContent() {
   const { user } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<
-    "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "equipes" | "excluidas" |
+    "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "equipes" | "idades" | "excluidas" |
     "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda"
   >("resumo");
   const [menuAberto, setMenuAberto] = useState(false);
   const [dash, setDash] = useState<Dash | null>(null);
   const [equipesPendentes, setEquipesPendentes] = useState(0);
+  const [idadesPendentes, setIdadesPendentes] = useState(0);
 
   const loadDash = useCallback(async () => {
     const { data, error } = await supabase.rpc("admin_dashboard");
     if (error) { setAllowed(false); return; }
     setAllowed(true); setDash(data as Dash);
     supabase.rpc("admin_staff_pending").then((r) => setEquipesPendentes(Array.isArray(r.data) ? r.data.length : 0));
+    supabase.rpc("admin_age_docs_pending").then((r) => setIdadesPendentes(Array.isArray(r.data) ? r.data.length : 0));
   }, []);
   useEffect(() => { if (user) loadDash(); }, [user, loadDash]);
 
@@ -97,6 +99,7 @@ function AdminContent() {
       titulo: "Moderação",
       itens: [
         { id: "denuncias", label: "Denúncias", icon: <Flag className="size-4" />, aviso: dash?.denuncias_abertas ?? 0 },
+        { id: "idades", label: "Documentos de idade", icon: <IdCard className="size-4" />, aviso: idadesPendentes },
         { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
         { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
         { id: "equipes", label: "Equipes de clínicas", icon: <IdCard className="size-4" />, aviso: equipesPendentes },
@@ -199,6 +202,7 @@ function AdminContent() {
           {tab === "funil" && <Funil />}
           {tab === "videos" && <Videos />}
           {tab === "equipes" && <Equipes onChange={loadDash} />}
+          {tab === "idades" && <Idades onChange={loadDash} />}
           {tab === "excluidas" && <Excluidas />}
           {tab === "pagamentos" && <Pagamentos />}
           {tab === "planos" && <Planos />}
@@ -725,6 +729,74 @@ function Ajuda() {
 
 /* ─── Moderação de vídeos ───────────────────────────────────────────── */
 interface AdminVideo { user_id: string; provider_name: string; video_url: string; status: string; admin_note: string | null; updated_at: string }
+
+/* ─── Documentos de idade: foto com documento enviada por quem não passou só na selfie ─── */
+interface DocIdade { user_id: string; username: string | null; full_name: string | null; papel: string; doc_path: string; created_at: string }
+function FotoDocumento({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    supabase.storage.from("id-docs").createSignedUrl(path, 600).then(({ data }) => { if (vivo) setUrl(data?.signedUrl ?? ""); });
+    return () => { vivo = false; };
+  }, [path]);
+  if (url === null) return <div className="aspect-[4/3] w-full animate-pulse rounded-xl bg-secondary" />;
+  if (!url) return <p className="rounded-xl bg-secondary p-6 text-center text-xs text-muted-foreground">Não foi possível abrir a foto.</p>;
+  return <a href={url} target="_blank" rel="noopener noreferrer"><img src={url} alt="Foto com documento" className="max-h-[70vh] w-full rounded-xl bg-black object-contain" /></a>;
+}
+function Idades({ onChange }: { onChange: () => void }) {
+  const [rows, setRows] = useState<DocIdade[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc("admin_age_docs_pending");
+    if (error) toast.error(error.message);
+    setRows((data as DocIdade[]) ?? []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function decidir(d: DocIdade, acao: "aprovar" | "recusar" | "menor") {
+    let motivo: string | null = null;
+    if (acao === "aprovar" && !window.confirm("Confirmo que o rosto confere com o documento e a pessoa tem 18 anos ou mais.")) return;
+    if (acao === "recusar") { motivo = window.prompt("Motivo (a pessoa vê e pode reenviar):", "Foto sem nitidez. Envie outra, com o documento ao lado do rosto."); if (!motivo) return; }
+    if (acao === "menor" && !window.confirm("Bloquear esta conta por ser menor de 18 anos? A pessoa não consegue mais usar o app.")) return;
+    setBusy(d.user_id);
+    const { data, error } = await supabase.rpc("admin_review_age_doc", { p_user: d.user_id, p_action: acao, p_reason: motivo });
+    if (error) { setBusy(null); return toast.error(error.message); }
+    // a foto não fica guardada depois da decisão
+    if (typeof data === "string" && data) await supabase.storage.from("id-docs").remove([data]);
+    setBusy(null);
+    toast.success(acao === "aprovar" ? "Aprovado. Conta liberada." : acao === "menor" ? "Conta bloqueada." : "Recusado. A pessoa pode reenviar.");
+    load(); onChange();
+  }
+
+  if (!rows) return <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" />;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Aqui chegam anunciantes (sempre) e clientes que a selfie não conseguiu confirmar. Compare o rosto com a foto do documento e confira a data de nascimento. A foto é apagada assim que você decide.
+      </p>
+      {rows.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhum documento aguardando conferência.</p>}
+      {rows.map((d) => (
+        <article key={d.user_id} className="space-y-3 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{d.full_name ?? d.username ?? "Usuário"}</p>
+              <p className="text-xs text-muted-foreground">
+                @{d.username} · {d.papel} · {new Date(d.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          </div>
+          <FotoDocumento path={d.doc_path} />
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={busy === d.user_id} onClick={() => decidir(d, "aprovar")}>Aprovar (18+)</Button>
+            <Button size="sm" variant="secondary" disabled={busy === d.user_id} onClick={() => decidir(d, "recusar")}>Pedir nova foto</Button>
+            <Button size="sm" variant="destructive" disabled={busy === d.user_id} onClick={() => decidir(d, "menor")}>É menor: bloquear</Button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
 
 /* ─── Equipes de clínicas: conferir documento (maior de 18) antes de aparecer ─── */
 interface StaffPendente {
