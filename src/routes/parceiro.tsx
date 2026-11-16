@@ -195,9 +195,13 @@ function ParceiroContent() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase.from("profiles")
+      // dados do próprio local (inclui a localização exata) vêm pela função do banco
+      const rpc = await supabase.rpc("meu_perfil");
+      const data = (!rpc.error && rpc.data ? rpc.data : (await supabase.from("profiles")
         .select("local_type, local_address, local_description, local_price, lat, lng")
-        .eq("id", user.id).single();
+        .eq("id", user.id).single()).data) as {
+          local_type: string | null; local_address: string | null; local_description: string | null;
+          local_price: number | null; lat: number | null; lng: number | null } | null;
       if (data) {
         setLocalType(data.local_type ?? "");
         setLocalAddress(data.local_address ?? "");

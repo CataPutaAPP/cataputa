@@ -1,3 +1,4 @@
+import { useT, LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MapBackground } from "@/components/MapBackground";
 import { Logo } from "@/components/Logo";
@@ -23,29 +24,33 @@ export const Route = createFileRoute("/")({
 });
 
 function Welcome() {
+  const { t } = useT();
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden px-6 pb-[calc(3.5rem+env(safe-area-inset-bottom))] pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <MapBackground />
+      <div className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-20"><LanguageSwitcher /></div>
 
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-10">
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center">
+        {/* véu atrás do texto: o mapa aparece em volta, sem atrapalhar a leitura */}
+        <div className="flex flex-col items-center gap-8 rounded-[2rem] bg-background/70 px-5 py-8 backdrop-blur-[3px]">
         <Logo />
         <p className="max-w-sm text-center text-sm leading-relaxed text-muted-foreground">
-          Um clube reservado para maiores de 18 anos. Perfis verificados, conversa
-          protegida e total discrição — do primeiro contato ao encontro.
+          {t("landing.tagline")}
         </p>
+        </div>
       </div>
 
       <div className="relative z-10 w-full max-w-sm space-y-3">
         <Button asChild size="lg" className="h-13 w-full text-base shadow-glow">
-          <Link to="/cadastro">Solicitar acesso</Link>
+          <Link to="/cadastro">{t("landing.cta")}</Link>
         </Button>
         <Button asChild size="lg" variant="secondary" className="h-13 w-full text-base">
-          <Link to="/login">Já sou membro</Link>
+          <Link to="/login">{t("landing.member")}</Link>
         </Button>
         <p className="pt-2 text-center text-xs text-muted-foreground">
-          Ao continuar você declara ter 18 anos ou mais e aceita os{" "}
-          <Link to="/termos" className="underline hover:text-primary">termos de uso</Link> e a{" "}
-          <Link to="/privacidade" className="underline hover:text-primary">política de privacidade</Link>.
+          {t("landing.legal")}{" "}
+          <Link to="/termos" className="underline hover:text-primary">{t("landing.terms")}</Link> {t("landing.and")}{" "}
+          <Link to="/privacidade" className="underline hover:text-primary">{t("landing.privacy")}</Link>.
         </p>
       </div>
     </main>

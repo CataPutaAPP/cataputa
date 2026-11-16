@@ -1,3 +1,4 @@
+import { useT, LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/login")({
 function Login() {
   const navigate = useNavigate();
   const { signIn, requestPasswordReset } = useAuth();
+  const { t } = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,21 +40,21 @@ function Login() {
     const { error, role } = await signIn(username, password);
     setLoading(false);
     if (error || !role) {
-      toast.error(error ?? "Não foi possível entrar.");
+      toast.error(error ?? t("login.fail"));
       return;
     }
-    toast.success("Bem-vindo de volta!");
+    toast.success(t("login.welcome"));
     navigate({ to: dashboardPath[role] });
   }
 
   async function handleReset() {
     if (!username.trim()) {
-      toast.error("Informe seu username primeiro.");
+      toast.error(t("login.needuser"));
       return;
     }
     const { error } = await requestPasswordReset(username);
     if (error) toast.error(error);
-    else toast.success("Enviamos um link de redefinição para o e-mail cadastrado.");
+    else toast.success(t("login.resetsent"));
   }
 
   return (
@@ -67,23 +69,23 @@ function Login() {
             </Link>
           </Button>
           <Logo size="sm" />
-          <span className="w-9" />
+          <LanguageSwitcher />
         </div>
 
         <form onSubmit={handleSubmit} className="panel space-y-4 p-6">
-          <h1 className="text-2xl font-semibold">Entrar</h1>
+          <h1 className="text-2xl font-semibold">{t("login.title")}</h1>
           <div className="space-y-1.5">
-            <Label htmlFor="username">Username</Label>
+            <Label htmlFor="username">{t("login.username")}</Label>
             <Input
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="seu.username"
+              placeholder={t("login.username.ph")}
               autoCapitalize="none"
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password">{t("login.password")}</Label>
             <Input
               id="password"
               value={password}
@@ -92,21 +94,21 @@ function Login() {
             />
           </div>
           <Button type="submit" className="h-12 w-full" disabled={loading}>
-            Entrar
+            {t("login.submit")}
           </Button>
           <button
             type="button"
             onClick={handleReset}
             className="w-full text-sm text-primary underline-offset-4 hover:underline"
           >
-            Esqueci minha senha
+            {t("login.forgot")}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          Ainda não tem conta?{" "}
+          {t("login.noaccount")}{" "}
           <Link to="/cadastro" className="text-primary hover:underline">
-            Cadastre-se
+            {t("login.signup")}
           </Link>
         </p>
       </div>
