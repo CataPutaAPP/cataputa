@@ -1,3 +1,4 @@
+import { StepFlow, ChoiceCard, ChoiceChip, ReviewRow, type FlowStep } from "@/components/StepFlow";
 import { useBackClose } from "@/lib/back";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -20,7 +21,7 @@ import {
   Send,
   Car,
   MessageCircle,
-  UserCircle,
+  UserCircle, Heart, Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -866,125 +867,130 @@ function PrestadorContent() {
       )}
 
       {/* ── Offer bottom sheet ─────────────────────────────────── */}
-      {view === "offer" && (
-        <div className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Ofertar serviço</h2>
-            <Button variant="ghost" size="icon" onClick={() => setView("map")}><X className="size-5" /></Button>
-          </div>
-
-          <div className="space-y-5">
-            {/* Type */}
-            <Field label="Tipo de serviço">
-              <div className="flex flex-wrap gap-2">
+      {view === "offer" && (() => {
+        const detalhe = offerType ? opcoes.detalheDoTipo(offerType) : "nenhum";
+        const rot = (v: string) => opcoes.tipos.find((t) => t.value === v)?.label || opcoes.rotulo(v) || v;
+        const locais = providerLocalOptions.filter((opt) => !(opt.value === "parceiro" && quartosPerto === 0));
+        const localTexto = isCarro(offerSubType) ? "No carro" : (providerLocalOptions.find((o) => o.value === offerLocal)?.label ?? "");
+        const valor = parseFloat(String(offerPrice).replace(",", "."));
+        const passos: FlowStep[] = [
+          {
+            key: "tipo", titulo: "O que você vai oferecer?", dica: "Sua oferta aparece no mapa para clientes próximos.",
+            pronto: !!offerType, resumo: offerType ? rot(offerType) : null,
+            conteudo: (avancar) => (
+              <div className="grid gap-3">
                 {opcoes.tipos.map((t) => (
-                  <Chip key={t.value} active={offerType === t.value}
-                    onClick={() => { setOfferType(t.value as ServiceType); setOfferSubType(""); }}>
-                    {t.label}
-                  </Chip>
+                  <ChoiceCard key={t.value} icon={t.value === "massagem" ? Sparkles : Heart} titulo={t.label}
+                    desc={t.value === "massagem" ? "Você escolhe a técnica na próxima etapa" : "Você escolhe a duração na próxima etapa"}
+                    ativo={offerType === t.value}
+                    onClick={() => { setOfferType(t.value as ServiceType); setOfferSubType(""); avancar(); }} />
                 ))}
               </div>
-            </Field>
-
-            {/* Sub-type */}
-            {offerType && opcoes.detalheDoTipo(offerType) !== "nenhum" && (
-              <Field label={opcoes.detalheDoTipo(offerType) === "estilo" ? "Tipo de massagem" : "Duração"}>
-                <div className="flex flex-wrap gap-2">
-                  {(opcoes.detalheDoTipo(offerType) === "estilo" ? opcoes.estilos : opcoes.duracoes(offerType))
-                    .map((s) => (
-                      <Pill key={s.value} active={offerSubType === s.value} onClick={() => setOfferSubType(s.value)}>
-                        {s.label}
-                      </Pill>
-                    ))}
-                </div>
-              </Field>
-            )}
-
-            {offerType && opcoes.publicos.length > 0 && (
-              <Field label="Quem você atende">
-                <div className="flex flex-wrap gap-2">
-                  {opcoes.publicos.map((p) => (
-                    <Pill key={p.value} active={offerAudience.includes(p.value)} showCheck small
-                      onClick={() => setOfferAudience((v) => v.includes(p.value) ? v.filter((x) => x !== p.value) : [...v, p.value])}>
-                      {p.label}
-                    </Pill>
-                  ))}
-                </div>
-              </Field>
-            )}
-
-            {/* Flags (for acompanhante) */}
-            {offerType && offerType !== "massagem" && (
-              <Field label="Serviços que você oferece">
-                <div className="flex flex-wrap gap-2">
-                  {opcoes.praticas.map((f) => (
-                    <Pill key={f.value} active={offerFlags.includes(f.value)} onClick={() => toggleFlag(f.value)} showCheck small>
-                      {f.label}
-                    </Pill>
-                  ))}
-                </div>
-              </Field>
-            )}
-
-            {/* Price */}
-            {offerSubType && (
-              <Field label="Seu valor (R$)">
-                <Input
-                  value={offerPrice}
-                  onChange={(e) => setOfferPrice(e.target.value)}
-                  placeholder="250,00"
-                  inputMode="decimal"
-                />
-                {providerNet(offerPrice) && (
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    Você recebe: <span className="font-semibold text-green-400">R$ {providerNet(offerPrice)}</span>
-                    <span className="ml-1">(valor integral — sem comissão)</span>
+            ),
+          },
+          ...(offerType && detalhe !== "nenhum" ? [{
+            key: "detalhe", titulo: detalhe === "estilo" ? "Qual técnica?" : "Qual a duração?", dica: "Uma oferta por opção. Você pode publicar várias.",
+            pronto: !!offerSubType, resumo: offerSubType ? getSubLabel(offerType, offerSubType) : null,
+            conteudo: (avancar: () => void) => (
+              <div className="flex flex-wrap gap-2">
+                {(detalhe === "estilo" ? opcoes.estilos : opcoes.duracoes(offerType)).map((o) => (
+                  <ChoiceChip key={o.value} ativo={offerSubType === o.value} onClick={() => { setOfferSubType(o.value); avancar(); }}>{o.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          ...(offerType && opcoes.publicos.length > 0 ? [{
+            key: "publico", titulo: "Quem você atende?", dica: "Opcional. Sem marcar nada, a oferta aparece para todos.",
+            pronto: true, resumo: offerAudience.length ? offerAudience.map(rot).join(", ") : "Todos os públicos",
+            conteudo: () => (
+              <div className="flex flex-wrap gap-2">
+                {opcoes.publicos.map((pb) => (
+                  <ChoiceChip key={pb.value} ativo={offerAudience.includes(pb.value)}
+                    onClick={() => setOfferAudience((v) => v.includes(pb.value) ? v.filter((x) => x !== pb.value) : [...v, pb.value])}>{pb.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          ...(offerType && offerType !== "massagem" ? [{
+            key: "servicos", titulo: "O que está incluído?", dica: "Marque o que você oferece. O cliente filtra por isso.",
+            pronto: true, resumo: offerFlags.length ? `${offerFlags.length} serviço(s)` : null,
+            conteudo: () => (
+              <div className="flex flex-wrap gap-2">
+                {opcoes.praticas.map((f) => (
+                  <ChoiceChip key={f.value} ativo={offerFlags.includes(f.value)} onClick={() => toggleFlag(f.value)}>{f.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          {
+            key: "local", titulo: "Onde você atende?", dica: isCarro(offerSubType) ? undefined : "No mapa aparece só uma posição aproximada, nunca o ponto exato.",
+            pronto: true, resumo: localTexto || null,
+            conteudo: (avancar) => isCarro(offerSubType) ? (
+              <ChoiceCard icon={Car} titulo="No carro" desc="O ponto de encontro é a sua localização." ativo onClick={() => {}} />
+            ) : (
+              <div className="grid gap-3">
+                {locais.map((opt) => (
+                  <ChoiceCard key={opt.value} icon={opt.value === "parceiro" ? Building2 : opt.value === "local_atendente" ? Home : MapPin}
+                    titulo={opt.label}
+                    desc={opt.value === "parceiro" ? "O cliente reserva um quarto de parceiro e paga no local" : opt.value === "local_atendente" ? "O cliente vai até você" : "Você se desloca; inclua o deslocamento no valor"}
+                    ativo={offerLocal === opt.value} onClick={() => { setOfferLocal(opt.value); avancar(); }} />
+                ))}
+              </div>
+            ),
+          },
+          {
+            key: "valor", titulo: "Qual o seu valor?", dica: "Valor total do atendimento, sem nada por fora.",
+            pronto: valor > 0, resumo: valor > 0 ? brl(valor) : null,
+            conteudo: () => (
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-border bg-background/40 p-5 text-center">
+                  <div className="flex items-baseline justify-center gap-2">
+                    <span className="text-xl font-semibold text-muted-foreground">R$</span>
+                    <input value={offerPrice} onChange={(e) => setOfferPrice(e.target.value.replace(/[^0-9.,]/g, ""))}
+                      placeholder="250" inputMode="decimal" aria-label="Seu valor em reais" data-grande
+                      className="w-40 bg-transparent text-center font-display text-5xl font-bold text-primary outline-none placeholder:text-muted-foreground/30" />
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {valor > 0
+                      ? <>Você recebe <span className="font-semibold text-green-400">{brl(valor)}</span> — valor integral, sem comissão.</>
+                      : "Você recebe o valor integral, sem comissão."}
                   </p>
-                )}
-              </Field>
-            )}
-
-            {/* Local */}
-            {offerSubType && (
-              <Field label="Local">
-                {isCarro(offerSubType) ? (
-                  <div className="flex items-center gap-2 rounded-xl border border-primary bg-primary/10 p-3 text-xs text-primary">
-                    <Car className="size-4" /> No carro — o ponto de encontro é a sua localização
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    {providerLocalOptions.filter((opt) => !(opt.value === "parceiro" && quartosPerto === 0)).map((opt) => (
-                      <Chip key={opt.value} active={offerLocal === opt.value} onClick={() => setOfferLocal(opt.value)}>
-                        {opt.label}
-                      </Chip>
-                    ))}
-                  </div>
-                )}
-              </Field>
-            )}
-
-            {/* Description */}
-            {offerSubType && (
-              <Field label="Descrição (opcional)">
-                <Textarea
-                  rows={2}
-                  value={offerDesc}
-                  onChange={(e) => setOfferDesc(e.target.value)}
-                  placeholder="Atendo em apartamento próprio, sigilo total..."
-                />
-              </Field>
-            )}
-
-            {/* Submit */}
-            {offerSubType && offerPrice && (
-              <Button className="h-13 w-full text-base" disabled={submittingOffer} onClick={handleCreateOffer}>
-                {submittingOffer ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}
-                {submittingOffer ? "Publicando..." : "Publicar oferta"}
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Descrição <span className="font-normal text-muted-foreground">(opcional)</span></p>
+                  <Textarea rows={3} value={offerDesc} onChange={(e) => setOfferDesc(e.target.value)}
+                    placeholder="Atendo em apartamento próprio, sigilo total..." />
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">Telefone, redes sociais e links são ocultados automaticamente.</p>
+                </div>
+              </div>
+            ),
+          },
+          {
+            key: "revisao", titulo: "Pronto para publicar?", dica: "A oferta fica no ar por 4 horas e você pode pausar quando quiser.",
+            pronto: valor > 0 && !!offerSubType,
+            conteudo: () => (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-center">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Sua oferta</p>
+                  <p className="mt-1 font-display text-4xl font-bold text-primary">{valor > 0 ? brl(valor) : "—"}</p>
+                  <p className="mt-1 text-sm">{offerType ? rot(offerType) : ""}{offerSubType && offerType ? ` · ${getSubLabel(offerType, offerSubType)}` : ""}</p>
+                </div>
+                <div className="divide-y divide-border rounded-2xl border border-border bg-background/40 px-4">
+                  <ReviewRow rotulo="Local" valor={localTexto} />
+                  <ReviewRow rotulo="Público" valor={offerAudience.length ? offerAudience.map(rot).join(", ") : "Todos"} />
+                  {offerType && offerType !== "massagem" && <ReviewRow rotulo="Incluído" valor={offerFlags.length ? offerFlags.map(rot).join(", ") : "Não informado"} />}
+                  <ReviewRow rotulo="Alcance" valor={`${radius} km`} />
+                  {offerDesc && <ReviewRow rotulo="Descrição" valor={offerDesc} />}
+                </div>
+              </div>
+            ),
+          },
+        ];
+        return (
+          <StepFlow titulo="Ofertar serviço" passos={passos} onClose={() => setView("map")}
+            finalLabel="Publicar oferta" finalIcon={Sparkles} enviando={submittingOffer} onEnviar={handleCreateOffer} />
+        );
+      })()}
     </main>
   );
 }

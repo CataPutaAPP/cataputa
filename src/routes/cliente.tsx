@@ -1,8 +1,10 @@
+import { StepFlow, ChoiceCard, ChoiceChip, ReviewRow, type FlowStep } from "@/components/StepFlow";
 import { partnerIcon, partnerLabel } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History } from "lucide-react";
+import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DashboardShell } from "@/components/DashboardShell";
@@ -735,78 +737,118 @@ function ClienteContent() {
         </>
       )}
 
-      {view === "request" && (
-        <div ref={sheetRef} className="fixed app-sheet z-40 overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl lg:rounded-none lg:border-r lg:border-t-0">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Nova solicitação</h2>
-            <Button variant="ghost" size="icon" onClick={() => { setView("map"); resetForm(); }}><X className="size-5" /></Button>
-          </div>
-          <div className="space-y-5">
-            <Field label="Raio de busca">
+      {view === "request" && (() => {
+        const detalhe = serviceType ? opcoes.detalheDoTipo(serviceType) : "nenhum";
+        const rot = (v: string) => opcoes.tipos.find((t) => t.value === v)?.label || opcoes.rotulo(v) || v;
+        const localTexto = isCarro(subType) ? "No carro" : localChoice ? (localOptions.find((o) => o.value === localChoice)?.label ?? "") : "";
+        const passos: FlowStep[] = [
+          {
+            key: "tipo", titulo: "O que você procura?", dica: "Escolha o tipo de atendimento.",
+            pronto: !!serviceType, resumo: serviceType ? rot(serviceType) : null,
+            conteudo: (avancar) => (
+              <div className="grid gap-3">
+                {opcoes.tipos.map((t) => (
+                  <ChoiceCard key={t.value} icon={t.value === "massagem" ? Sparkles : Heart} titulo={t.label}
+                    desc={t.value === "massagem" ? "Tântrica, relaxante, sensitiva e outras técnicas" : "Por tempo, no local que você escolher"}
+                    ativo={serviceType === t.value}
+                    onClick={() => { setServiceType(t.value as ServiceType); setSubType(""); avancar(); }} />
+                ))}
+              </div>
+            ),
+          },
+          ...(serviceType && detalhe !== "nenhum" ? [{
+            key: "detalhe", titulo: detalhe === "estilo" ? "Qual tipo de massagem?" : "Por quanto tempo?",
+            pronto: !!subType, resumo: subType ? getSubLabel(serviceType, subType) : null,
+            conteudo: (avancar: () => void) => (
               <div className="flex flex-wrap gap-2">
-                {radiusOptions.map((r) => {
-                  const bloqueado = r.value > raioMax;
+                {(detalhe === "estilo" ? opcoes.estilos : opcoes.duracoes(serviceType)).map((o) => (
+                  <ChoiceChip key={o.value} ativo={subType === o.value} onClick={() => { setSubType(o.value); avancar(); }}>{o.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          ...(showFlags ? [{
+            key: "servicos", titulo: "O que você deseja?", dica: "Marque tudo o que procura. Só recebe proposta de quem oferece.",
+            pronto: selectedFlags.length > 0, resumo: selectedFlags.length ? `${selectedFlags.length} serviço(s)` : null,
+            conteudo: () => (
+              <div className="flex flex-wrap gap-2">
+                {opcoes.praticas.map((f) => (
+                  <ChoiceChip key={f.value} ativo={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)}>{f.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          {
+            key: "local", titulo: "Onde será?", dica: isCarro(subType) ? undefined : "O endereço exato só é combinado depois do aceite.",
+            pronto: isCarro(subType) || !!localChoice, resumo: localTexto || null,
+            conteudo: (avancar) => isCarro(subType) ? (
+              <ChoiceCard icon={Car} titulo="No carro" desc="O ponto de encontro é a localização do prestador." ativo onClick={() => {}} />
+            ) : (
+              <div className="grid gap-3">
+                {localOptions.map((opt) => {
+                  const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
+                  const desc = opt.value === "parceiro"
+                    ? (quartosPerto === null ? opt.desc
+                       : semParceiro ? `Nenhum parceiro em ${radius} km ainda`
+                       : `${quartosPerto} ${quartosPerto === 1 ? "quarto disponível" : "quartos disponíveis"} em até ${radius} km`)
+                    : opt.desc;
                   return (
-                    <Chip key={r.value} active={radius === r.value}
-                      onClick={() => { if (bloqueado) { toast("Raio maior faz parte do Pass Black.", { icon: "👑" }); return; } setRadius(r.value); }}>
-                      {bloqueado ? `${r.label} 🔒` : r.label}
-                    </Chip>
+                    <ChoiceCard key={opt.value} icon={opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users}
+                      titulo={opt.label} desc={desc} ativo={localChoice === opt.value} desabilitado={semParceiro}
+                      onClick={() => { setLocalChoice(opt.value); avancar(); }} />
                   );
                 })}
               </div>
-            </Field>
-            <Field label="Tipo de serviço">
+            ),
+          },
+          {
+            key: "genero", titulo: "Quem você prefere?", dica: "Pode marcar mais de uma opção.",
+            pronto: selectedGenders.length > 0, resumo: selectedGenders.length ? selectedGenders.map(rot).join(", ") : null,
+            conteudo: () => (
               <div className="flex flex-wrap gap-2">
-                {opcoes.tipos.map((t) => (
-                  <Chip key={t.value} active={serviceType === t.value}
-                    onClick={() => { setServiceType(t.value as ServiceType); setSubType(""); }}>
-                    {t.label}
-                  </Chip>
+                {opcoes.generos.map((g) => (
+                  <ChoiceChip key={g.value} ativo={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)}>{g.label}</ChoiceChip>
                 ))}
               </div>
-            </Field>
-            {serviceType && opcoes.detalheDoTipo(serviceType) !== "nenhum" && (
-              <Field label={opcoes.detalheDoTipo(serviceType) === "estilo" ? "Tipo de massagem" : "Duração"}>
-                <div className="flex flex-wrap gap-2">
-                  {(opcoes.detalheDoTipo(serviceType) === "estilo" ? opcoes.estilos : opcoes.duracoes(serviceType))
-                    .map((s) => (
-                      <Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>
-                        {s.label}
-                      </Pill>
-                    ))}
-                </div>
-              </Field>
-            )}
-            {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{opcoes.praticas.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
-            {flagsComplete && isCarro(subType) && (<Field label="Local do atendimento"><div className="flex items-center gap-3 rounded-xl border border-primary bg-primary/10 p-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Car className="size-5" /></div><div className="flex-1"><p className="text-sm font-medium text-primary">No carro</p><p className="text-xs text-muted-foreground">O ponto de encontro é a localização do prestador</p></div><Check className="size-5 text-primary" /></div></Field>)}
-            {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => {
-              const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
-              const active = localChoice === opt.value;
-              const Icon = opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users;
-              const desc = opt.value === "parceiro"
-                ? (quartosPerto === null ? opt.desc
-                   : semParceiro ? `Nenhum parceiro em ${radius} km ainda — aumente o raio ou escolha outro local`
-                   : `${quartosPerto} ${quartosPerto === 1 ? "quarto disponível" : "quartos disponíveis"} em até ${radius} km`)
-                : opt.desc;
-              return (
-                <button key={opt.value} disabled={semParceiro} onClick={() => setLocalChoice(opt.value)}
-                  className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${
-                    semParceiro ? "cursor-not-allowed border-border opacity-45"
-                    : active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}>
-                  <div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p>
-                    <p className="text-xs text-muted-foreground">{desc}</p>
+            ),
+          },
+          {
+            key: "revisao", titulo: "Tudo certo?", dica: "Quem estiver por perto recebe seu chamado e responde com o valor. Você escolhe a proposta.",
+            pronto: true,
+            conteudo: () => (
+              <div className="space-y-5">
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Até que distância procurar</p>
+                  <div className="flex flex-wrap gap-2">
+                    {radiusOptions.map((r) => {
+                      const bloqueado = r.value > raioMax;
+                      return (
+                        <ChoiceChip key={r.value} ativo={radius === r.value} bloqueado={bloqueado}
+                          onClick={() => { if (bloqueado) { toast("Raio maior faz parte do Pass Black.", { icon: "👑" }); return; } setRadius(r.value); }}>
+                          {bloqueado ? `${r.label} 🔒` : r.label}
+                        </ChoiceChip>
+                      );
+                    })}
                   </div>
-                  {active && <Check className="size-5 text-primary" />}
-                </button>
-              );
-            })}</div></Field>)}
-            {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{opcoes.generos.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
-            {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
-          </div>
-        </div>
-      )}
+                </div>
+                <div className="divide-y divide-border rounded-2xl border border-border bg-background/40 px-4">
+                  <ReviewRow rotulo="Atendimento" valor={serviceType ? `${rot(serviceType)}${subType ? ` · ${getSubLabel(serviceType, subType)}` : ""}` : "—"} />
+                  {showFlags && <ReviewRow rotulo="Serviços" valor={selectedFlags.map(rot).join(", ")} />}
+                  <ReviewRow rotulo="Local" valor={localTexto} />
+                  <ReviewRow rotulo="Preferência" valor={selectedGenders.map(rot).join(", ")} />
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  O valor é combinado e pago direto ao prestador. A Privora não recebe nenhuma parte.
+                </p>
+              </div>
+            ),
+          },
+        ];
+        return (
+          <StepFlow titulo="Nova solicitação" passos={passos} onClose={() => { setView("map"); resetForm(); }}
+            finalLabel="Solicitar atendimento" finalIcon={Sparkles} enviando={submitting} onEnviar={handleSubmit} />
+        );
+      })()}
       {/* ── Payment screen (PIX) ──────────────────────────────── */}
       {(view as string) === "payment" && payingProposal && (
         <div className="fixed app-page z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
