@@ -94,6 +94,24 @@ function ParceiroContent() {
   // ── Reservas ──
   const [bookings, setBookings] = useState<Booking[]>([]);
 
+  // ── Ponto no mapa: ligado / desligado (não mexe nos quartos) ──
+  const [noMapa, setNoMapa] = useState(true);
+  const [mudandoMapa, setMudandoMapa] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    // consulta separada: se a coluna ainda não existir no banco, o resto da tela carrega normal
+    supabase.from("profiles").select("partner_visible").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (data && (data as { partner_visible?: boolean }).partner_visible === false) setNoMapa(false); });
+  }, [user]);
+  async function alternarMapa() {
+    setMudandoMapa(true);
+    const { error } = await supabase.rpc("set_partner_visible", { p_on: !noMapa });
+    setMudandoMapa(false);
+    if (error) return toast.error(error.message || "Não foi possível alterar.");
+    setNoMapa(!noMapa);
+    toast.success(!noMapa ? "Seu local voltou a aparecer no mapa." : "Seu local saiu do mapa. Reservas já feitas continuam valendo.");
+  }
+
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -138,7 +156,7 @@ function ParceiroContent() {
           const b = payload.new as Booking;
           const old = payload.old as Partial<Booking>;
           if (payload.eventType === "INSERT") {
-            toast("Quarto sendo reservado — aguardando pagamento do cliente", { icon: "🛏️" });
+            toast("Quarto sendo reservado — aguardando o cliente confirmar", { icon: "🛏️" });
           } else if (payload.eventType === "UPDATE" && b.status === "confirmada" && old?.status !== "confirmada") {
             playNotificationSound("accepted");
             toast.success(`Reserva confirmada! ${brl(b.room_price)} — pagamento no seu estabelecimento`);
@@ -254,7 +272,7 @@ function ParceiroContent() {
   const isConfigured = !!localAddress && !!localLat && activeRooms.length > 0;
 
   const statusLabel: Record<Booking["status"], { text: string; cls: string }> = {
-    pendente: { text: "Aguardando pagamento", cls: "bg-yellow-500/20 text-yellow-400" },
+    pendente: { text: "Aguardando confirmação", cls: "bg-yellow-500/20 text-yellow-400" },
     confirmada: { text: "Confirmada", cls: "bg-green-500/20 text-green-400 animate-pulse" },
     em_uso: { text: "Em uso", cls: "bg-primary/20 text-primary" },
     concluida: { text: "Concluída", cls: "bg-green-500/20 text-green-400" },
@@ -274,7 +292,9 @@ function ParceiroContent() {
       <div className="mb-5 grid grid-cols-3 gap-3">
         <div className="rounded-xl border border-border bg-card p-3 text-center">
           <p className="text-[10px] text-muted-foreground">Status</p>
-          <p className={`mt-1 text-sm font-bold ${isConfigured ? "text-green-400" : "text-yellow-400"}`}>{isConfigured ? "Ativo" : "Pendente"}</p>
+          <p className={`mt-1 text-sm font-bold ${!isConfigured ? "text-yellow-400" : noMapa ? "text-green-400" : "text-muted-foreground"}`}>
+            {!isConfigured ? "Pendente" : noMapa ? "No mapa" : "Fora do mapa"}
+          </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 text-center">
           <p className="text-[10px] text-muted-foreground">Reservas ativas</p>
@@ -282,9 +302,26 @@ function ParceiroContent() {
         </div>
         <div className="rounded-xl border border-border bg-card p-3 text-center">
           <p className="text-[10px] text-muted-foreground">Reservas concluídas</p>
-          <p className="mt-1 text-sm font-bold text-green-400">{brl(totalEarnings)}</p>
+          <p className="mt-1 text-sm font-bold text-green-400">{bookings.filter((b) => b.status === "concluida").length}</p>
         </div>
       </div>
+
+      {/* Chave geral do ponto no mapa */}
+      <button onClick={alternarMapa} disabled={mudandoMapa || !isConfigured}
+        className={`mb-4 flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${noMapa ? "border-green-500/30 bg-green-500/5" : "border-border bg-card"}`}>
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-full ${noMapa ? "bg-green-500/20 text-green-400" : "bg-secondary text-muted-foreground"}`}>
+          <MapPin className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{noMapa ? "Aparecendo no mapa" : "Fora do mapa"}</span>
+          <span className="block text-xs text-muted-foreground">
+            {noMapa ? "Clientes próximos veem seu local e podem reservar." : "Ninguém vê seu local nem reserva. Seus quartos ficam como estão."}
+          </span>
+        </span>
+        <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${noMapa ? "bg-green-500" : "bg-muted"}`}>
+          <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${noMapa ? "left-[22px]" : "left-0.5"}`} />
+        </span>
+      </button>
 
       {!isConfigured && (
         <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-3 text-xs text-yellow-300">
