@@ -3,13 +3,13 @@ import { supabase } from "@/lib/supabase";
 import { useT } from "@/lib/i18n";
 
 /**
- * Números da tela de abertura: o que está acontecendo agora + o acumulado.
+ * Números da tela de abertura: só quem está online e o total de membros.
+ * (Sem contagem de encontros ou reservas: o Privora é vitrine, não acompanha o que as pessoas combinam.)
  * Vêm de uma função do banco que só devolve totais. Atualiza sozinho a cada 30 s.
- * Contador "de agora" que está em zero não aparece (evita cara de lugar vazio).
+ * Contador que está em zero não aparece (evita cara de lugar vazio).
  */
 interface Stats {
-  online: number; encontros_agora: number; quartos_reservados: number;
-  total_encontros: number; total_reservas: number; total_membros: number;
+  online: number; total_membros: number;
 }
 
 export function LiveStats() {
@@ -29,13 +29,9 @@ export function LiveStats() {
   if (!s) return null;
   const agora = [
     { n: s.online, rotulo: t("stats.online") },
-    { n: s.encontros_agora, rotulo: t("stats.now") },
-    { n: s.quartos_reservados, rotulo: t("stats.rooms") },
   ].filter((x) => Number(x.n) > 0);
   const total = [
     { n: s.total_membros, rotulo: t("stats.members") },
-    { n: s.total_encontros, rotulo: t("stats.done") },
-    { n: s.total_reservas, rotulo: t("stats.bookings") },
   ].filter((x) => Number(x.n) > 0);
   if (agora.length === 0 && total.length === 0) return null;
   const fmt = (n: number) => Number(n).toLocaleString("pt-BR");
