@@ -53,7 +53,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
     (async () => {
       setLoading(true);
       const [{ data: prof }, { data: pics }] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", providerId).single(),
+        supabase.from("profiles").select("id, full_name, avatar_url, bio, gender, has_local, rating_avg, rating_count, created_at").eq("id", providerId).single(),
         supabase.from("provider_photos").select("*").eq("user_id", providerId).order("sort_order"),
       ]);
       if (prof) setProfile(prof as Profile);

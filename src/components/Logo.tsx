@@ -1,5 +1,7 @@
+import { useT } from "@/lib/i18n";
 export function Logo({ size = "lg" }: { size?: "sm" | "lg" }) {
   const isLg = size === "lg";
+  const { t } = useT();
   return (
     <div className="flex flex-col items-center gap-4">
       <img
@@ -17,7 +19,7 @@ export function Logo({ size = "lg" }: { size?: "sm" | "lg" }) {
             Private Club
           </p>
           <p className="mt-3 text-sm text-muted-foreground">
-            Acesso reservado. Discrição em primeiro lugar.
+            {t("logo.sub")}
           </p>
         </div>
       )}

@@ -73,6 +73,15 @@ function PartnerSpot({ bookingId }: { bookingId: string }) {
   useEffect(() => {
     let vivo = true;
     (async () => {
+      // caminho normal: uma função do banco que só responde a quem participa da reserva
+      const spot = await supabase.rpc("booking_spot", { p_booking_id: bookingId });
+      if (!spot.error && spot.data) {
+        const s = spot.data as { partner_name: string | null; local_address: string | null; local_type: string | null;
+          lat: number | null; lng: number | null; room_name: string | null; status: string };
+        if (vivo) setInfo({ nome: s.partner_name, endereco: s.local_address, tipo: s.local_type, lat: s.lat, lng: s.lng, quarto: s.room_name, status: String(s.status) });
+        return;
+      }
+      // compatibilidade: enquanto a função ainda não existir no banco
       const { data: b } = await supabase.from("room_bookings").select("room_id, partner_id, status").eq("id", bookingId).maybeSingle();
       if (!b) return;
       const [{ data: room }, { data: p }] = await Promise.all([
