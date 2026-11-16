@@ -18,7 +18,7 @@ export type Idioma = (typeof IDIOMAS)[number]["code"];
 
 const pt = {
   "logo.sub": "Acesso reservado. Discrição em primeiro lugar.",
-  "landing.tagline": "Um clube reservado para maiores de 18 anos. Perfis verificados, conversa protegida e total discrição — do primeiro contato ao encontro.",
+  "landing.tagline": "Um clube reservado para maiores de 18 anos. Perfis verificados, conversa protegida e total discrição.",
   "landing.cta": "Solicitar acesso",
   "landing.member": "Já sou membro",
   "landing.legal": "Ao continuar você declara ter 18 anos ou mais e aceita os",
@@ -51,7 +51,7 @@ const dic: Record<Idioma, Partial<Record<Chave, string>>> = {
   pt,
   en: {
     "logo.sub": "Members only. Discretion first.",
-    "landing.tagline": "A private club for adults aged 18 and over. Verified profiles, protected chat and complete discretion — from first contact to meeting.",
+    "landing.tagline": "A private club for adults aged 18 and over. Verified profiles, protected chat and complete discretion.",
     "landing.cta": "Request access",
     "landing.member": "I'm already a member",
     "landing.legal": "By continuing you confirm you are 18 or older and accept the",
@@ -80,7 +80,7 @@ const dic: Record<Idioma, Partial<Record<Chave, string>>> = {
   },
   es: {
     "logo.sub": "Acceso reservado. La discreción es lo primero.",
-    "landing.tagline": "Un club reservado para mayores de 18 años. Perfiles verificados, chat protegido y total discreción — desde el primer contacto hasta el encuentro.",
+    "landing.tagline": "Un club reservado para mayores de 18 años. Perfiles verificados, chat protegido y total discreción.",
     "landing.cta": "Solicitar acceso",
     "landing.member": "Ya soy miembro",
     "landing.legal": "Al continuar declaras tener 18 años o más y aceptas los",
@@ -109,7 +109,7 @@ const dic: Record<Idioma, Partial<Record<Chave, string>>> = {
   },
   fr: {
     "logo.sub": "Accès réservé. La discrétion avant tout.",
-    "landing.tagline": "Un club réservé aux personnes de 18 ans et plus. Profils vérifiés, messagerie protégée et discrétion totale — du premier contact à la rencontre.",
+    "landing.tagline": "Un club réservé aux personnes de 18 ans et plus. Profils vérifiés, messagerie protégée et discrétion totale.",
     "landing.cta": "Demander l'accès",
     "landing.member": "Je suis déjà membre",
     "landing.legal": "En continuant, vous déclarez avoir 18 ans ou plus et acceptez les",
@@ -138,7 +138,7 @@ const dic: Record<Idioma, Partial<Record<Chave, string>>> = {
   },
   ru: {
     "logo.sub": "Закрытый доступ. Конфиденциальность прежде всего.",
-    "landing.tagline": "Закрытый клуб для лиц старше 18 лет. Проверенные профили, защищённый чат и полная конфиденциальность — от первого контакта до встречи.",
+    "landing.tagline": "Закрытый клуб для лиц старше 18 лет. Проверенные профили, защищённый чат и полная конфиденциальность.",
     "landing.cta": "Запросить доступ",
     "landing.member": "Я уже участник",
     "landing.legal": "Продолжая, вы подтверждаете, что вам есть 18 лет, и принимаете",
