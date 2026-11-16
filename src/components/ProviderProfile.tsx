@@ -1,3 +1,4 @@
+import { SecureImg } from "@/lib/media";
 import { useBackClose } from "@/lib/back";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -92,7 +93,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
         {photos.length > 0 ? (
           <div className="relative">
             <div className="aspect-[3/4] w-full overflow-hidden bg-secondary">
-              <img
+              <SecureImg
                 src={photos[currentPhoto]?.photo_url}
                 alt={`Foto ${currentPhoto + 1}`}
                 className="size-full object-cover"
@@ -119,7 +120,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
           </div>
         ) : avatarUrl ? (
           <div className="aspect-square w-full overflow-hidden bg-secondary">
-            <img src={avatarUrl} alt="Avatar" className="size-full object-cover" />
+            <SecureImg src={avatarUrl} alt="Avatar" className="size-full object-cover" />
           </div>
         ) : (
           <div className="flex aspect-square w-full items-center justify-center bg-secondary">
@@ -313,7 +314,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
         <div className="grid grid-cols-3 gap-2">
           {photos.map((photo) => (
             <div key={photo.id} className="group relative aspect-[3/4] overflow-hidden rounded-xl bg-secondary">
-              <img src={photo.photo_url} alt="Foto" className="size-full object-cover" />
+              <SecureImg src={photo.photo_url} alt="Foto" className="size-full object-cover" />
               <button
                 onClick={() => handleDelete(photo)}
                 disabled={deleting === photo.id}
@@ -361,7 +362,7 @@ export function ProviderPhotoStrip({ providerId, onClick }: { providerId: string
     <button onClick={onClick} className="mt-2 flex gap-1.5">
       {photos.map((url, i) => (
         <div key={i} className="size-14 overflow-hidden rounded-lg bg-secondary">
-          <img src={url} alt="" className="size-full object-cover" />
+          <SecureImg src={url} alt="" className="size-full object-cover" />
         </div>
       ))}
       {photos.length > 0 && (

@@ -1,3 +1,4 @@
+import { SecureImg } from "@/lib/media";
 import { partnerIcon } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -149,7 +150,7 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
                   : active ? "border-primary bg-primary/10" : "border-border bg-card hover:bg-secondary"}`}>
                 <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-secondary">
                   {r.photo_url
-                    ? <img src={r.photo_url} alt={r.room_name} className="size-full object-cover" />
+                    ? <SecureImg src={r.photo_url} alt={r.room_name} className="size-full object-cover" />
                     : <div className="flex size-full items-center justify-center"><Building2 className="size-7 text-muted-foreground" /></div>}
                 </div>
                 <div className="min-w-0 flex-1">

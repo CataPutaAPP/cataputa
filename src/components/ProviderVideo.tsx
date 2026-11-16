@@ -1,3 +1,4 @@
+import { SecureVideo } from "@/lib/media";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Video, Upload, Loader2, Trash2, Clock, CheckCircle2, XCircle, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -75,7 +76,7 @@ export function ProviderVideoManager({ userId }: { userId: string }) {
 
       {video ? (
         <div className="mt-3 space-y-2">
-          <video src={video.url} controls playsInline className="w-full rounded-xl bg-black" />
+          <SecureVideo src={video.url} controls playsInline className="w-full rounded-xl bg-black" />
           <p className={`flex items-center gap-1.5 text-xs ${selo[video.status].cls}`}>
             {selo[video.status].icon}{selo[video.status].txt}
           </p>
@@ -109,7 +110,7 @@ export function ProviderVideoPlayer({ providerId }: { providerId: string }) {
   return (
     <div className="mt-4">
       <p className="mb-2 flex items-center gap-2 text-sm font-semibold"><Video className="size-4 text-primary" /> Apresentação</p>
-      <video src={url} controls playsInline className="w-full rounded-xl bg-black" />
+      <SecureVideo src={url} controls playsInline className="w-full rounded-xl bg-black" />
     </div>
   );
 }
