@@ -1,3 +1,4 @@
+import { SecureImg } from "@/lib/media";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -449,7 +450,7 @@ function ParceiroContent() {
             <article key={r.id} className={`rounded-2xl border border-border bg-card p-3 ${e.tipo === "pausado" ? "opacity-60" : ""}`}>
               <div className="flex gap-3">
               <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-secondary">
-                {r.photo_url ? <img src={r.photo_url} alt={r.name} className="size-full object-cover" />
+                {r.photo_url ? <SecureImg src={r.photo_url} alt={r.name} className="size-full object-cover" />
                   : <div className="flex size-full items-center justify-center"><Camera className="size-6 text-muted-foreground" /></div>}
               </div>
               <div className="min-w-0 flex-1">
@@ -530,7 +531,7 @@ function ParceiroContent() {
             <button onClick={() => fileRef.current?.click()}
               className="flex h-40 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-secondary/30">
               {uploading ? <Loader2 className="size-6 animate-spin text-primary" />
-                : roomForm.photo_url ? <img src={roomForm.photo_url} alt="" className="size-full object-cover" />
+                : roomForm.photo_url ? <SecureImg src={roomForm.photo_url} alt="" className="size-full object-cover" />
                 : <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground"><Camera className="size-6" />Toque para enviar</span>}
             </button>
           </div>

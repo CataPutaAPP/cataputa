@@ -1,3 +1,4 @@
+import { SecureVideo } from "@/lib/media";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -760,7 +761,7 @@ function Videos() {
               <p className="font-semibold">{v.provider_name}</p>
               <Badge variant="secondary" className="text-[10px]">{v.status.replace("_", " ")}</Badge>
             </div>
-            <video src={v.video_url} controls playsInline className="mt-2 w-full rounded-xl bg-black" />
+            <SecureVideo src={v.video_url} controls playsInline className="mt-2 w-full rounded-xl bg-black" />
             {v.admin_note && <p className="mt-2 text-xs text-muted-foreground">{v.admin_note}</p>}
             <div className="mt-3 flex gap-2">
               {v.status !== "aprovado" && <Button size="sm" disabled={busy === v.user_id} onClick={() => moderar(v, "aprovado")}>Aprovar</Button>}
