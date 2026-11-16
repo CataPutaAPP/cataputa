@@ -1,3 +1,4 @@
+import { partnerIcon } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Loader2, Building2, Clock, MapPin, Check, RefreshCw } from "lucide-react";
@@ -68,7 +69,8 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
       lat: r.partner_lat,
       lng: r.partner_lng,
       color: rooms?.some((x) => x.partner_id === r.partner_id && x.room_id === selected) ? "#22c55e" : "#a855f7",
-      size: 18,
+      size: 26,
+      label: partnerIcon(r.local_type),
       onClick: () => {
         const first = rooms?.find((x) => x.partner_id === r.partner_id && x.available);
         if (first) setSelected(first.room_id);

@@ -14,6 +14,8 @@ export interface MapMarker {
   lng: number;
   color?: string;
   size?: number;
+  /** Letra/símbolo dentro do ponto (ex.: M de motel). Sem label, é só a bolinha. */
+  label?: string;
   onClick?: () => void;
 }
 
@@ -242,7 +244,7 @@ export function LeafletMap({ onCoordsChange, markers = [], radiusKm = 0, childre
       const sz = m.size ?? 12;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="width:${sz}px;height:${sz}px;background:${c};border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 8px ${c}80;cursor:pointer"></div>`,
+        html: `<div style="width:${sz}px;height:${sz}px;background:${c};border:2px solid rgba(255,255,255,.9);border-radius:50%;box-shadow:0 0 8px ${c}80;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;font:700 ${Math.round(sz * 0.52)}px/1 system-ui,sans-serif">${m.label ? m.label.replace(/[<>&]/g, "") : ""}</div>`,
         iconSize: [sz, sz],
         iconAnchor: [sz / 2, sz / 2],
       });

@@ -63,6 +63,56 @@ interface MatchViewProps {
   onRefresh: () => void;
 }
 
+/* ─── Local do parceiro: endereço, quarto e código da reserva ─────── */
+
+function PartnerSpot({ bookingId }: { bookingId: string }) {
+  const [info, setInfo] = useState<{
+    nome: string | null; endereco: string | null; tipo: string | null; lat: number | null; lng: number | null;
+    quarto: string | null; status: string;
+  } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    (async () => {
+      const { data: b } = await supabase.from("room_bookings").select("room_id, partner_id, status").eq("id", bookingId).maybeSingle();
+      if (!b) return;
+      const [{ data: room }, { data: p }] = await Promise.all([
+        supabase.from("partner_rooms").select("name").eq("id", b.room_id).maybeSingle(),
+        supabase.from("profiles").select("full_name, local_address, local_type, lat, lng").eq("id", b.partner_id).maybeSingle(),
+      ]);
+      if (vivo) setInfo({
+        nome: p?.full_name ?? null, endereco: p?.local_address ?? null, tipo: p?.local_type ?? null,
+        lat: p?.lat ?? null, lng: p?.lng ?? null, quarto: room?.name ?? null, status: String(b.status),
+      });
+    })();
+    return () => { vivo = false; };
+  }, [bookingId]);
+
+  if (!info) return null;
+  const codigo = bookingId.replace(/-/g, "").slice(0, 4).toUpperCase();
+  return (
+    <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+      <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Local do encontro</p>
+      <p className="mt-2 font-medium">{info.nome ?? "Local parceiro"}{info.tipo ? <span className="text-xs capitalize text-muted-foreground"> · {info.tipo}</span> : null}</p>
+      {info.endereco && <p className="text-sm text-muted-foreground">{info.endereco}</p>}
+      {info.quarto && <p className="mt-1 text-sm">Quarto: <span className="font-medium">{info.quarto}</span></p>}
+      <div className="mt-3 flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2">
+        <span className="text-xs text-muted-foreground">Código para informar na recepção</span>
+        <span className="font-mono text-lg font-bold tracking-widest text-primary">{codigo}</span>
+      </div>
+      {info.status === "cancelada" && (
+        <p className="mt-2 text-xs font-medium text-destructive">Esta reserva foi desfeita pelo local. Combinem outro ponto pelo chat.</p>
+      )}
+      {info.lat && info.lng && (
+        <a className="mt-3 block text-sm font-medium text-primary underline"
+          href={`https://www.google.com/maps/dir/?api=1&destination=${info.lat},${info.lng}`} target="_blank" rel="noreferrer">
+          Abrir rota no Google Maps →
+        </a>
+      )}
+      <p className="mt-2 text-[11px] text-muted-foreground">O quarto é pago direto no estabelecimento.</p>
+    </div>
+  );
+}
+
 /* ─── Main component ───────────────────────────────────────────────── */
 
 export function MatchView({ service, role, userId, onClose, onRefresh }: MatchViewProps) {
@@ -364,8 +414,13 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         <ChatPanel proposalId={service.accepted_proposal_id} onClose={() => setChatOpen(false)} />
       )}
 
+      {/* Local do parceiro (quando o atendimento é em quarto reservado) */}
+      {service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && (
+        <PartnerSpot bookingId={service.room_booking_id} />
+      )}
+
       {/* Ponto de encontro */}
-      {service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
+      {!service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
         <div className="mb-5 rounded-2xl border border-border bg-card p-4">
           <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
           {service.meeting_lat && service.meeting_lng ? (
