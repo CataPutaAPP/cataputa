@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Briefcase, CheckCircle2, Handshake, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -13,6 +14,8 @@ import { useAuth } from "@/context/AuthContext";
 import type { UserRole } from "@/types";
 import { isValidCPF, isValidEmail, isValidPhone, maskCPF, maskPhone } from "@/lib/masks";
 import { genderOptions } from "@/lib/service-options";
+
+interface Vaga { limite: number | null; usadas: number; restantes: number | null; aberto: boolean }
 
 export const Route = createFileRoute("/cadastro")({
   head: () => ({
@@ -56,6 +59,14 @@ function Cadastro() {
   const { signUp, isUsernameTaken } = useAuth();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [vagas, setVagas] = useState<Record<string, Vaga>>({});
+  useEffect(() => {
+    (["prestador", "cliente"] as const).forEach((r) => {
+      supabase.rpc("signup_slots", { p_role: r }).then(({ data }) => {
+        if (data) setVagas((old) => ({ ...old, [r]: data as Vaga }));
+      });
+    });
+  }, []);
   const [form, setForm] = useState({
     full_name: "",
     cpf: "",
@@ -109,6 +120,12 @@ function Cadastro() {
     if (!role) return;
 
     setSubmitting(true);
+    if (!(await conferirVaga(role))) {
+      setSubmitting(false);
+      toast.error("As vagas desta fase de convites acabaram para este perfil.");
+      setStep(1); setRole(null);
+      return;
+    }
     const valid = await validate();
     if (!valid) {
       setSubmitting(false);
@@ -127,6 +144,15 @@ function Cadastro() {
       return;
     }
     setStep(3);
+  }
+
+  // Fase de convites: vagas limitadas por perfil (limites ficam no banco)
+  const vagaAberta = (r: string) => vagas[r]?.aberto !== false;
+  async function conferirVaga(r: string) {
+    const { data } = await supabase.rpc("signup_slots", { p_role: r });
+    const v = data as Vaga | null;
+    if (v) setVagas((old) => ({ ...old, [r]: v }));
+    return v?.aberto !== false;
   }
 
   return (
@@ -166,9 +192,10 @@ function Cadastro() {
                 <button
                   key={r}
                   type="button"
-                  onClick={() => setRole(r)}
+                  onClick={() => { if (vagaAberta(r)) setRole(r); }}
+                  disabled={!vagaAberta(r)}
                   className={`panel flex w-full items-center gap-4 p-4 text-left transition-all ${
-                    role === r ? "ring-2 ring-primary shadow-glow" : "hover:bg-secondary/60"
+                    !vagaAberta(r) ? "cursor-not-allowed opacity-50" : role === r ? "ring-2 ring-primary shadow-glow" : "hover:bg-secondary/60"
                   }`}
                 >
                   <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent">
@@ -177,6 +204,11 @@ function Cadastro() {
                   <span>
                     <span className="block font-semibold">{title}</span>
                     <span className="block text-sm text-muted-foreground">{desc}</span>
+                    {vagas[r]?.restantes != null && (
+                      <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${vagaAberta(r) ? "bg-primary/15 text-primary" : "bg-destructive/20 text-destructive"}`}>
+                        {vagaAberta(r) ? `Fase de convites · restam ${vagas[r]!.restantes} vagas` : "Lista de convidados completa"}
+                      </span>
+                    )}
                   </span>
                   {role === r && <CheckCircle2 className="ml-auto size-5 text-primary" />}
                 </button>
