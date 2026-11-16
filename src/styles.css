@@ -154,7 +154,7 @@
 
   /* iOS dá zoom em campo com fonte menor que 16px — trava a tela "ampliada" */
   @media (max-width: 640px) {
-    input,
+    input:not([data-grande]),
     select,
     textarea {
       font-size: 16px !important;
