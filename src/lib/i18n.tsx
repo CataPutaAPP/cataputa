@@ -196,7 +196,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
     <div className={`relative ${className}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-label={t("lang.title")} aria-expanded={aberto}
         className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 text-xs font-semibold uppercase backdrop-blur-md hover:bg-secondary">
-        <Bandeira code={lang} /> {lang}
+        <Bandeira code={lang} /> <span className="hidden sm:inline">{lang}</span>
       </button>
       {aberto && (
         <ul className="absolute right-0 top-[calc(100%+6px)] z-50 w-44 overflow-hidden rounded-2xl border border-border bg-card py-1 shadow-2xl">
