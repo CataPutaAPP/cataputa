@@ -17,6 +17,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
 import { brl } from "@/lib/fees";
+import { PARTNER_TYPES } from "@/lib/partner-types";
 
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
@@ -30,15 +31,8 @@ export const Route = createFileRoute("/parceiro")({
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
 
-const localTypes = [
-  { value: "motel", label: "Motel" },
-  { value: "drive", label: "Drive" },
-  { value: "hotel", label: "Hotel" },
-  { value: "hostel", label: "Hostel" },
-  { value: "quarto", label: "Quarto" },
-  { value: "garagem", label: "Garagem" },
-  { value: "outro", label: "Outro" },
-];
+// lista única de tipos (rótulo + letra do ponto no mapa) em src/lib/partner-types.ts
+const localTypes = PARTNER_TYPES.map((t) => ({ value: t.value, label: `${t.icone}  ${t.label}` }));
 
 interface Room {
   id: string;
@@ -63,6 +57,33 @@ interface Booking {
   ends_at: string | null;
   created_at: string;
 }
+
+interface Block {
+  id: string;
+  room_id: string;
+  kind: "balcao" | "limpeza" | "bloqueado";
+  until: string | null;
+}
+
+type Estado =
+  | { tipo: "em_uso" | "reservado" | "segurando"; booking: Booking }
+  | { tipo: "balcao" | "limpeza" | "bloqueado"; block: Block }
+  | { tipo: "pausado" | "livre" };
+
+const ESTADO_UI: Record<Estado["tipo"], { rotulo: string; cls: string }> = {
+  livre:     { rotulo: "Livre",            cls: "bg-green-500/20 text-green-400" },
+  segurando: { rotulo: "Sendo reservado",  cls: "bg-yellow-500/20 text-yellow-400" },
+  reservado: { rotulo: "Reservado",        cls: "bg-[#a855f7]/20 text-[#c084fc]" },
+  em_uso:    { rotulo: "Em uso",           cls: "bg-primary/20 text-primary" },
+  balcao:    { rotulo: "Ocupado (balcão)", cls: "bg-primary/20 text-primary" },
+  limpeza:   { rotulo: "Limpeza",          cls: "bg-sky-500/20 text-sky-300" },
+  bloqueado: { rotulo: "Bloqueado",        cls: "bg-destructive/20 text-destructive" },
+  pausado:   { rotulo: "Pausado",          cls: "bg-muted text-muted-foreground" },
+};
+
+/** Código curto que cliente e parceiro conferem na chegada */
+const codigoReserva = (id: string) => id.replace(/-/g, "").slice(0, 4).toUpperCase();
+const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
 
 const durationOptions = [30, 60, 120, 180, 240, 360, 720];
 const fmtDuration = (m: number) => (m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`);
@@ -93,6 +114,63 @@ function ParceiroContent() {
 
   // ── Reservas ──
   const [bookings, setBookings] = useState<Booking[]>([]);
+
+  // ── Quadro de quartos ao vivo: bloqueios (balcão / limpeza / bloqueado) ──
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [agora, setAgora] = useState(() => Date.now());
+  const [acao, setAcao] = useState<string | null>(null);
+  const fetchBlocks = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase.from("room_blocks").select("id, room_id, kind, until")
+      .eq("partner_id", user.id).is("ended_at", null);
+    setBlocks(error ? [] : ((data as Block[]) ?? []));
+  }, [user]);
+  useEffect(() => { fetchBlocks(); }, [fetchBlocks]);
+  // relógio do quadro: atualiza os horários e solta bloqueios vencidos sem precisar recarregar
+  useEffect(() => {
+    const t = setInterval(() => { setAgora(Date.now()); fetchBlocks(); }, 30000);
+    return () => clearInterval(t);
+  }, [fetchBlocks]);
+
+  function estadoDoQuarto(r: Room): Estado {
+    const emUso = bookings.find((b) => b.room_id === r.id && b.status === "em_uso");
+    if (emUso) return { tipo: "em_uso", booking: emUso };
+    const reservado = bookings.find((b) => b.room_id === r.id && b.status === "confirmada");
+    if (reservado) return { tipo: "reservado", booking: reservado };
+    const block = blocks.find((k) => k.room_id === r.id && (!k.until || new Date(k.until).getTime() > agora));
+    if (block) return { tipo: block.kind, block };
+    const segurando = bookings.find((b) => b.room_id === r.id && b.status === "pendente"
+      && agora - new Date(b.created_at).getTime() < 15 * 60000);
+    if (segurando) return { tipo: "segurando", booking: segurando };
+    return { tipo: r.is_active ? "livre" : "pausado" };
+  }
+
+  async function bloquear(r: Room, kind: Block["kind"]) {
+    setAcao(r.id);
+    const minutos = kind === "balcao" ? r.duration_minutes : kind === "limpeza" ? 15 : null;
+    const { error } = await supabase.rpc("partner_room_block", { p_room_id: r.id, p_kind: kind, p_minutes: minutos });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível alterar o quarto.");
+    toast.success(kind === "balcao" ? `${r.name} ocupado por ${fmtDuration(r.duration_minutes)}.` : kind === "limpeza" ? `${r.name} em limpeza por 15 min.` : `${r.name} bloqueado até você liberar.`);
+    fetchBlocks();
+  }
+  async function liberar(r: Room) {
+    setAcao(r.id);
+    const { error } = await supabase.rpc("partner_room_free", { p_room_id: r.id });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível liberar.");
+    toast.success(`${r.name} liberado. Já aparece como livre.`);
+    fetchBlocks();
+  }
+  async function acaoReserva(b: Booking, action: "checkin" | "checkout" | "no_show") {
+    if (action === "no_show" && !confirm("Ninguém compareceu? A reserva será desfeita e o quarto liberado.")) return;
+    setAcao(b.room_id);
+    const { error } = await supabase.rpc("partner_booking_action", { p_booking_id: b.id, p_action: action });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível atualizar a reserva.");
+    toast.success(action === "checkin" ? "Chegada registrada. O tempo do quarto começou." : action === "checkout" ? "Quarto encerrado. Entrou em limpeza." : "Reserva desfeita. Quarto liberado.");
+    fetchBookings(); fetchBlocks();
+  }
 
   // ── Ponto no mapa: ligado / desligado (não mexe nos quartos) ──
   const [noMapa, setNoMapa] = useState(true);
@@ -344,8 +422,25 @@ function ParceiroContent() {
               <p className="text-sm text-muted-foreground">Nenhum quarto cadastrado ainda.</p>
             </div>
           )}
-          {rooms.map((r) => (
-            <article key={r.id} className={`flex gap-3 rounded-2xl border border-border bg-card p-3 ${r.is_active ? "" : "opacity-50"}`}>
+          {rooms.length > 0 && (() => {
+            const est = rooms.map(estadoDoQuarto);
+            const conta = (...t: Estado["tipo"][]) => est.filter((e) => t.includes(e.tipo)).length;
+            return (
+              <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
+                <div className="rounded-xl bg-green-500/10 py-2"><p className="text-base font-bold text-green-400">{conta("livre")}</p>Livres</div>
+                <div className="rounded-xl bg-[#a855f7]/10 py-2"><p className="text-base font-bold text-[#c084fc]">{conta("reservado", "segurando")}</p>Reservados</div>
+                <div className="rounded-xl bg-primary/10 py-2"><p className="text-base font-bold text-primary">{conta("em_uso", "balcao")}</p>Em uso</div>
+                <div className="rounded-xl bg-secondary py-2"><p className="text-base font-bold">{conta("limpeza", "bloqueado", "pausado")}</p>Fora</div>
+              </div>
+            );
+          })()}
+          {rooms.map((r) => {
+            const e = estadoDoQuarto(r);
+            const ui = ESTADO_UI[e.tipo];
+            const ocupado = acao === r.id;
+            return (
+            <article key={r.id} className={`rounded-2xl border border-border bg-card p-3 ${e.tipo === "pausado" ? "opacity-60" : ""}`}>
+              <div className="flex gap-3">
               <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-secondary">
                 {r.photo_url ? <img src={r.photo_url} alt={r.name} className="size-full object-cover" />
                   : <div className="flex size-full items-center justify-center"><Camera className="size-6 text-muted-foreground" /></div>}
@@ -353,11 +448,22 @@ function ParceiroContent() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="truncate font-semibold">{r.name}</p>
-                  <p className="shrink-0 font-bold text-primary">{brl(r.price)}</p>
+                  <Badge variant="secondary" className={`shrink-0 text-[10px] ${ui.cls}`}>{ui.rotulo}</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <Clock className="mr-1 inline size-3" />{fmtDuration(r.duration_minutes)} · pago no seu estabelecimento
+                  <Clock className="mr-1 inline size-3" />{fmtDuration(r.duration_minutes)} · {brl(r.price)} · pago no seu estabelecimento
                 </p>
+                {"booking" in e && e.tipo !== "segurando" && (
+                  <p className="mt-0.5 text-xs font-medium text-foreground">
+                    Código {codigoReserva(e.booking.id)}
+                    {e.tipo === "em_uso" && e.booking.ends_at ? ` · até ${hora(e.booking.ends_at)}` : ""}
+                    {e.tipo === "reservado" && e.booking.starts_at ? ` · reservado às ${hora(e.booking.starts_at)}` : ""}
+                  </p>
+                )}
+                {"block" in e && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{e.block.until ? `Volta a ficar livre às ${hora(e.block.until)}` : "Até você liberar"}</p>
+                )}
+                {e.tipo === "segurando" && <p className="mt-0.5 text-xs text-muted-foreground">Um cliente está escolhendo este quarto.</p>}
                 {!r.photo_url && <p className="mt-0.5 text-[11px] text-yellow-400">Sem foto — adicione para aparecer melhor</p>}
                 <div className="mt-2 flex gap-1">
                   <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={() => setRoomForm({
@@ -372,8 +478,31 @@ function ParceiroContent() {
                   </Button>
                 </div>
               </div>
+              </div>
+
+              {/* Ações do momento — mudam conforme o estado do quarto */}
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                {e.tipo === "livre" && (<>
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => bloquear(r, "balcao")}>Ocupar agora</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => bloquear(r, "limpeza")}>Limpeza</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => bloquear(r, "bloqueado")}>Bloquear</Button>
+                </>)}
+                {(e.tipo === "balcao" || e.tipo === "limpeza" || e.tipo === "bloqueado") && (
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => liberar(r)}>Liberar quarto</Button>
+                )}
+                {e.tipo === "reservado" && (<>
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => acaoReserva(e.booking, "checkin")}>Cliente chegou</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => acaoReserva(e.booking, "no_show")}>Não compareceu</Button>
+                </>)}
+                {e.tipo === "em_uso" && (
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => acaoReserva(e.booking, "checkout")}>Encerrar e liberar</Button>
+                )}
+                {e.tipo === "segurando" && <p className="text-xs text-muted-foreground">Aguardando o cliente confirmar (até 15 min).</p>}
+                {e.tipo === "pausado" && <p className="text-xs text-muted-foreground">Quarto pausado: não aparece para ninguém. Use "Ativar" para voltar.</p>}
+              </div>
             </article>
-          ))}
+            );
+          })}
           <Button className="h-12 w-full" onClick={() => setRoomForm({ ...emptyRoom })}>
             <Plus className="mr-2 size-5" /> Adicionar quarto
           </Button>

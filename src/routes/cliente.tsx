@@ -1,3 +1,4 @@
+import { partnerIcon, partnerLabel } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -468,7 +469,8 @@ function ClienteContent() {
             lat: p.lat,
             lng: p.lng,
             color: p.rooms_free > 0 ? "#a855f7" : "#6b7280",
-            size: 22,
+            size: 28,
+            label: partnerIcon(p.local_type),
             onClick: () => { setOfferOnMap(null); setParceiroNoMapa(p); },
           })))}
         />
@@ -478,13 +480,13 @@ function ClienteContent() {
       {parceiroNoMapa && (
         <div className="fixed app-dock-hi z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
           <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#a855f7]/20 text-[#c084fc]">
-              <MapPin className="size-5" />
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#a855f7] text-lg font-bold text-white">
+              {partnerIcon(parceiroNoMapa.local_type)}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{parceiroNoMapa.partner_name ?? "Local parceiro"}</p>
-              <p className="text-xs capitalize text-muted-foreground">
-                {parceiroNoMapa.local_type ?? "Local parceiro"} · {Number(parceiroNoMapa.distance_km).toFixed(1)} km
+              <p className="text-xs text-muted-foreground">
+                {partnerLabel(parceiroNoMapa.local_type)} · {Number(parceiroNoMapa.distance_km).toFixed(1)} km
               </p>
             </div>
             <button onClick={() => setParceiroNoMapa(null)} aria-label="Fechar"
