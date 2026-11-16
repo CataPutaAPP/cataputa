@@ -1,3 +1,4 @@
+import { LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -167,7 +168,7 @@ function Cadastro() {
             </Link>
           </Button>
           <Logo size="sm" />
-          <span className="w-9" />
+          <LanguageSwitcher />
         </div>
 
         {step !== 3 && (

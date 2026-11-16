@@ -1,3 +1,4 @@
+import { VERSAO } from "@/lib/version";
 import { useT, LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MapBackground } from "@/components/MapBackground";
@@ -51,6 +52,7 @@ function Welcome() {
           {t("landing.legal")}{" "}
           <Link to="/termos" className="underline hover:text-primary">{t("landing.terms")}</Link> {t("landing.and")}{" "}
           <Link to="/privacidade" className="underline hover:text-primary">{t("landing.privacy")}</Link>.
+          <span className="mt-2 block text-[10px] opacity-60">versão {VERSAO}</span>
         </p>
       </div>
     </main>

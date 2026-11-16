@@ -1,3 +1,4 @@
+import { VERSAO } from "@/lib/version";
 import { useT, LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -111,6 +112,7 @@ function Login() {
             {t("login.signup")}
           </Link>
         </p>
+        <p className="mt-8 text-center text-[10px] text-muted-foreground/60">versão {VERSAO}</p>
       </div>
     </main>
   );
