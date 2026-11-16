@@ -69,6 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Small delay to let the trigger finish creating the profile
     await new Promise((r) => setTimeout(r, 500));
 
+    // Perfil próprio vem por função do banco: a tabela não entrega mais CPF, telefone,
+    // e-mail e localização para leitura direta (nem do próprio usuário, nem de terceiros).
+    const { data: meu, error: erroRpc } = await supabase.rpc("meu_perfil");
+    if (!erroRpc && meu && typeof meu === "object" && "id" in (meu as object)) return meu as Profile;
+
+    // compatibilidade: enquanto a função ainda não existir no banco
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
