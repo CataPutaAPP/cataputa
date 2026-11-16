@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useState } from "react";
 import { X, Loader2, History, Star, CheckCircle2, XCircle, Inbox } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ interface Item {
 interface Resumo { concluidos: number; cancelados: number; total_pago: number; total_recebido: number }
 
 export function HistorySheet({ onClose, onViewProfile }: { onClose: () => void; onViewProfile?: (id: string) => void }) {
+  useBackClose(true, onClose);
   const [itens, setItens] = useState<Item[] | null>(null);
   const [resumo, setResumo] = useState<Resumo | null>(null);
   const [avaliando, setAvaliando] = useState<string | null>(null);

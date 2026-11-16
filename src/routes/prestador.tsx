@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -502,6 +503,13 @@ function PrestadorContent() {
     const n = parseFloat(val.replace(",", "."));
     return isNaN(n) || n <= 0 ? null : n.toFixed(2);
   };
+
+  // "Voltar" do aparelho fecha oferta / detalhes / perfil e volta ao mapa
+  useBackClose(view !== "map" && view !== "match", () => {
+    if (view === "perfil") fetchPhotoCount();
+    setSelectedRequest(null);
+    setView("map");
+  });
 
   return (
     <main className="relative min-h-dvh">

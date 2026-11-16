@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useEffect, useState } from "react";
 import { Crown, X, Loader2, Check, Minus, Ticket, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ function fmtValue(kind: Feature["kind"], v: number | undefined) {
 /** Vitrine de planos do público do usuário + resgate de código de campanha. */
 export function PlansButton({ audience }: { audience: UserRole }) {
   const [open, setOpen] = useState(false);
+  useBackClose(open, () => setOpen(false));
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [features, setFeatures] = useState<Feature[]>([]);
   const [values, setValues] = useState<PlanFeature[]>([]);

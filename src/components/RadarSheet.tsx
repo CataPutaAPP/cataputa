@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useState } from "react";
 import { X, Loader2, Radar, Star, MapPin, Home, Sparkles, Inbox, Lock } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ export function RadarSheet({ lat, lng, radius, onClose, onViewProfile, onSeeOffe
   lat: number; lng: number; radius: number;
   onClose: () => void; onViewProfile: (id: string) => void; onSeeOffers: () => void;
 }) {
+  useBackClose(true, onClose);
   const [rows, setRows] = useState<OnlineProvider[] | null>(null);
   const [blocked, setBlocked] = useState<string | null>(null);
 

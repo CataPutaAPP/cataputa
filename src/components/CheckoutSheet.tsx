@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useEffect, useState } from "react";
 import { X, Loader2, QrCode, CreditCard, Copy, Check, CheckCircle2, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ async function fnError(error: any, fallback: string): Promise<string> {
 export function CheckoutSheet({ item, cardBlocked, isAdmin, onClose, onPaid }: {
   item: CheckoutItem; cardBlocked: boolean; isAdmin: boolean; onClose: () => void; onPaid: () => void;
 }) {
+  useBackClose(true, onClose);
   const [method, setMethod] = useState<"pix" | "cartao">("pix");
   const [coupon, setCoupon] = useState("");
   const [busy, setBusy] = useState(false);

@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History } from "lucide-react";
@@ -410,6 +411,11 @@ function ClienteContent() {
       default: return { text: s, cls: "" };
     }
   }
+
+  // "Voltar" do aparelho: fecha a tela aberta e volta um nível (pagamento → propostas → mapa)
+  useBackClose(view !== "map" && view !== "match", () => setView("map"));
+  useBackClose((view as string) === "payment", () => { setPayingProposal(null); setQuote(null); setView("proposals"); });
+  useBackClose(!!offerOnMap, () => setOfferOnMap(null));
 
   return (
     <main className="relative min-h-dvh">

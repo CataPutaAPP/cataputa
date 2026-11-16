@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useEffect, useState } from "react";
 import { Settings, X, EyeOff, Smartphone, Lock, Check, Download, Trash2, Loader2, Bell } from "lucide-react";
 import { toast } from "sonner";
@@ -15,6 +16,7 @@ interface PromptInstalacao extends Event { prompt: () => Promise<void>; userChoi
 
 export function PreferencesButton() {
   const [open, setOpen] = useState(false);
+  useBackClose(open, () => setOpen(false));
   const { plan } = useMyPlan();
   const liberado = Number(plan?.features?.["discreet_mode"] ?? 0) === 1;
   const { ligado, alternar } = useDiscreet(liberado);

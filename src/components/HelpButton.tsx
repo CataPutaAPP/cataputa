@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useEffect, useState } from "react";
 import { HelpCircle, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ interface HelpItem { id: string; title: string; body: string; sort_order: number
 /** Botão "?" do cabeçalho. Textos vêm de help_content (editável no Admin, sem deploy). */
 export function HelpButton({ screen }: { screen: UserRole }) {
   const [open, setOpen] = useState(false);
+  useBackClose(open, () => setOpen(false));
   const [items, setItems] = useState<HelpItem[] | null>(null);
 
   useEffect(() => {

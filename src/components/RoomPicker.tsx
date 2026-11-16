@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { X, Loader2, Building2, Clock, MapPin, Check, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -42,6 +43,7 @@ const RADIUS_STEPS = [5, 10, 20];
  * automaticamente pelo banco quando o pagamento aceita a proposta.
  */
 export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPickerProps) {
+  useBackClose(true, onClose);
   const [radius, setRadius] = useState(10);
   const [rooms, setRooms] = useState<NearbyRoom[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);

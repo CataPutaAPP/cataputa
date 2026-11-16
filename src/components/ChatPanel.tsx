@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Send, Loader2, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ interface Msg { id: string; sender_id: string; body: string; was_masked: boolean
  * Regras de quem pode escrever, máscara de contatos e anti-spam ficam no banco (send_message).
  */
 export function ChatPanel({ proposalId, onClose }: { proposalId: string; onClose: () => void }) {
+  useBackClose(true, onClose);
   const { user } = useAuth();
   const [info, setInfo] = useState<ThreadInfo | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);

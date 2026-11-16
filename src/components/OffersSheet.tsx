@@ -1,3 +1,4 @@
+import { useBackClose } from "@/lib/back";
 import { useCallback, useEffect, useState } from "react";
 import { X, Loader2, Sparkles, Star, MapPin, Home, Users, Building2, Car, Check, Inbox, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
   onAccepted: (r: { request_id: string; proposal_id: string }) => void;
   onViewProfile: (providerId: string) => void;
 }) {
+  useBackClose(true, onClose);
   const opcoes = useServiceOptions();
   const [tipo, setTipo] = useState<string | null>(null);
   const [offers, setOffers] = useState<NearbyOffer[] | null>(null);
