@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
 import type { UserRole } from "@/types";
 
 /* ─── Types ─────────────────────────────────────────────────────────── */
@@ -69,19 +70,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Small delay to let the trigger finish creating the profile
     await new Promise((r) => setTimeout(r, 500));
 
-    // Perfil próprio vem por função do banco: a tabela não entrega mais CPF, telefone,
-    // e-mail e localização para leitura direta (nem do próprio usuário, nem de terceiros).
+    // 1) Caminho normal: função do banco que devolve o perfil completo só para o dono.
     const { data: meu, error: erroRpc } = await supabase.rpc("meu_perfil");
     if (!erroRpc && meu && typeof meu === "object" && "id" in (meu as object)) return meu as Profile;
 
-    // compatibilidade: enquanto a função ainda não existir no banco
-    const { data, error } = await supabase
+    // 2) Reserva: só os dados públicos do próprio perfil (funciona mesmo com a tabela trancada).
+    //    É o suficiente para entrar e usar o app; CPF/telefone/e-mail não são usados pelas telas.
+    const motivo = erroRpc ? `${erroRpc.code ?? ""} ${erroRpc.message ?? ""}`.trim() : "resposta vazia";
+    const { data: basico, error: erroBasico } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id, role, status, full_name, username, avatar_url, gender, has_local, rating_avg, rating_count, created_at")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
+    if (!erroBasico && basico) {
+      // aviso técnico temporário: ajuda a descobrir por que o caminho normal falhou
+      toast.warning(`Diagnóstico (mande um print): perfil pelo modo reserva — ${motivo}`, { duration: 15000 });
+      return basico as unknown as Profile;
+    }
 
-    if (error || !data) return null;
+    // 3) Último recurso (banco ainda sem a tranca)
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (error || !data) {
+      toast.error(`Não consegui carregar seu perfil. Detalhe técnico: ${motivo} / ${erroBasico?.message ?? error?.message ?? "sem linha"}`, { duration: 20000 });
+      return null;
+    }
     return data as Profile;
   }, []);
 
