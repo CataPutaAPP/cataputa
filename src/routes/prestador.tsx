@@ -346,6 +346,7 @@ function PrestadorContent() {
             : Promise.resolve({ data: null }),
           supabase.from("profiles").select("full_name, avatar_url, gender, rating_avg, rating_count").eq("id", data.client_id).single(),
         ]);
+        activeIdRef.current = data.id;
         setActiveService({
           ...data,
           proposal: prop ?? undefined,
@@ -505,6 +506,18 @@ function PrestadorContent() {
   };
 
   // "Voltar" do aparelho fecha oferta / detalhes / perfil e volta ao mapa
+  // Toque num aviso do sino: abre o atendimento (e a avaliação, se já concluiu) ou o histórico
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const { requestId, type } = (e as CustomEvent<{ requestId: string | null; type: string }>).detail;
+      if (requestId) { activeIdRef.current = requestId; fetchActiveService(); }
+      else if (type === "servico_concluido" || type === "avaliacao_recebida" || type === "servico_cancelado") setShowHistory(true);
+      else fetchActiveService();
+    };
+    window.addEventListener("privora:aviso", abrir);
+    return () => window.removeEventListener("privora:aviso", abrir);
+  }, [fetchActiveService]);
+
   useBackClose(view !== "map" && view !== "match", () => {
     if (view === "perfil") fetchPhotoCount();
     setSelectedRequest(null);

@@ -413,6 +413,18 @@ function ClienteContent() {
   }
 
   // "Voltar" do aparelho: fecha a tela aberta e volta um nível (pagamento → propostas → mapa)
+  // Toque num aviso do sino: abre o atendimento (e a avaliação, se já concluiu) ou o histórico
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const { requestId, type } = (e as CustomEvent<{ requestId: string | null; type: string }>).detail;
+      if (requestId) { activeIdRef.current = requestId; fetchActiveService(); }
+      else if (type === "servico_concluido" || type === "avaliacao_recebida" || type === "servico_cancelado") setShowHistory(true);
+      else fetchActiveService();
+    };
+    window.addEventListener("privora:aviso", abrir);
+    return () => window.removeEventListener("privora:aviso", abrir);
+  }, [fetchActiveService]);
+
   useBackClose(view !== "map" && view !== "match", () => setView("map"));
   useBackClose((view as string) === "payment", () => { setPayingProposal(null); setQuote(null); setView("proposals"); });
   useBackClose(!!offerOnMap, () => setOfferOnMap(null));
