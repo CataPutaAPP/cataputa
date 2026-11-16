@@ -228,7 +228,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled"]);
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_rooms", "feature_clinic_staff"]);
     setSettings((data as Setting[]) ?? []);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -245,6 +245,8 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     beta_all_features: "Beta: todos com recursos do plano mais alto",
     verification_required: "Exigir verificação de idade para usar o app",
     sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
+    feature_rooms: "Reserva de quartos pelo app (desligado: motel e hotel só como vitrine no mapa)",
+    feature_clinic_staff: "Clínicas com equipe e agenda (desligado: clínica só como vitrine no mapa)",
   };
 
   return (

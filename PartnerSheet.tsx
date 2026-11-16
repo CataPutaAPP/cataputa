@@ -17,7 +17,7 @@ import { quandoBR } from "@/components/PartnerAgenda";
  */
 interface Info {
   id: string; name: string | null; local_type: string | null; address: string | null; description: string | null;
-  lat: number | null; lng: number | null; open_now: boolean; has_whatsapp: boolean; rooms: number;
+  lat: number | null; lng: number | null; open_now: boolean; has_whatsapp: boolean; rooms: number; booking?: boolean;
   staff: { id: string; name: string; bio: string | null; photo_url: string }[];
 }
 interface Meu { id: string; staff_id: string | null; starts_at: string; status: string; discount_pct: number | null }
@@ -84,7 +84,8 @@ export function PartnerSheet({ partnerId, userId, onClose }: { partnerId: string
   }
 
   const dados = info && info !== "erro" ? info : null;
-  const clinica = dados?.local_type === "clinica";
+  // equipe e agenda só quando a chave de clínicas está ligada (o banco informa em "booking")
+  const clinica = dados?.local_type === "clinica" && dados.booking !== false;
   const nomeDe = (id: string | null) => dados?.staff.find((s) => s.id === id)?.name ?? "Equipe";
   const pessoa = dados?.staff.find((s) => s.id === escolhida);
 

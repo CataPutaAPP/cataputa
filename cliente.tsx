@@ -2,6 +2,7 @@ import { StepFlow, ChoiceCard, ChoiceChip, ReviewRow, type FlowStep } from "@/co
 import { partnerIcon, partnerLabel } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
 import { PartnerSheet } from "@/components/PartnerSheet";
+import { useFlags } from "@/lib/flags";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart,
@@ -171,6 +172,7 @@ function ClienteContent() {
   const [parceiros, setParceiros] = useState<PartnerPoint[]>([]);
   const [parceiroNoMapa, setParceiroNoMapa] = useState<PartnerPoint | null>(null);
   const [localAberto, setLocalAberto] = useState<string | null>(null);
+  const flags = useFlags();
   const [promoParceiro, setPromoParceiro] = useState<{ name: string; discount_pct: number; ends: string; restantes: number | null } | null>(null);
   useEffect(() => {
     setPromoParceiro(null);
@@ -523,11 +525,11 @@ function ClienteContent() {
             </p>
           ) : (
             <p className="mt-2 text-xs text-muted-foreground">
-              {parceiroNoMapa.local_type === "clinica" ? "Veja quem está atendendo e peça seu horário." : "Aberto agora. Veja o endereço e trace a rota."}
+              {parceiroNoMapa.local_type === "clinica" && flags.clinicStaff ? "Veja quem está atendendo e peça seu horário." : "Aberto agora. Veja o endereço e trace a rota."}
             </p>
           )}
           <Button className="mt-3 h-11 w-full" onClick={() => { setLocalAberto(parceiroNoMapa.partner_id); setParceiroNoMapa(null); }}>
-            {parceiroNoMapa.local_type === "clinica" ? "Ver equipe e agendar" : "Ver local"}
+            {parceiroNoMapa.local_type === "clinica" && flags.clinicStaff ? "Ver equipe e agendar" : "Ver local"}
           </Button>
         </div>
       )}

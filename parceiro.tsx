@@ -23,6 +23,7 @@ import { PartnerHours } from "@/components/PartnerHours";
 import { PartnerPromos } from "@/components/PartnerPromos";
 import { PartnerStaff } from "@/components/PartnerStaff";
 import { PartnerAgenda } from "@/components/PartnerAgenda";
+import { useFlags } from "@/lib/flags";
 
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
@@ -99,6 +100,9 @@ const emptyRoom = { id: "", name: "", description: "", price: "", duration: 60, 
 
 function ParceiroContent() {
   const { user } = useAuth();
+  const flags = useFlags();
+  const [perfilOk, setPerfilOk] = useState(false);
+  const abaInicial = useRef(false);
   const [tab, setTab] = useState<"local" | "quartos" | "reservas" | "promos" | "equipe" | "agenda">("quartos");
   const [whats, setWhats] = useState("");
   const [pedidosAgenda, setPedidosAgenda] = useState(0);
@@ -210,15 +214,14 @@ function ParceiroContent() {
       if (data) {
         setLocalType(data.local_type ?? "");
         setWhats(data.partner_whatsapp ?? "");
-        // clínica e casa de swing não trabalham com quartos: abre na aba certa
-        if (data.local_type === "clinica") setTab("equipe");
-        else if (data.local_type === "swing") setTab("local");
+
         setLocalAddress(data.local_address ?? "");
         setLocalDesc(data.local_description ?? "");
         setLegacyPrice(data.local_price ? Number(data.local_price) : null);
         if (data.lat) setLocalLat(String(data.lat));
         if (data.lng) setLocalLng(String(data.lng));
       }
+      setPerfilOk(true);
     })();
   }, [user]);
 
@@ -300,8 +303,8 @@ function ParceiroContent() {
     setSaving(false);
     if (zap.error) { toast.error(zap.error.message || "Local salvo, mas o WhatsApp não."); return; }
     toast.success("Local salvo!");
-    if (localType === "clinica") setTab("equipe");
-    else if (localType !== "swing" && rooms.length === 0) { setTab("quartos"); setRoomForm({ ...emptyRoom }); }
+    if (ehClinica) setTab("equipe");
+    else if (comQuartos && rooms.length === 0) { setTab("quartos"); setRoomForm({ ...emptyRoom }); }
   }
 
   // ── CRUD de quartos ──
@@ -365,9 +368,11 @@ function ParceiroContent() {
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "Quarto";
   const openBookings = bookings.filter((b) => ["pendente", "confirmada", "em_uso"].includes(b.status));
   const totalEarnings = bookings.filter((b) => b.status === "concluida").reduce((s, b) => s + Number(b.room_price), 0);
-  const ehClinica = localType === "clinica";
-  const soVitrine = localType === "swing";            // aparece no mapa, sem reserva pelo app
-  const semQuartos = ehClinica || soVitrine;
+  // o que cada tipo de parceiro usa depende das chaves gerais (Admin → Resumo)
+  const ehClinica = localType === "clinica" && flags.clinicStaff;      // equipe + agenda
+  const comQuartos = flags.rooms && localType !== "clinica" && localType !== "swing";
+  const soVitrine = !ehClinica && !comQuartos;         // aparece no mapa, sem reserva pelo app
+  const semQuartos = !comQuartos;
   const isConfigured = !!localAddress && !!localLat && (semQuartos || activeRooms.length > 0);
 
   const statusLabel: Record<Booking["status"], { text: string; cls: string }> = {
@@ -377,6 +382,13 @@ function ParceiroContent() {
     concluida: { text: "Concluída", cls: "bg-green-500/20 text-green-400" },
     cancelada: { text: "Cancelada", cls: "opacity-60" },
   };
+
+  // garante uma aba que exista para este tipo de parceiro
+  useEffect(() => {
+    if (!flags.pronto || !perfilOk) return;
+    const validas = soVitrine ? ["local"] : ehClinica ? ["equipe", "agenda", "promos", "local"] : ["quartos", "reservas", "promos", "local"];
+    if (!abaInicial.current || !validas.includes(tab)) { abaInicial.current = true; setTab(validas[0] as typeof tab); }
+  }, [flags.pronto, perfilOk, soVitrine, ehClinica, tab]);
 
   const TabBtn = ({ id, icon, children }: { id: typeof tab; icon: React.ReactNode; children: React.ReactNode }) => (
     <button onClick={() => setTab(id)}
@@ -639,7 +651,7 @@ function ParceiroContent() {
         <PartnerPromos userId={user.id} unidade={localType === "clinica" ? "clientes" : "quartos"} />
       )}
 
-      {tab === "equipe" && user && <PartnerStaff userId={user.id} />}
+      {tab === "equipe" && ehClinica && user && <PartnerStaff userId={user.id} />}
       {/* a agenda fica montada para o contador de pedidos acompanhar em tempo real */}
       {ehClinica && user && <div className={tab === "agenda" ? "" : "hidden"}><PartnerAgenda userId={user.id} onPendentes={setPedidosAgenda} /></div>}
 
@@ -649,7 +661,7 @@ function ParceiroContent() {
             <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm leading-relaxed">
               <p className="font-semibold">Seu local é uma vitrine no mapa</p>
               <p className="mt-1 text-muted-foreground">
-                Clientes próximos veem o ponto <b>Ψ</b>, o endereço, a descrição e as fotos, e traçam a rota até você.
+                Clientes próximos veem seu ponto, o endereço, a descrição e as fotos, e traçam a rota até você.
                 Não há reserva pelo app. Capriche na descrição: horários, valores de entrada e regras da casa.
               </p>
             </div>
