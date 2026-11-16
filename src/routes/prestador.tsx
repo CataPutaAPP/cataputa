@@ -377,9 +377,12 @@ function PrestadorContent() {
     [
       { table: "service_requests" },
       { table: "proposals", filter: `provider_id=eq.${user?.id}` },
+      // chamados de terceiros não chegam mais por tempo real (são privados);
+      // o aviso de "novo chamado" chega, e é ele que atualiza a lista
+      { table: "notifications", event: "INSERT", filter: `user_id=eq.${user?.id}` },
     ],
     () => { fetchRequests(); fetchMyProposals(); fetchActiveService(); },
-    { enabled: !!user && !!coords && available },
+    { enabled: !!user && !!coords && available, fallbackMs: 30000 },
   );
 
   // Reset offer form when type changes
