@@ -7,13 +7,17 @@ const SUPABASE_ANON_KEY =
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /**
- * Canal de tempo real com nome único.
- * Versões novas do supabase-js devolvem o MESMO canal quando o nome se repete; se duas
- * telas pedem "unread-<id>" ao mesmo tempo, a segunda quebra a página inteira
- * ("cannot add callbacks after subscribe"). Use sempre canal() em vez de supabase.channel().
+ * Canais de tempo real com nome SEMPRE único.
+ * Versões novas do supabase-js devolvem o mesmo canal quando o nome se repete; se duas
+ * telas pedem "unread-<id>" ao mesmo tempo, a segunda derruba a página inteira
+ * ("cannot add callbacks after subscribe"). Aqui todo supabase.channel() do app
+ * ganha um sufixo, então nenhuma tela precisa se preocupar com isso.
  */
 let seqCanal = 0;
-export function canal(nome: string) {
+const canalOriginal = supabase.channel.bind(supabase);
+supabase.channel = ((nome: string, opcoes?: Parameters<typeof canalOriginal>[1]) => {
   seqCanal += 1;
-  return supabase.channel(`${nome}:${seqCanal}`);
-}
+  return canalOriginal(`${nome}:${seqCanal}`, opcoes);
+}) as typeof supabase.channel;
+
+export const canal = (nome: string) => supabase.channel(nome);
