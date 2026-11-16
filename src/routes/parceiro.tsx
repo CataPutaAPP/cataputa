@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Clock, Loader2, Building2, Camera, Save, Handshake,
-  Settings, Inbox, BedDouble, Plus, Pencil, Trash2, X, Eye, EyeOff,
+  Settings, Inbox, BedDouble, Plus, Pencil, Trash2, X, Eye, EyeOff, Percent,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,6 +18,8 @@ import { supabase } from "@/lib/supabase";
 import { playNotificationSound } from "@/lib/notifications";
 import { brl } from "@/lib/fees";
 import { PARTNER_TYPES } from "@/lib/partner-types";
+import { PartnerHours } from "@/components/PartnerHours";
+import { PartnerPromos } from "@/components/PartnerPromos";
 
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
@@ -83,7 +85,7 @@ const ESTADO_UI: Record<Estado["tipo"], { rotulo: string; cls: string }> = {
 
 /** Código curto que cliente e parceiro conferem na chegada */
 const codigoReserva = (id: string) => id.replace(/-/g, "").slice(0, 4).toUpperCase();
-const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "");
+const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "");
 
 const durationOptions = [30, 60, 120, 180, 240, 360, 720];
 const fmtDuration = (m: number) => (m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`);
@@ -94,7 +96,7 @@ const emptyRoom = { id: "", name: "", description: "", price: "", duration: 60, 
 
 function ParceiroContent() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"local" | "quartos" | "reservas">("quartos");
+  const [tab, setTab] = useState<"local" | "quartos" | "reservas" | "promos">("quartos");
 
   // ── Local (endereço + geolocalização) ──
   const [saving, setSaving] = useState(false);
@@ -359,7 +361,7 @@ function ParceiroContent() {
 
   const TabBtn = ({ id, icon, children }: { id: typeof tab; icon: React.ReactNode; children: React.ReactNode }) => (
     <button onClick={() => setTab(id)}
-      className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border py-2.5 text-sm font-medium transition-all ${tab === id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+      className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition-all sm:flex-row sm:gap-1.5 sm:py-2.5 sm:text-sm ${tab === id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
       {icon}{children}
     </button>
   );
@@ -407,9 +409,10 @@ function ParceiroContent() {
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex gap-1.5 sm:gap-2">
         <TabBtn id="quartos" icon={<BedDouble className="size-4" />}>Quartos</TabBtn>
         <TabBtn id="reservas" icon={<Handshake className="size-4" />}>Reservas{openBookings.length > 0 && ` (${openBookings.length})`}</TabBtn>
+        <TabBtn id="promos" icon={<Percent className="size-4" />}>Promoções</TabBtn>
         <TabBtn id="local" icon={<Settings className="size-4" />}>Meu local</TabBtn>
       </div>
 
@@ -601,8 +604,8 @@ function ParceiroContent() {
                 <p className="mt-2 text-[10px] text-muted-foreground">
                   <Clock className="mr-1 inline size-3" />
                   {b.starts_at
-                    ? `${new Date(b.starts_at).toLocaleString("pt-BR")} até ${b.ends_at ? new Date(b.ends_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "—"}`
-                    : `Solicitada em ${new Date(b.created_at).toLocaleString("pt-BR")}`}
+                    ? `${new Date(b.starts_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} até ${b.ends_at ? new Date(b.ends_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "—"}`
+                    : `Solicitada em ${new Date(b.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
                 </p>
               </article>
             );
@@ -611,8 +614,13 @@ function ParceiroContent() {
       )}
 
       {/* ── Meu local ── */}
+      {tab === "promos" && user && (
+        <PartnerPromos userId={user.id} unidade={localType === "clinica" ? "clientes" : "quartos"} />
+      )}
+
       {tab === "local" && (
         <div className="space-y-5">
+          {user && <PartnerHours userId={user.id} />}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Tipo do local</Label>
             <div className="flex flex-wrap gap-2">

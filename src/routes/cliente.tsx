@@ -169,6 +169,13 @@ function ClienteContent() {
   // Parceiros (locais com quartos) no mapa principal — ponto roxo, endereço do estabelecimento
   const [parceiros, setParceiros] = useState<PartnerPoint[]>([]);
   const [parceiroNoMapa, setParceiroNoMapa] = useState<PartnerPoint | null>(null);
+  const [promoParceiro, setPromoParceiro] = useState<{ name: string; discount_pct: number; ends: string; restantes: number | null } | null>(null);
+  useEffect(() => {
+    setPromoParceiro(null);
+    if (!parceiroNoMapa) return;
+    supabase.rpc("partner_promos_now", { p_partner_ids: [parceiroNoMapa.partner_id] })
+      .then(({ data, error }) => { if (!error && Array.isArray(data) && data[0]) setPromoParceiro(data[0]); });
+  }, [parceiroNoMapa]);
   useEffect(() => {
     if (!coords) return;
     supabase.rpc("partners_map_points", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
@@ -498,6 +505,12 @@ function ClienteContent() {
             <span className="text-muted-foreground">Quartos a partir de</span>
             <span className="text-lg font-bold text-primary">{brl(parceiroNoMapa.min_price)}</span>
           </div>
+          {promoParceiro && (
+            <p className="mt-1 rounded-xl bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-400">
+              −{Number(promoParceiro.discount_pct)}% agora · {promoParceiro.name} · até {promoParceiro.ends.slice(0, 5)}
+              {promoParceiro.restantes != null ? ` · restam ${promoParceiro.restantes}` : ""}
+            </p>
+          )}
           <p className={`mt-1 text-xs font-medium ${parceiroNoMapa.rooms_free > 0 ? "text-green-400" : "text-muted-foreground"}`}>
             {parceiroNoMapa.rooms_free > 0
               ? `${parceiroNoMapa.rooms_free} de ${parceiroNoMapa.rooms_total} quarto(s) livre(s) agora`
@@ -674,7 +687,7 @@ function ClienteContent() {
                       {p.local_option === "parceiro" && <span className="text-[10px]">· quarto escolhido por você, somado ao total</span>}
                     </div>
                     {p.message && <p className="mt-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground italic">"{p.message}"</p>}
-                    <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}</p>
+                    <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
                     {p.status !== "recusada" && (
                       <Button variant="secondary" className="mt-3 h-9 w-full" onClick={() => setChatProposalId(p.id)}>
                         <MessageCircle className="mr-2 size-4" /> Conversar

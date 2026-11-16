@@ -52,7 +52,7 @@ const reasonLabel: Record<string, string> = {
   suspeita_menor: "🚨 Suspeita de menor", perfil_falso: "Perfil falso",
   violencia_ameaca: "Violência/ameaça", golpe: "Golpe", outro: "Outro",
 };
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
+const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
 /* ─── Tela ──────────────────────────────────────────────────────────── */
 function AdminContent() {
@@ -420,7 +420,7 @@ function Usuarios({ onChange }: { onChange: () => void }) {
               </div>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              Plano {u.plan_name ?? "—"}{u.plan_expires ? ` até ${new Date(u.plan_expires).toLocaleDateString("pt-BR")}` : ""}
+              Plano {u.plan_name ?? "—"}{u.plan_expires ? ` até ${new Date(u.plan_expires).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}
               {u.role === "prestador" && ` · ${u.fotos} foto(s) · ${Number(u.rating_avg ?? 0).toFixed(1)}★ (${u.rating_count})`}
               {u.role === "parceiro" && ` · CNPJ ${u.cnpj_ok ? "confirmado" : "pendente"}`}
             </p>
@@ -523,7 +523,7 @@ function Funil() {
           <div className="flex h-24 items-end gap-1">
             {atividade.map((d) => (
               <div key={d.dia} className="flex flex-1 flex-col items-center gap-1"
-                title={`${new Date(d.dia).toLocaleDateString("pt-BR")}: ${d.cadastros} cadastros, ${d.chamados} chamados, ${d.concluidos} concluídos`}>
+                title={`${new Date(d.dia).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}: ${d.cadastros} cadastros, ${d.chamados} chamados, ${d.concluidos} concluídos`}>
                 <div className="flex w-full flex-1 items-end gap-px">
                   <div className="flex-1 rounded-t bg-primary/70" style={{ height: `${(d.chamados / maxDia) * 100}%` }} />
                   <div className="flex-1 rounded-t bg-accent" style={{ height: `${(d.cadastros / maxDia) * 100}%` }} />
@@ -572,7 +572,7 @@ function Excluidas() {
             {r.reason && <p className="truncate text-xs italic text-muted-foreground">"{r.reason}"</p>}
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-xs text-muted-foreground">{new Date(r.deleted_at).toLocaleDateString("pt-BR")}</p>
+            <p className="text-xs text-muted-foreground">{new Date(r.deleted_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
             {r.had_reports > 0 && <p className="text-[10px] text-destructive">{r.had_reports} denúncia(s)</p>}
           </div>
         </div>

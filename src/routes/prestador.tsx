@@ -689,7 +689,7 @@ function PrestadorContent() {
             </div>
             <p className="text-xs text-muted-foreground">
               <Clock className="mr-1 inline size-3" />
-              {new Date(selectedRequest.created_at).toLocaleString("pt-BR")}
+              {new Date(selectedRequest.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}
             </p>
           </div>
 
@@ -838,7 +838,7 @@ function PrestadorContent() {
               <p className="mt-0.5 text-xs text-muted-foreground">Seu perfil aparece em destaque nas propostas por {boostProduct.duration_hours}h.</p>
               {boostActive && (
                 <p className="mt-2 text-xs font-medium text-green-400">
-                  Ativo até {new Date(myPlan!.boost_until!).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  Ativo até {new Date(myPlan!.boost_until!).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
               <Button className="mt-3 h-10 w-full" disabled={!myPlan?.can_buy}
