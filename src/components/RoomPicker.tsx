@@ -49,6 +49,22 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
   const [rooms, setRooms] = useState<NearbyRoom[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [booking, setBooking] = useState(false);
+  // promoção valendo agora, por parceiro
+  const [promos, setPromos] = useState<Record<string, { name: string; discount_pct: number; ends: string; restantes: number | null }>>({});
+  const idsParceiros = [...new Set((rooms ?? []).map((r) => r.partner_id))].join(",");
+  useEffect(() => {
+    if (!idsParceiros) { setPromos({}); return; }
+    supabase.rpc("partner_promos_now", { p_partner_ids: idsParceiros.split(",") }).then(({ data, error }) => {
+      const mapa: typeof promos = {};
+      if (!error) ((data as { partner_id: string; name: string; discount_pct: number; ends: string; restantes: number | null }[]) ?? [])
+        .forEach((p) => { mapa[p.partner_id] = p; });
+      setPromos(mapa);
+    });
+  }, [idsParceiros]); // eslint-disable-line react-hooks/exhaustive-deps
+  const comDesconto = (r: NearbyRoom) => {
+    const p = promos[r.partner_id];
+    return p ? Math.round(Number(r.price) * (1 - Number(p.discount_pct) / 100) * 100) / 100 : Number(r.price);
+  };
 
   const fetchRooms = useCallback(async () => {
     setRooms(null);
@@ -139,13 +155,22 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="truncate font-semibold">{r.room_name}</p>
-                    <p className="shrink-0 font-bold text-primary">{brl(r.price)}</p>
+                    <p className="shrink-0 text-right font-bold text-primary">
+                      {promos[r.partner_id] && <span className="mr-1 text-xs font-normal text-muted-foreground line-through">{brl(r.price)}</span>}
+                      {brl(comDesconto(r))}
+                    </p>
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{r.partner_name ?? "Parceiro"}{r.local_type ? ` · ${r.local_type}` : ""}</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                     <span className="flex items-center gap-1"><Clock className="size-3" /> {r.duration_minutes} min</span>
                     <span className="flex items-center gap-1"><MapPin className="size-3" /> {Number(r.distance_km).toFixed(1)} km</span>
                     {!r.available && <Badge variant="secondary" className="text-[10px]">Ocupado agora</Badge>}
+                    {promos[r.partner_id] && (
+                      <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-semibold text-green-400">
+                        −{Number(promos[r.partner_id]!.discount_pct)}% até {promos[r.partner_id]!.ends.slice(0, 5)}
+                        {promos[r.partner_id]!.restantes != null ? ` · restam ${promos[r.partner_id]!.restantes}` : ""}
+                      </span>
+                    )}
                     {active && <Check className="size-4 text-primary" />}
                   </div>
                 </div>
@@ -163,7 +188,7 @@ export function RoomPicker({ requestId, lat, lng, onClose, onBooked }: RoomPicke
       {selectedRoom && (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-card/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur lg:right-auto lg:w-[var(--panel-w)]">
           <p className="mb-2 text-center text-xs text-muted-foreground">
-            O valor do quarto ({brl(selectedRoom.price)}) é somado ao total do atendimento.
+            O valor do quarto ({brl(comDesconto(selectedRoom))}) é somado ao total do atendimento.
           </p>
           <Button className="h-13 w-full text-base" disabled={booking} onClick={handleConfirm}>
             {booking ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Check className="mr-2 size-5" />}

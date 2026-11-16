@@ -69,7 +69,7 @@ export function ProviderStats() {
             <p className="mb-2 text-[11px] text-muted-foreground">Visitas por dia</p>
             <div className="flex h-20 items-end gap-1">
               {serie.map((d) => (
-                <div key={d.dia} className="flex flex-1 flex-col items-center gap-1" title={`${d.visualizacoes} em ${new Date(d.dia).toLocaleDateString("pt-BR")}`}>
+                <div key={d.dia} className="flex flex-1 flex-col items-center gap-1" title={`${d.visualizacoes} em ${new Date(d.dia).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}>
                   <div className="w-full rounded-t bg-primary/70" style={{ height: `${(d.visualizacoes / maxV) * 100}%`, minHeight: d.visualizacoes ? 4 : 1 }} />
                   <span className="text-[9px] text-muted-foreground">{new Date(d.dia).getDate()}</span>
                 </div>

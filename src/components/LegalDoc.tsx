@@ -40,7 +40,7 @@ export function LegalPage({ slug }: { slug: "termos" | "privacidade" }) {
           <>
             <h1 className="font-display text-2xl font-semibold">{doc.title}</h1>
             <p className="mb-6 mt-1 text-xs text-muted-foreground">
-              Versão {doc.version} · em vigor desde {new Date(doc.published_at).toLocaleDateString("pt-BR")}
+              Versão {doc.version} · em vigor desde {new Date(doc.published_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
             </p>
             <LegalBody body={doc.body} />
           </>

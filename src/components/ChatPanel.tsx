@@ -73,7 +73,7 @@ export function ChatPanel({ proposalId, onClose }: { proposalId: string; onClose
     load();
   }
 
-  const fmt = (d: string) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const fmt = (d: string) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 
   return (
     <ModalPortal>

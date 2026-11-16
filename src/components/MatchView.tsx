@@ -580,7 +580,7 @@ function StatusStep({
           {label}
         </p>
         {done && time && (
-          <p className="text-[10px] text-muted-foreground">{new Date(time).toLocaleString("pt-BR")}</p>
+          <p className="text-[10px] text-muted-foreground">{new Date(time).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
         )}
       </div>
       {active && <div className="size-2 animate-pulse rounded-full bg-primary" />}

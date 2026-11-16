@@ -87,7 +87,7 @@ export function HistorySheet({ onClose, onViewProfile }: { onClose: () => void; 
                         ? (onViewProfile && i.outro_id && i.papel === "cliente"
                           ? <button className="hover:text-primary" onClick={() => onViewProfile(i.outro_id!)}>{i.outro_nome}</button>
                           : i.outro_nome)
-                        : "—"} · {getLocalLabel(i.local_option)} · {new Date(i.quando).toLocaleDateString("pt-BR")}
+                        : "—"} · {getLocalLabel(i.local_option)} · {new Date(i.quando).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
                     </p>
                     {!concluido && i.cancel_reason && (
                       <p className="mt-1 text-xs italic text-muted-foreground">{i.cancel_reason}</p>

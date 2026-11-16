@@ -157,7 +157,7 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
 
             <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
               <Shield className="size-3.5" />
-              <span>Verificado · Desde {new Date(profile.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}</span>
+              <span>Verificado · Desde {new Date(profile.created_at).toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "America/Sao_Paulo" })}</span>
             </div>
           </div>
 

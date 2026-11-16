@@ -153,7 +153,7 @@ export function CheckoutSheet({ item, cardBlocked, isAdmin, onClose, onPaid }: {
                   </div>
                 )}
                 <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                  Válido até {new Date(co.expires_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. A liberação é automática após o pagamento.
+                  Válido até {new Date(co.expires_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}. A liberação é automática após o pagamento.
                 </p>
               </>
             ) : (

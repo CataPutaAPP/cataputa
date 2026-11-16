@@ -69,7 +69,7 @@ export function ProviderReviews({ providerId }: { providerId: string }) {
                 ))}
               </div>
               <span className="text-[10px] text-muted-foreground">
-                {new Date(r.created_at).toLocaleDateString("pt-BR")}
+                {new Date(r.created_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}
               </span>
             </div>
             {r.comment

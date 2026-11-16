@@ -87,7 +87,7 @@ export function PlansButton({ audience }: { audience: UserRole }) {
             {my && !my.is_beta && (
               <p className="mb-4 text-xs text-muted-foreground">
                 Seu plano: <b className="text-foreground">{my.plan_name}</b>
-                {my.expires_at && ` · válido até ${new Date(my.expires_at).toLocaleDateString("pt-BR")}`}
+                {my.expires_at && ` · válido até ${new Date(my.expires_at).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
                 {my.expires_at && (new Date(my.expires_at).getTime() - Date.now()) < 3 * 864e5 && (
                   <span className="ml-1 font-semibold text-yellow-400">· vence em breve, renove para não perder os recursos</span>
                 )}
