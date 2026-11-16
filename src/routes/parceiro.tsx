@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   MapPin, Clock, Loader2, Building2, Camera, Save, Handshake,
-  Settings, Inbox, BedDouble, Plus, Pencil, Trash2, X, Eye, EyeOff, Percent,
+  Settings, Inbox, BedDouble, Plus, Pencil, Trash2, X, Eye, EyeOff, Percent, Users, CalendarClock, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,6 +21,9 @@ import { brl } from "@/lib/fees";
 import { PARTNER_TYPES } from "@/lib/partner-types";
 import { PartnerHours } from "@/components/PartnerHours";
 import { PartnerPromos } from "@/components/PartnerPromos";
+import { PartnerStaff } from "@/components/PartnerStaff";
+import { PartnerAgenda } from "@/components/PartnerAgenda";
+import { useFlags } from "@/lib/flags";
 
 export const Route = createFileRoute("/parceiro")({
   head: () => ({
@@ -97,7 +100,12 @@ const emptyRoom = { id: "", name: "", description: "", price: "", duration: 60, 
 
 function ParceiroContent() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"local" | "quartos" | "reservas" | "promos">("quartos");
+  const flags = useFlags();
+  const [perfilOk, setPerfilOk] = useState(false);
+  const abaInicial = useRef(false);
+  const [tab, setTab] = useState<"local" | "quartos" | "reservas" | "promos" | "equipe" | "agenda">("quartos");
+  const [whats, setWhats] = useState("");
+  const [pedidosAgenda, setPedidosAgenda] = useState(0);
 
   // ── Local (endereço + geolocalização) ──
   const [saving, setSaving] = useState(false);
@@ -202,15 +210,18 @@ function ParceiroContent() {
         .select("local_type, local_address, local_description, local_price, lat, lng")
         .eq("id", user.id).single()).data) as {
           local_type: string | null; local_address: string | null; local_description: string | null;
-          local_price: number | null; lat: number | null; lng: number | null } | null;
+          local_price: number | null; lat: number | null; lng: number | null; partner_whatsapp?: string | null } | null;
       if (data) {
         setLocalType(data.local_type ?? "");
+        setWhats(data.partner_whatsapp ?? "");
+
         setLocalAddress(data.local_address ?? "");
         setLocalDesc(data.local_description ?? "");
         setLegacyPrice(data.local_price ? Number(data.local_price) : null);
         if (data.lat) setLocalLat(String(data.lat));
         if (data.lng) setLocalLng(String(data.lng));
       }
+      setPerfilOk(true);
     })();
   }, [user]);
 
@@ -287,10 +298,13 @@ function ParceiroContent() {
       p_lat: parseFloat(localLat),
       p_lng: parseFloat(localLng),
     });
+    if (error) { setSaving(false); toast.error(error.message || "Erro ao salvar."); return; }
+    const zap = await supabase.rpc("set_partner_whatsapp", { p_number: whats });
     setSaving(false);
-    if (error) { toast.error(error.message || "Erro ao salvar."); return; }
+    if (zap.error) { toast.error(zap.error.message || "Local salvo, mas o WhatsApp não."); return; }
     toast.success("Local salvo!");
-    if (rooms.length === 0) { setTab("quartos"); setRoomForm({ ...emptyRoom }); }
+    if (ehClinica) setTab("equipe");
+    else if (comQuartos && rooms.length === 0) { setTab("quartos"); setRoomForm({ ...emptyRoom }); }
   }
 
   // ── CRUD de quartos ──
@@ -354,7 +368,12 @@ function ParceiroContent() {
   const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "Quarto";
   const openBookings = bookings.filter((b) => ["pendente", "confirmada", "em_uso"].includes(b.status));
   const totalEarnings = bookings.filter((b) => b.status === "concluida").reduce((s, b) => s + Number(b.room_price), 0);
-  const isConfigured = !!localAddress && !!localLat && activeRooms.length > 0;
+  // o que cada tipo de parceiro usa depende das chaves gerais (Admin → Resumo)
+  const ehClinica = localType === "clinica" && flags.clinicStaff;      // equipe + agenda
+  const comQuartos = flags.rooms && localType !== "clinica" && localType !== "swing";
+  const soVitrine = !ehClinica && !comQuartos;         // aparece no mapa, sem reserva pelo app
+  const semQuartos = !comQuartos;
+  const isConfigured = !!localAddress && !!localLat && (semQuartos || activeRooms.length > 0);
 
   const statusLabel: Record<Booking["status"], { text: string; cls: string }> = {
     pendente: { text: "Aguardando confirmação", cls: "bg-yellow-500/20 text-yellow-400" },
@@ -363,6 +382,13 @@ function ParceiroContent() {
     concluida: { text: "Concluída", cls: "bg-green-500/20 text-green-400" },
     cancelada: { text: "Cancelada", cls: "opacity-60" },
   };
+
+  // garante uma aba que exista para este tipo de parceiro
+  useEffect(() => {
+    if (!flags.pronto || !perfilOk) return;
+    const validas = soVitrine ? ["local"] : ehClinica ? ["equipe", "agenda", "promos", "local"] : ["quartos", "reservas", "promos", "local"];
+    if (!abaInicial.current || !validas.includes(tab)) { abaInicial.current = true; setTab(validas[0] as typeof tab); }
+  }, [flags.pronto, perfilOk, soVitrine, ehClinica, tab]);
 
   const TabBtn = ({ id, icon, children }: { id: typeof tab; icon: React.ReactNode; children: React.ReactNode }) => (
     <button onClick={() => setTab(id)}
@@ -382,12 +408,12 @@ function ParceiroContent() {
           </p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 text-center">
-          <p className="text-[10px] text-muted-foreground">Reservas ativas</p>
-          <p className="mt-1 text-sm font-bold">{openBookings.length}</p>
+          <p className="text-[10px] text-muted-foreground">{ehClinica ? "Pedidos aguardando" : soVitrine ? "Tipo" : "Reservas ativas"}</p>
+          <p className="mt-1 text-sm font-bold">{ehClinica ? pedidosAgenda : soVitrine ? "Vitrine" : openBookings.length}</p>
         </div>
         <div className="rounded-xl border border-border bg-card p-3 text-center">
-          <p className="text-[10px] text-muted-foreground">Reservas concluídas</p>
-          <p className="mt-1 text-sm font-bold text-green-400">{bookings.filter((b) => b.status === "concluida").length}</p>
+          <p className="text-[10px] text-muted-foreground">{semQuartos ? "Reserva pelo app" : "Reservas concluídas"}</p>
+          <p className="mt-1 text-sm font-bold text-green-400">{ehClinica ? "Agenda" : soVitrine ? "Não" : bookings.filter((b) => b.status === "concluida").length}</p>
         </div>
       </div>
 
@@ -400,7 +426,7 @@ function ParceiroContent() {
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-semibold">{noMapa ? "Aparecendo no mapa" : "Fora do mapa"}</span>
           <span className="block text-xs text-muted-foreground">
-            {noMapa ? "Clientes próximos veem seu local e podem reservar." : "Ninguém vê seu local nem reserva. Seus quartos ficam como estão."}
+            {noMapa ? (soVitrine ? "Clientes próximos veem seu local e traçam a rota." : ehClinica ? "Clientes próximos veem seu local e pedem horário." : "Clientes próximos veem seu local e podem reservar.") : "Ninguém vê seu local no mapa. Seu cadastro fica como está."}
           </span>
         </span>
         <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${noMapa ? "bg-green-500" : "bg-muted"}`}>
@@ -410,14 +436,16 @@ function ParceiroContent() {
 
       {!isConfigured && (
         <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-3 text-xs text-yellow-300">
-          Para aparecer no mapa: salve seu endereço com localização em <b>Meu local</b> e cadastre ao menos um quarto ativo.
+          Para aparecer no mapa: salve seu endereço com localização em <b>Meu local</b>{semQuartos ? "." : " e cadastre ao menos um quarto ativo."}
         </div>
       )}
 
       <div className="mb-4 flex gap-1.5 sm:gap-2">
-        <TabBtn id="quartos" icon={<BedDouble className="size-4" />}>Quartos</TabBtn>
-        <TabBtn id="reservas" icon={<Handshake className="size-4" />}>Reservas{openBookings.length > 0 && ` (${openBookings.length})`}</TabBtn>
-        <TabBtn id="promos" icon={<Percent className="size-4" />}>Promoções</TabBtn>
+        {ehClinica && <TabBtn id="equipe" icon={<Users className="size-4" />}>Equipe</TabBtn>}
+        {ehClinica && <TabBtn id="agenda" icon={<CalendarClock className="size-4" />}>Agenda{pedidosAgenda > 0 && ` (${pedidosAgenda})`}</TabBtn>}
+        {!semQuartos && <TabBtn id="quartos" icon={<BedDouble className="size-4" />}>Quartos</TabBtn>}
+        {!semQuartos && <TabBtn id="reservas" icon={<Handshake className="size-4" />}>Reservas{openBookings.length > 0 && ` (${openBookings.length})`}</TabBtn>}
+        {!soVitrine && <TabBtn id="promos" icon={<Percent className="size-4" />}>Promoções</TabBtn>}
         <TabBtn id="local" icon={<Settings className="size-4" />}>Meu local</TabBtn>
       </div>
 
@@ -623,8 +651,21 @@ function ParceiroContent() {
         <PartnerPromos userId={user.id} unidade={localType === "clinica" ? "clientes" : "quartos"} />
       )}
 
+      {tab === "equipe" && ehClinica && user && <PartnerStaff userId={user.id} />}
+      {/* a agenda fica montada para o contador de pedidos acompanhar em tempo real */}
+      {ehClinica && user && <div className={tab === "agenda" ? "" : "hidden"}><PartnerAgenda userId={user.id} onPendentes={setPedidosAgenda} /></div>}
+
       {tab === "local" && (
         <div className="space-y-5">
+          {soVitrine && (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm leading-relaxed">
+              <p className="font-semibold">Seu local é uma vitrine no mapa</p>
+              <p className="mt-1 text-muted-foreground">
+                Clientes próximos veem seu ponto, o endereço, a descrição e as fotos, e traçam a rota até você.
+                Não há reserva pelo app. Capriche na descrição: horários, valores de entrada e regras da casa.
+              </p>
+            </div>
+          )}
           {user && <PartnerHours userId={user.id} />}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">Tipo do local</Label>
@@ -648,6 +689,16 @@ function ParceiroContent() {
             <Textarea rows={3} value={localDesc} onChange={(e) => setLocalDesc(e.target.value)}
               placeholder="Estacionamento, sigilo, horário de funcionamento..." />
           </div>
+
+          {ehClinica && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold"><MessageCircle className="size-4 text-[#25D366]" />WhatsApp para agendamentos</Label>
+              <Input value={whats} inputMode="tel" placeholder="(11) 91234-5678" onChange={(e) => setWhats(e.target.value.replace(/[^0-9()\-+ ]/g, ""))} />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Fica oculto. O cliente só vê depois que você confirma o horário dele na Agenda.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-sm font-semibold">Localização exata</Label>

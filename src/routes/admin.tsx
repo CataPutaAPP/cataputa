@@ -1,10 +1,10 @@
-import { SecureVideo } from "@/lib/media";
+import { SecureImg, SecureVideo } from "@/lib/media";
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
   Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video, TrendingUp,
-  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save,
+  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save, IdCard,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -60,16 +60,18 @@ function AdminContent() {
   const { user } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<
-    "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "excluidas" |
+    "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "equipes" | "excluidas" |
     "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda"
   >("resumo");
   const [menuAberto, setMenuAberto] = useState(false);
   const [dash, setDash] = useState<Dash | null>(null);
+  const [equipesPendentes, setEquipesPendentes] = useState(0);
 
   const loadDash = useCallback(async () => {
     const { data, error } = await supabase.rpc("admin_dashboard");
     if (error) { setAllowed(false); return; }
     setAllowed(true); setDash(data as Dash);
+    supabase.rpc("admin_staff_pending").then((r) => setEquipesPendentes(Array.isArray(r.data) ? r.data.length : 0));
   }, []);
   useEffect(() => { if (user) loadDash(); }, [user, loadDash]);
 
@@ -97,6 +99,7 @@ function AdminContent() {
         { id: "denuncias", label: "Denúncias", icon: <Flag className="size-4" />, aviso: dash?.denuncias_abertas ?? 0 },
         { id: "usuarios", label: "Usuários", icon: <Users className="size-4" /> },
         { id: "videos", label: "Vídeos", icon: <Video className="size-4" /> },
+        { id: "equipes", label: "Equipes de clínicas", icon: <IdCard className="size-4" />, aviso: equipesPendentes },
         { id: "excluidas", label: "Contas excluídas", icon: <UserMinus className="size-4" /> },
       ],
     },
@@ -195,6 +198,7 @@ function AdminContent() {
           {tab === "usuarios" && <Usuarios onChange={loadDash} />}
           {tab === "funil" && <Funil />}
           {tab === "videos" && <Videos />}
+          {tab === "equipes" && <Equipes onChange={loadDash} />}
           {tab === "excluidas" && <Excluidas />}
           {tab === "pagamentos" && <Pagamentos />}
           {tab === "planos" && <Planos />}
@@ -224,7 +228,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled"]);
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_rooms", "feature_clinic_staff"]);
     setSettings((data as Setting[]) ?? []);
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -241,6 +245,8 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     beta_all_features: "Beta: todos com recursos do plano mais alto",
     verification_required: "Exigir verificação de idade para usar o app",
     sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
+    feature_rooms: "Reserva de quartos pelo app (desligado: motel e hotel só como vitrine no mapa)",
+    feature_clinic_staff: "Clínicas com equipe e agenda (desligado: clínica só como vitrine no mapa)",
   };
 
   return (
@@ -719,6 +725,68 @@ function Ajuda() {
 
 /* ─── Moderação de vídeos ───────────────────────────────────────────── */
 interface AdminVideo { user_id: string; provider_name: string; video_url: string; status: string; admin_note: string | null; updated_at: string }
+
+/* ─── Equipes de clínicas: conferir documento (maior de 18) antes de aparecer ─── */
+interface StaffPendente {
+  id: string; partner_id: string; partner_name: string | null; name: string; bio: string | null;
+  photo_url: string; doc_path: string | null; created_at: string;
+}
+function Equipes({ onChange }: { onChange: () => void }) {
+  const [rows, setRows] = useState<StaffPendente[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    const { data, error } = await supabase.rpc("admin_staff_pending");
+    if (error) toast.error(error.message);
+    setRows((data as StaffPendente[]) ?? []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function abrirDoc(s: StaffPendente) {
+    if (!s.doc_path) return toast.error("Sem documento anexado.");
+    const { data, error } = await supabase.storage.from("staff-docs").createSignedUrl(s.doc_path, 300);
+    if (error || !data?.signedUrl) return toast.error("Não foi possível abrir o documento.");
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }
+  async function decidir(s: StaffPendente, aprovar: boolean) {
+    const motivo = aprovar ? null : window.prompt("Motivo da recusa (a clínica vê):", "Documento ilegível ou não confere com a foto.");
+    if (!aprovar && !motivo) return;
+    if (aprovar && !window.confirm(`Confirmo que conferi o documento e ${s.name} é maior de 18 anos.`)) return;
+    setBusy(s.id);
+    const { error } = await supabase.rpc("admin_review_staff", { p_id: s.id, p_approve: aprovar, p_reason: motivo });
+    setBusy(null);
+    if (error) return toast.error(error.message);
+    toast.success(aprovar ? "Aprovada. Já aparece para os clientes." : "Recusada. A clínica foi avisada.");
+    load(); onChange();
+  }
+
+  if (!rows) return <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" />;
+  return (
+    <div className="space-y-3">
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        Cada pessoa cadastrada por uma clínica só aparece para clientes depois desta conferência. Abra o documento, compare com a foto e confira a data de nascimento.
+      </p>
+      {rows.length === 0 && <p className="py-10 text-center text-sm text-muted-foreground">Nenhum cadastro aguardando análise.</p>}
+      {rows.map((s) => (
+        <article key={s.id} className="flex gap-4 rounded-2xl border border-border bg-card p-4">
+          <SecureImg src={s.photo_url} alt={s.name} className="h-36 w-28 shrink-0 rounded-xl object-cover" />
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">{s.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {s.partner_name ?? "Clínica"} · enviado em {new Date(s.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+            </p>
+            {s.bio && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.bio}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => abrirDoc(s)}><IdCard className="mr-1 size-4" />Abrir documento</Button>
+              <Button size="sm" disabled={busy === s.id} onClick={() => decidir(s, true)}>Aprovar</Button>
+              <Button size="sm" variant="destructive" disabled={busy === s.id} onClick={() => decidir(s, false)}>Recusar</Button>
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
 
 function Videos() {
   const [status, setStatus] = useState("em_revisao");

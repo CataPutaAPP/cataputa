@@ -1,6 +1,8 @@
 import { StepFlow, ChoiceCard, ChoiceChip, ReviewRow, type FlowStep } from "@/components/StepFlow";
 import { partnerIcon, partnerLabel } from "@/lib/partner-types";
 import { useBackClose } from "@/lib/back";
+import { PartnerSheet } from "@/components/PartnerSheet";
+import { useFlags } from "@/lib/flags";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart,
@@ -169,6 +171,8 @@ function ClienteContent() {
   // Parceiros (locais com quartos) no mapa principal — ponto roxo, endereço do estabelecimento
   const [parceiros, setParceiros] = useState<PartnerPoint[]>([]);
   const [parceiroNoMapa, setParceiroNoMapa] = useState<PartnerPoint | null>(null);
+  const [localAberto, setLocalAberto] = useState<string | null>(null);
+  const flags = useFlags();
   const [promoParceiro, setPromoParceiro] = useState<{ name: string; discount_pct: number; ends: string; restantes: number | null } | null>(null);
   useEffect(() => {
     setPromoParceiro(null);
@@ -477,7 +481,7 @@ function ClienteContent() {
             id: `parceiro-${p.partner_id}`,
             lat: p.lat,
             lng: p.lng,
-            color: p.rooms_free > 0 ? "#a855f7" : "#6b7280",
+            color: p.rooms_total > 0 && p.rooms_free === 0 ? "#6b7280" : "#a855f7",
             size: 28,
             label: partnerIcon(p.local_type),
             onClick: () => { setOfferOnMap(null); setParceiroNoMapa(p); },
@@ -501,26 +505,35 @@ function ClienteContent() {
             <button onClick={() => setParceiroNoMapa(null)} aria-label="Fechar"
               className="shrink-0 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Quartos a partir de</span>
-            <span className="text-lg font-bold text-primary">{brl(parceiroNoMapa.min_price)}</span>
-          </div>
+          {parceiroNoMapa.rooms_total > 0 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Quartos a partir de</span>
+              <span className="text-lg font-bold text-primary">{brl(parceiroNoMapa.min_price)}</span>
+            </div>
+          )}
           {promoParceiro && (
-            <p className="mt-1 rounded-xl bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-400">
+            <p className="mt-2 rounded-xl bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-400">
               −{Number(promoParceiro.discount_pct)}% agora · {promoParceiro.name} · até {promoParceiro.ends.slice(0, 5)}
               {promoParceiro.restantes != null ? ` · restam ${promoParceiro.restantes}` : ""}
             </p>
           )}
-          <p className={`mt-1 text-xs font-medium ${parceiroNoMapa.rooms_free > 0 ? "text-green-400" : "text-muted-foreground"}`}>
-            {parceiroNoMapa.rooms_free > 0
-              ? `${parceiroNoMapa.rooms_free} de ${parceiroNoMapa.rooms_total} quarto(s) livre(s) agora`
-              : "Todos os quartos ocupados agora"}
-          </p>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-            Você escolhe o quarto ao confirmar um atendimento com local "Parceiro". O quarto é pago direto no estabelecimento.
-          </p>
+          {parceiroNoMapa.rooms_total > 0 ? (
+            <p className={`mt-1 text-xs font-medium ${parceiroNoMapa.rooms_free > 0 ? "text-green-400" : "text-muted-foreground"}`}>
+              {parceiroNoMapa.rooms_free > 0
+                ? `${parceiroNoMapa.rooms_free} de ${parceiroNoMapa.rooms_total} quarto(s) livre(s) agora`
+                : "Todos os quartos ocupados agora"}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {parceiroNoMapa.local_type === "clinica" && flags.clinicStaff ? "Veja quem está atendendo e peça seu horário." : "Aberto agora. Veja o endereço e trace a rota."}
+            </p>
+          )}
+          <Button className="mt-3 h-11 w-full" onClick={() => { setLocalAberto(parceiroNoMapa.partner_id); setParceiroNoMapa(null); }}>
+            {parceiroNoMapa.local_type === "clinica" && flags.clinicStaff ? "Ver equipe e agendar" : "Ver local"}
+          </Button>
         </div>
       )}
+      {localAberto && user && <PartnerSheet partnerId={localAberto} userId={user.id} onClose={() => setLocalAberto(null)} />}
 
       {/* ── Resumo da oferta tocada no mapa ─────────────────────────── */}
       {offerOnMap && (
