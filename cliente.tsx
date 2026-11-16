@@ -1,8 +1,10 @@
+import { StepFlow, ChoiceCard, ChoiceChip, ReviewRow, type FlowStep } from "@/components/StepFlow";
+import { partnerIcon, partnerLabel } from "@/lib/partner-types";
+import { useBackClose } from "@/lib/back";
+import { PartnerSheet } from "@/components/PartnerSheet";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check,
-  Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle,
+import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -12,21 +14,57 @@ import { MatchView, type ActiveService } from "@/components/MatchView";
 import { ProviderPhotoStrip, ProviderProfileView } from "@/components/ProviderProfile";
 import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
+import { OffersSheet } from "@/components/OffersSheet";
+import { RadarSheet } from "@/components/RadarSheet";
+import { HistorySheet } from "@/components/HistorySheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { useMyPlan, featureLimit } from "@/lib/plans";
+import { useServiceOptions } from "@/lib/options";
 import { playNotificationSound } from "@/lib/notifications";
 import {
   type ServiceType, type LocalOption, serviceSubTypes, serviceFlags,
   genderOptions, radiusOptions, localOptions, getSubLabel, getLocalLabel, isCarro,
 } from "@/lib/service-options";
 import { brl, type ProposalQuote } from "@/lib/fees";
+import { useRealtime } from "@/lib/realtime";
+
+/** Ponto de oferta no mapa. A coordenada vem borrada pelo banco. */
+export interface PartnerPoint {
+  partner_id: string;
+  partner_name: string | null;
+  local_type: string | null;
+  lat: number;
+  lng: number;
+  min_price: number;
+  rooms_total: number;
+  rooms_free: number;
+  distance_km: number;
+}
+
+export interface OfferPoint {
+  offer_id: string;
+  provider_id: string;
+  provider_name: string | null;
+  gender: string | null;
+  rating_avg: number | null;
+  rating_count: number;
+  destaque: boolean;
+  service_type: ServiceType;
+  sub_type: string;
+  price: number;
+  local_option: string;
+  distance_km: number;
+  lat_aprox: number;
+  lng_aprox: number;
+}
 
 export const Route = createFileRoute("/cliente")({
   head: () => ({
     meta: [
-      { title: "Painel do cliente — CataPuta Web" },
+      { title: "Painel do cliente — Privora" },
       { name: "description", content: "Solicite serviços e acompanhe suas solicitações." },
     ],
   }),
@@ -71,7 +109,13 @@ function ClienteContent() {
   const { user, updateLocation } = useAuth();
   const [coords, setCoords] = useState<MapCoords | null>(null);
   const [view, setView] = useState<"map" | "request" | "proposals" | "match" | "payment" | "room">("map");
+  const { plan } = useMyPlan();
+  const opcoes = useServiceOptions();
   const [radius, setRadius] = useState(10);
+  // o raio máximo vem do plano: grátis 5 km, Pass 10 km, Black 20 km
+  const raioMax = featureLimit(plan, "raio_max", 10);
+  const raiosDisponiveis = radiusOptions.filter((r) => r.value <= raioMax);
+  useEffect(() => { if (radius > raioMax) setRadius(raioMax); }, [raioMax, radius]);
 
   const [myRequests, setMyRequests] = useState<DBRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
@@ -85,7 +129,75 @@ function ClienteContent() {
   const [pickingRoomFor, setPickingRoomFor] = useState<DBProposal | null>(null);
   const [bookedRoom, setBookedRoom] = useState<NearbyRoom | null>(null);
   const [chatProposalId, setChatProposalId] = useState<string | null>(null);
+  const [showOffers, setShowOffers] = useState(false);
+
+  // ── Ofertas plotadas no mapa ──────────────────────────────────────────
+  // O mapa do cliente recebia markers={[]} fixo — nunca mostrou nada.
+  // offers_map_points() devolve a coordenada JA BORRADA (~300 m), para nao
+  // expor onde o prestador esta. O borrao e fixo por oferta, entao o ponto
+  // nao dança entre atualizacoes.
+  const [mapOffers, setMapOffers] = useState<OfferPoint[]>([]);
+  const [offerOnMap, setOfferOnMap] = useState<OfferPoint | null>(null);
+
+  const fetchMapOffers = useCallback(async () => {
+    if (!coords) return;
+    const { data, error } = await supabase.rpc("offers_map_points", {
+      p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius,
+    });
+    if (error) { console.error("offers_map_points", error); return; }
+    setMapOffers((data as OfferPoint[]) ?? []);
+  }, [coords, radius]);
+
+  useEffect(() => {
+    fetchMapOffers();
+    const t = setInterval(fetchMapOffers, 60000); // reflete quem publicou agora
+    return () => clearInterval(t);
+  }, [fetchMapOffers]);
+  const [showRadar, setShowRadar] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [cancelandoId, setCancelandoId] = useState<string | null>(null);
+
+  async function cancelarChamado(id: string) {
+    if (!window.confirm("Cancelar este chamado? As propostas recebidas serão encerradas.")) return;
+    setCancelandoId(id);
+    const { error } = await supabase.rpc("cancel_request", { p_request_id: id, p_reason: null });
+    setCancelandoId(null);
+    if (error) return toast.error(error.message);
+    toast.success("Chamado cancelado.");
+    if (selectedRequestId === id) { setSelectedRequestId(null); setView("map"); }
+    fetchMyRequests();
+  }
+  // Parceiros (locais com quartos) no mapa principal — ponto roxo, endereço do estabelecimento
+  const [parceiros, setParceiros] = useState<PartnerPoint[]>([]);
+  const [parceiroNoMapa, setParceiroNoMapa] = useState<PartnerPoint | null>(null);
+  const [localAberto, setLocalAberto] = useState<string | null>(null);
+  const [promoParceiro, setPromoParceiro] = useState<{ name: string; discount_pct: number; ends: string; restantes: number | null } | null>(null);
+  useEffect(() => {
+    setPromoParceiro(null);
+    if (!parceiroNoMapa) return;
+    supabase.rpc("partner_promos_now", { p_partner_ids: [parceiroNoMapa.partner_id] })
+      .then(({ data, error }) => { if (!error && Array.isArray(data) && data[0]) setPromoParceiro(data[0]); });
+  }, [parceiroNoMapa]);
+  useEffect(() => {
+    if (!coords) return;
+    supabase.rpc("partners_map_points", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
+      .then(({ data, error }) => setParceiros(error ? [] : ((data as PartnerPoint[]) ?? [])));
+  }, [coords, radius]);
+  const [quartosPerto, setQuartosPerto] = useState<number | null>(null);
+  useEffect(() => {
+    if (!coords) return;
+    supabase.rpc("nearby_partner_rooms", { p_lat: coords.lat, p_lng: coords.lng, p_radius_km: radius })
+      .then(({ data }) => setQuartosPerto(((data as unknown[]) ?? []).length));
+  }, [coords, radius]);
   const { counts: unread } = useUnreadChats(user?.id);
+  const [highlighted, setHighlighted] = useState<Set<string>>(new Set());
+  const providerKey = proposals.map((p) => p.provider_id).join(",");
+  useEffect(() => {
+    const ids = [...new Set(proposals.map((p) => p.provider_id))];
+    if (!ids.length) { setHighlighted(new Set()); return; }
+    supabase.rpc("highlighted_providers", { p_ids: ids }).then(({ data }) => setHighlighted(new Set((data as string[]) ?? [])));
+  }, [providerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sortedProposals = [...proposals].sort((a, b) => Number(highlighted.has(b.provider_id)) - Number(highlighted.has(a.provider_id)));
   const prevProposalCount = useRef(0);
 
   const [activeService, setActiveService] = useState<ActiveService | null>(null);
@@ -193,12 +305,21 @@ function ClienteContent() {
     if (!user || !coords) return;
     fetchMyRequests();
     fetchActiveService();
-    const interval = setInterval(() => {
-      fetchMyRequests();
-      if (selectedRequestId) fetchProposals(selectedRequestId);
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [user, coords, selectedRequestId, fetchActiveService]);
+  }, [user, coords, fetchActiveService]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Tempo real: meus chamados e as propostas que chegam neles
+  useRealtime(
+    `cliente-${user?.id ?? "anon"}`,
+    [{ table: "service_requests", filter: `client_id=eq.${user?.id}` }],
+    () => { fetchMyRequests(); fetchActiveService(); },
+    { enabled: !!user },
+  );
+  useRealtime(
+    `propostas-${selectedRequestId ?? "none"}`,
+    [{ table: "proposals", filter: `request_id=eq.${selectedRequestId}` }],
+    () => { if (selectedRequestId) fetchProposals(selectedRequestId); },
+    { enabled: !!selectedRequestId },
+  );
 
   useEffect(() => { setSubType(""); setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [serviceType]);
   useEffect(() => { setSelectedFlags([]); setLocalChoice(""); setSelectedGenders([]); }, [subType]);
@@ -227,6 +348,7 @@ function ClienteContent() {
       client_id: user.id, service_type: serviceType, sub_type: subType,
       flags: serviceType === "acompanhante" ? selectedFlags : [],
       gender_pref: selectedGenders, local_option: localChoice,
+      duration: serviceType && opcoes.detalheDoTipo(serviceType) === "duracao" ? subType : null,
       radius_km: radius, lat: coords.lat, lng: coords.lng,
     });
     setSubmitting(false);
@@ -266,6 +388,21 @@ function ClienteContent() {
     openPayment(proposal);
   }
 
+  async function handleOfferAccepted({ request_id, proposal_id }: { request_id: string; proposal_id: string }) {
+    setShowOffers(false);
+    setSelectedRequestId(request_id);
+    await fetchProposals(request_id);
+    const { data } = await supabase
+      .from("proposals")
+      .select("id, request_id, provider_id, price, client_price, message, local_option, status, created_at, provider:profiles!provider_id(full_name, avatar_url, gender, rating_avg, rating_count, has_local)")
+      .eq("id", proposal_id).single();
+    if (!data) { toast.error("Não foi possível abrir a oferta."); return; }
+    const proposal = { ...data, provider: Array.isArray(data.provider) ? data.provider[0] : data.provider } as unknown as DBProposal;
+    fetchMyRequests();
+    if (proposal.local_option === "parceiro") { setPickingRoomFor(proposal); setView("room" as any); return; }
+    openPayment(proposal);
+  }
+
   function handleRoomBooked(room: NearbyRoom) {
     setBookedRoom(room);
     const proposal = pickingRoomFor;
@@ -280,7 +417,11 @@ function ClienteContent() {
     // After payment confirmed, mark proposal as accepted
     const { error } = await supabase.from("proposals").update({ status: "aceita" }).eq("id", payingProposal.id);
     setAcceptingId(null);
-    if (error) { toast.error("Erro ao processar. Tente novamente."); return; }
+    if (error) {
+      console.error("proposals update -> aceita", error);
+      toast.error(`Não consegui confirmar: ${error.message}`);
+      return;
+    }
     playNotificationSound("accepted");
     toast.success("Atendimento confirmado! O prestador foi notificado.");
     setPayingProposal(null);
@@ -303,19 +444,166 @@ function ClienteContent() {
     }
   }
 
+  // "Voltar" do aparelho: fecha a tela aberta e volta um nível (pagamento → propostas → mapa)
+  // Toque num aviso do sino: abre o atendimento (e a avaliação, se já concluiu) ou o histórico
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const { requestId, type } = (e as CustomEvent<{ requestId: string | null; type: string }>).detail;
+      if (requestId) { activeIdRef.current = requestId; fetchActiveService(); }
+      else if (type === "servico_concluido" || type === "avaliacao_recebida" || type === "servico_cancelado") setShowHistory(true);
+      else fetchActiveService();
+    };
+    window.addEventListener("privora:aviso", abrir);
+    return () => window.removeEventListener("privora:aviso", abrir);
+  }, [fetchActiveService]);
+
+  useBackClose(view !== "map" && view !== "match", () => setView("map"));
+  useBackClose((view as string) === "payment", () => { setPayingProposal(null); setQuote(null); setView("proposals"); });
+  useBackClose(!!offerOnMap, () => setOfferOnMap(null));
+  useBackClose(!!parceiroNoMapa, () => setParceiroNoMapa(null));
+
   return (
-    <main className="relative min-h-screen" style={{ background: "#0a0a12" }}>
+    <main className="relative min-h-dvh">
       <div style={{ position: "fixed", inset: 0, zIndex: 0 }}>
-        <LeafletMap onCoordsChange={handleCoordsChange} markers={[]} radiusKm={radius} />
+        <LeafletMap
+          onCoordsChange={handleCoordsChange}
+          radiusKm={radius}
+          markers={mapOffers.map((o) => ({
+            id: o.offer_id,
+            lat: o.lat_aprox,
+            lng: o.lng_aprox,
+            color: o.destaque ? "#eab308" : o.service_type === "massagem" ? "#22c55e" : "#e879a6",
+            size: o.destaque ? 26 : 20,
+            onClick: () => { setParceiroNoMapa(null); setOfferOnMap(o); },
+          })).concat(parceiros.map((p) => ({
+            id: `parceiro-${p.partner_id}`,
+            lat: p.lat,
+            lng: p.lng,
+            color: p.rooms_total > 0 && p.rooms_free === 0 ? "#6b7280" : "#a855f7",
+            size: 28,
+            label: partnerIcon(p.local_type),
+            onClick: () => { setOfferOnMap(null); setParceiroNoMapa(p); },
+          })))}
+        />
       </div>
 
-      <div className="fixed inset-x-0 top-[76px] z-20 flex items-center gap-2 px-4 py-3">
+      {/* ── Parceiro tocado no mapa ─────────────────────────────────── */}
+      {parceiroNoMapa && (
+        <div className="fixed app-dock-hi z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+          <div className="flex items-start gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#a855f7] text-lg font-bold text-white">
+              {partnerIcon(parceiroNoMapa.local_type)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{parceiroNoMapa.partner_name ?? "Local parceiro"}</p>
+              <p className="text-xs text-muted-foreground">
+                {partnerLabel(parceiroNoMapa.local_type)} · {Number(parceiroNoMapa.distance_km).toFixed(1)} km
+              </p>
+            </div>
+            <button onClick={() => setParceiroNoMapa(null)} aria-label="Fechar"
+              className="shrink-0 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          </div>
+          {parceiroNoMapa.rooms_total > 0 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Quartos a partir de</span>
+              <span className="text-lg font-bold text-primary">{brl(parceiroNoMapa.min_price)}</span>
+            </div>
+          )}
+          {promoParceiro && (
+            <p className="mt-2 rounded-xl bg-green-500/10 px-3 py-2 text-xs font-semibold text-green-400">
+              −{Number(promoParceiro.discount_pct)}% agora · {promoParceiro.name} · até {promoParceiro.ends.slice(0, 5)}
+              {promoParceiro.restantes != null ? ` · restam ${promoParceiro.restantes}` : ""}
+            </p>
+          )}
+          {parceiroNoMapa.rooms_total > 0 ? (
+            <p className={`mt-1 text-xs font-medium ${parceiroNoMapa.rooms_free > 0 ? "text-green-400" : "text-muted-foreground"}`}>
+              {parceiroNoMapa.rooms_free > 0
+                ? `${parceiroNoMapa.rooms_free} de ${parceiroNoMapa.rooms_total} quarto(s) livre(s) agora`
+                : "Todos os quartos ocupados agora"}
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {parceiroNoMapa.local_type === "clinica" ? "Veja quem está atendendo e peça seu horário." : "Aberto agora. Veja o endereço e trace a rota."}
+            </p>
+          )}
+          <Button className="mt-3 h-11 w-full" onClick={() => { setLocalAberto(parceiroNoMapa.partner_id); setParceiroNoMapa(null); }}>
+            {parceiroNoMapa.local_type === "clinica" ? "Ver equipe e agendar" : "Ver local"}
+          </Button>
+        </div>
+      )}
+      {localAberto && user && <PartnerSheet partnerId={localAberto} userId={user.id} onClose={() => setLocalAberto(null)} />}
+
+      {/* ── Resumo da oferta tocada no mapa ─────────────────────────── */}
+      {offerOnMap && (
+        <div className="fixed app-dock-hi z-30 mx-auto max-w-md rounded-2xl border border-border bg-card/95 p-4 shadow-2xl backdrop-blur-md">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={() => { setViewingProfileId(offerOnMap.provider_id); setOfferOnMap(null); }}
+                  className="truncate text-left font-semibold hover:text-primary">
+                  {offerOnMap.provider_name ?? "Prestador"}
+                </button>
+                {offerOnMap.destaque && (
+                  <span className="rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">
+                    ⚡ Destaque
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Star className="size-3 fill-yellow-500 text-yellow-500" />
+                  {Number(offerOnMap.rating_avg ?? 0).toFixed(1)} ({offerOnMap.rating_count})
+                </span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="size-3" />aprox. {Number(offerOnMap.distance_km).toFixed(1)} km
+                </span>
+              </div>
+            </div>
+            <p className="shrink-0 text-lg font-bold text-primary">{brl(offerOnMap.price)}</p>
+            <button onClick={() => setOfferOnMap(null)} aria-label="Fechar"
+              className="shrink-0 text-muted-foreground hover:text-foreground"><X className="size-4" /></button>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+            <Badge variant="secondary" className="text-[10px]">
+              {opcoes.rotulo(offerOnMap.service_type) || offerOnMap.service_type}
+            </Badge>
+            <Badge variant="secondary" className="text-[10px]">
+              {opcoes.rotulo(offerOnMap.sub_type) || getSubLabel(offerOnMap.service_type, offerOnMap.sub_type)}
+            </Badge>
+            <span className="text-muted-foreground">{getLocalLabel(offerOnMap.local_option)}</span>
+          </div>
+
+          <ProviderPhotoStrip providerId={offerOnMap.provider_id}
+            onClick={() => { setViewingProfileId(offerOnMap.provider_id); setOfferOnMap(null); }} />
+
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            Posição aproximada — o ponto exato não é divulgado.
+          </p>
+
+          <Button className="mt-2 h-10 w-full" onClick={() => { setOfferOnMap(null); setShowOffers(true); }}>
+            Ver e aceitar
+          </Button>
+        </div>
+      )}
+
+      <div className="fixed inset-x-0 top-header z-20 flex items-center gap-2 overflow-x-auto whitespace-nowrap px-4 py-3 [scrollbar-width:none] *:shrink-0">
         <div className="flex items-center gap-1 rounded-full border border-border bg-background/80 px-3 py-1.5 backdrop-blur-md">
           <Radar className="size-3.5 text-primary" />
-          {radiusOptions.map((r) => (
+          {raiosDisponiveis.map((r) => (
             <button key={r.value} onClick={() => setRadius(r.value)} className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${radius === r.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}>{r.label}</button>
           ))}
         </div>
+        <button onClick={() => setShowHistory(true)} aria-label="Histórico"
+          className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
+          <History className="size-4" />
+        </button>
+        {coords && (
+          <button onClick={() => setShowRadar(true)} aria-label="Quem está online"
+            className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
+            <Radar className="size-4 text-primary" />
+          </button>
+        )}
         {coords && (
           <button onClick={() => window.dispatchEvent(new CustomEvent("map:center"))} className="flex size-9 items-center justify-center rounded-full border border-border bg-background/80 backdrop-blur-md hover:bg-secondary">
             <Navigation className="size-4 text-primary" />
@@ -324,7 +612,7 @@ function ClienteContent() {
       </div>
 
       {view === "map" && myRequests.length > 0 && (
-        <div className="fixed inset-x-4 bottom-24 z-20 max-h-60 space-y-2 overflow-y-auto">
+        <div className="fixed app-dock z-20 max-h-60 space-y-2 overflow-y-auto">
           {myRequests.map((r) => {
             const st = statusLabel(r.status);
             return (
@@ -340,7 +628,17 @@ function ClienteContent() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground">{r.gender_pref.join(", ")} · {getLocalLabel(r.local_option)}</p>
-                <p className="mt-1.5 text-xs font-medium text-primary">Toque para ver propostas →</p>
+                <div className="mt-1.5 flex items-center justify-between">
+                  <p className="text-xs font-medium text-primary">Toque para ver propostas →</p>
+                  {["aberta", "com_propostas"].includes(r.status) && (
+                    <span role="button" tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); cancelarChamado(r.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); cancelarChamado(r.id); } }}
+                      className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:border-destructive hover:text-destructive">
+                      {cancelandoId === r.id ? "Cancelando…" : "Cancelar"}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -348,9 +646,16 @@ function ClienteContent() {
       )}
 
       {view === "proposals" && (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
+        <div className="fixed app-page z-30 overflow-y-auto bg-background/95 px-4 pb-8 pt-4 backdrop-blur-md">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Propostas recebidas</h2>
+            {selectedRequest && ["aberta", "com_propostas"].includes(selectedRequest.status) && (
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive"
+                disabled={cancelandoId === selectedRequest.id}
+                onClick={() => cancelarChamado(selectedRequest.id)}>
+                Cancelar chamado
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={() => { setView("map"); setSelectedRequestId(null); prevProposalCount.current = 0; }}><X className="size-5" /></Button>
           </div>
           {loadingProposals ? (
@@ -363,7 +668,7 @@ function ClienteContent() {
             </div>
           ) : (
             <div className="space-y-3">
-              {proposals.map((p) => {
+              {sortedProposals.map((p) => {
                 const accepted = p.status === "aceita";
                 const refused = p.status === "recusada";
                 return (
@@ -376,6 +681,7 @@ function ClienteContent() {
                             {p.provider?.full_name ?? "Prestador"}
                           </button>
                           {p.provider?.has_local && <span className="flex items-center gap-0.5 text-[10px] text-primary"><Home className="size-3" /> Local</span>}
+                          {highlighted.has(p.provider_id) && <span className="rounded-full bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400">⚡ Destaque</span>}
                         </div>
                         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Star className="size-3 fill-yellow-500 text-yellow-500" /> {Number(p.provider?.rating_avg ?? 0).toFixed(1)}</span>
@@ -392,7 +698,7 @@ function ClienteContent() {
                       {p.local_option === "parceiro" && <span className="text-[10px]">· quarto escolhido por você, somado ao total</span>}
                     </div>
                     {p.message && <p className="mt-2 rounded-lg bg-secondary/50 p-2.5 text-xs text-muted-foreground italic">"{p.message}"</p>}
-                    <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR")}</p>
+                    <p className="mt-2 text-[10px] text-muted-foreground"><Clock className="mr-1 inline size-3" />{new Date(p.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
                     {p.status !== "recusada" && (
                       <Button variant="secondary" className="mt-3 h-9 w-full" onClick={() => setChatProposalId(p.id)}>
                         <MessageCircle className="mr-2 size-4" /> Conversar
@@ -431,7 +737,7 @@ function ClienteContent() {
           {/* Show active service card if exists */}
           {activeService && ["aceita", "a_caminho", "em_andamento"].includes(activeService.status) && (
             <button onClick={() => setView("match")}
-              className="fixed inset-x-4 bottom-24 z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
+              className="fixed app-dock z-20 rounded-xl border border-primary/40 bg-card/90 p-4 text-left backdrop-blur-sm animate-pulse">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Sparkles className="size-5 text-primary" />
@@ -444,33 +750,132 @@ function ClienteContent() {
               <p className="mt-1.5 text-xs font-medium text-primary">Toque para acompanhar →</p>
             </button>
           )}
-          <Button size="lg" onClick={() => setView("request")} className="fixed bottom-6 left-1/2 z-30 h-14 -translate-x-1/2 rounded-full px-7 text-base shadow-glow">
-            <Plus className="mr-1 size-5" /> Solicitar Serviço
-          </Button>
+          <div className="fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-center gap-2 px-4">
+            <Button size="lg" onClick={() => setView("request")} className="h-14 rounded-full px-6 text-base shadow-glow">
+              <Plus className="mr-1 size-5" /> Solicitar
+            </Button>
+            <Button size="lg" variant="secondary" onClick={() => setShowOffers(true)} className="h-14 rounded-full px-6 text-base">
+              <Sparkles className="mr-1 size-5" /> Ver ofertas{mapOffers.length > 0 ? ` (${mapOffers.length})` : ""}
+            </Button>
+          </div>
         </>
       )}
 
-      {view === "request" && (
-        <div ref={sheetRef} className="fixed inset-x-0 bottom-0 z-40 max-h-[92vh] overflow-y-auto rounded-t-3xl border-t border-border bg-card p-5 shadow-2xl">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Nova solicitação</h2>
-            <Button variant="ghost" size="icon" onClick={() => { setView("map"); resetForm(); }}><X className="size-5" /></Button>
-          </div>
-          <div className="space-y-5">
-            <Field label="Raio de busca"><div className="flex gap-2">{radiusOptions.map((r) => (<Chip key={r.value} active={radius === r.value} onClick={() => setRadius(r.value)}>{r.label}</Chip>))}</div></Field>
-            <Field label="Tipo de serviço"><div className="flex gap-2">{(["massagem", "acompanhante"] as ServiceType[]).map((t) => (<Chip key={t} active={serviceType === t} onClick={() => setServiceType(t)} className="capitalize">{t}</Chip>))}</div></Field>
-            {serviceType && (<Field label={serviceType === "massagem" ? "Tipo de massagem" : "Duração / Modalidade"}><div className="flex flex-wrap gap-2">{serviceSubTypes[serviceType].map((s) => (<Pill key={s.value} active={subType === s.value} onClick={() => setSubType(s.value)}>{s.label}</Pill>))}</div></Field>)}
-            {showFlags && (<Field label="O que você procura"><p className="mb-2 text-xs text-muted-foreground">Selecione os serviços desejados</p><div className="flex flex-wrap gap-2">{serviceFlags.map((f) => (<Pill key={f.value} active={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)} showCheck small>{f.label}</Pill>))}</div></Field>)}
-            {flagsComplete && isCarro(subType) && (<Field label="Local do atendimento"><div className="flex items-center gap-3 rounded-xl border border-primary bg-primary/10 p-3"><div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Car className="size-5" /></div><div className="flex-1"><p className="text-sm font-medium text-primary">No carro</p><p className="text-xs text-muted-foreground">O ponto de encontro é a localização do prestador</p></div><Check className="size-5 text-primary" /></div></Field>)}
-            {flagsComplete && !isCarro(subType) && (<Field label="Local do atendimento"><div className="space-y-2">{localOptions.map((opt) => { const active = localChoice === opt.value; const Icon = opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users; return (<button key={opt.value} onClick={() => setLocalChoice(opt.value)} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all ${active ? "border-primary bg-primary/10" : "border-border hover:bg-secondary"}`}><div className={`flex size-10 shrink-0 items-center justify-center rounded-lg ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"}`}><Icon className="size-5" /></div><div className="flex-1"><p className={`text-sm font-medium ${active ? "text-primary" : "text-foreground"}`}>{opt.label}</p><p className="text-xs text-muted-foreground">{opt.desc}</p></div>{active && <Check className="size-5 text-primary" />}</button>); })}</div></Field>)}
-            {localChoice && flagsComplete && (<Field label="Preferência de gênero"><p className="mb-2 text-xs text-muted-foreground">Selecione um ou mais</p><div className="flex flex-wrap gap-2">{genderOptions.map((g) => (<Pill key={g.value} active={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)} showCheck>{g.label}</Pill>))}</div></Field>)}
-            {selectedGenders.length > 0 && (<Button className="h-13 w-full text-base" disabled={submitting} onClick={handleSubmit}>{submitting ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Sparkles className="mr-2 size-5" />}{submitting ? "Enviando..." : "Solicitar atendimento"}</Button>)}
-          </div>
-        </div>
-      )}
+      {view === "request" && (() => {
+        const detalhe = serviceType ? opcoes.detalheDoTipo(serviceType) : "nenhum";
+        const rot = (v: string) => opcoes.tipos.find((t) => t.value === v)?.label || opcoes.rotulo(v) || v;
+        const localTexto = isCarro(subType) ? "No carro" : localChoice ? (localOptions.find((o) => o.value === localChoice)?.label ?? "") : "";
+        const passos: FlowStep[] = [
+          {
+            key: "tipo", titulo: "O que você procura?", dica: "Escolha o tipo de atendimento.",
+            pronto: !!serviceType, resumo: serviceType ? rot(serviceType) : null,
+            conteudo: (avancar) => (
+              <div className="grid gap-3">
+                {opcoes.tipos.map((t) => (
+                  <ChoiceCard key={t.value} icon={t.value === "massagem" ? Sparkles : Heart} titulo={t.label}
+                    desc={t.value === "massagem" ? "Tântrica, relaxante, sensitiva e outras técnicas" : "Por tempo, no local que você escolher"}
+                    ativo={serviceType === t.value}
+                    onClick={() => { setServiceType(t.value as ServiceType); setSubType(""); avancar(); }} />
+                ))}
+              </div>
+            ),
+          },
+          ...(serviceType && detalhe !== "nenhum" ? [{
+            key: "detalhe", titulo: detalhe === "estilo" ? "Qual tipo de massagem?" : "Por quanto tempo?",
+            pronto: !!subType, resumo: subType ? getSubLabel(serviceType, subType) : null,
+            conteudo: (avancar: () => void) => (
+              <div className="flex flex-wrap gap-2">
+                {(detalhe === "estilo" ? opcoes.estilos : opcoes.duracoes(serviceType)).map((o) => (
+                  <ChoiceChip key={o.value} ativo={subType === o.value} onClick={() => { setSubType(o.value); avancar(); }}>{o.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          ...(showFlags ? [{
+            key: "servicos", titulo: "O que você deseja?", dica: "Marque tudo o que procura. Só recebe proposta de quem oferece.",
+            pronto: selectedFlags.length > 0, resumo: selectedFlags.length ? `${selectedFlags.length} serviço(s)` : null,
+            conteudo: () => (
+              <div className="flex flex-wrap gap-2">
+                {opcoes.praticas.map((f) => (
+                  <ChoiceChip key={f.value} ativo={selectedFlags.includes(f.value)} onClick={() => toggleArr(selectedFlags, setSelectedFlags, f.value)}>{f.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          } as FlowStep] : []),
+          {
+            key: "local", titulo: "Onde será?", dica: isCarro(subType) ? undefined : "O endereço exato só é combinado depois do aceite.",
+            pronto: isCarro(subType) || !!localChoice, resumo: localTexto || null,
+            conteudo: (avancar) => isCarro(subType) ? (
+              <ChoiceCard icon={Car} titulo="No carro" desc="O ponto de encontro é a localização do prestador." ativo onClick={() => {}} />
+            ) : (
+              <div className="grid gap-3">
+                {localOptions.map((opt) => {
+                  const semParceiro = opt.value === "parceiro" && quartosPerto === 0;
+                  const desc = opt.value === "parceiro"
+                    ? (quartosPerto === null ? opt.desc
+                       : semParceiro ? `Nenhum parceiro em ${radius} km ainda`
+                       : `${quartosPerto} ${quartosPerto === 1 ? "quarto disponível" : "quartos disponíveis"} em até ${radius} km`)
+                    : opt.desc;
+                  return (
+                    <ChoiceCard key={opt.value} icon={opt.value === "parceiro" ? Building2 : opt.value === "local_cliente" ? Home : Users}
+                      titulo={opt.label} desc={desc} ativo={localChoice === opt.value} desabilitado={semParceiro}
+                      onClick={() => { setLocalChoice(opt.value); avancar(); }} />
+                  );
+                })}
+              </div>
+            ),
+          },
+          {
+            key: "genero", titulo: "Quem você prefere?", dica: "Pode marcar mais de uma opção.",
+            pronto: selectedGenders.length > 0, resumo: selectedGenders.length ? selectedGenders.map(rot).join(", ") : null,
+            conteudo: () => (
+              <div className="flex flex-wrap gap-2">
+                {opcoes.generos.map((g) => (
+                  <ChoiceChip key={g.value} ativo={selectedGenders.includes(g.value)} onClick={() => toggleArr(selectedGenders, setSelectedGenders, g.value)}>{g.label}</ChoiceChip>
+                ))}
+              </div>
+            ),
+          },
+          {
+            key: "revisao", titulo: "Tudo certo?", dica: "Quem estiver por perto recebe seu chamado e responde com o valor. Você escolhe a proposta.",
+            pronto: true,
+            conteudo: () => (
+              <div className="space-y-5">
+                <div>
+                  <p className="mb-2 text-sm font-semibold">Até que distância procurar</p>
+                  <div className="flex flex-wrap gap-2">
+                    {radiusOptions.map((r) => {
+                      const bloqueado = r.value > raioMax;
+                      return (
+                        <ChoiceChip key={r.value} ativo={radius === r.value} bloqueado={bloqueado}
+                          onClick={() => { if (bloqueado) { toast("Raio maior faz parte do Pass Black.", { icon: "👑" }); return; } setRadius(r.value); }}>
+                          {bloqueado ? `${r.label} 🔒` : r.label}
+                        </ChoiceChip>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="divide-y divide-border rounded-2xl border border-border bg-background/40 px-4">
+                  <ReviewRow rotulo="Atendimento" valor={serviceType ? `${rot(serviceType)}${subType ? ` · ${getSubLabel(serviceType, subType)}` : ""}` : "—"} />
+                  {showFlags && <ReviewRow rotulo="Serviços" valor={selectedFlags.map(rot).join(", ")} />}
+                  <ReviewRow rotulo="Local" valor={localTexto} />
+                  <ReviewRow rotulo="Preferência" valor={selectedGenders.map(rot).join(", ")} />
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  O valor é combinado e pago direto ao prestador. A Privora não recebe nenhuma parte.
+                </p>
+              </div>
+            ),
+          },
+        ];
+        return (
+          <StepFlow titulo="Nova solicitação" passos={passos} onClose={() => { setView("map"); resetForm(); }}
+            finalLabel="Solicitar atendimento" finalIcon={Sparkles} enviando={submitting} onEnviar={handleSubmit} />
+        );
+      })()}
       {/* ── Payment screen (PIX) ──────────────────────────────── */}
       {(view as string) === "payment" && payingProposal && (
-        <div className="fixed inset-x-0 bottom-0 top-[76px] z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
+        <div className="fixed app-page z-40 overflow-y-auto bg-background/98 px-4 pb-8 pt-6 backdrop-blur-md">
           <div className="mx-auto max-w-sm">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-lg font-semibold">Confirmar atendimento</h2>
@@ -512,7 +917,7 @@ function ClienteContent() {
             <div className="mb-5 rounded-2xl border border-border bg-secondary/30 p-4 text-xs leading-relaxed text-muted-foreground">
               <p className="mb-1 font-semibold text-foreground">Como funciona o pagamento</p>
               Você paga o atendimento direto ao prestador, como combinarem. O quarto de parceiro é pago no próprio estabelecimento.
-              O CataPuta não recebe nenhuma parte desses valores. Cancelamentos ficam registrados na sua reputação.
+              A Privora não recebe nenhuma parte desses valores. Cancelamentos ficam registrados na sua reputação.
             </div>
 
             <Button
@@ -540,6 +945,28 @@ function ClienteContent() {
           lng={selectedRequest.lng}
           onClose={() => { setPickingRoomFor(null); setView("proposals"); }}
           onBooked={handleRoomBooked}
+        />
+      )}
+
+      {showHistory && (
+        <HistorySheet onClose={() => setShowHistory(false)} onViewProfile={(id) => { setShowHistory(false); setViewingProfileId(id); }} />
+      )}
+
+      {showRadar && coords && (
+        <RadarSheet
+          lat={coords.lat} lng={coords.lng} radius={radius}
+          onClose={() => setShowRadar(false)}
+          onViewProfile={(id) => setViewingProfileId(id)}
+          onSeeOffers={() => { setShowRadar(false); setShowOffers(true); }}
+        />
+      )}
+
+      {showOffers && coords && (
+        <OffersSheet
+          lat={coords.lat} lng={coords.lng} radius={radius}
+          onClose={() => setShowOffers(false)}
+          onAccepted={handleOfferAccepted}
+          onViewProfile={(id) => setViewingProfileId(id)}
         />
       )}
 

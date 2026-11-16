@@ -1,0 +1,724 @@
+import { SecureImg } from "@/lib/media";
+import { createFileRoute } from "@tanstack/react-router";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  MapPin, Clock, Loader2, Building2, Camera, Save, Handshake,
+  Settings, Inbox, BedDouble, Plus, Pencil, Trash2, X, Eye, EyeOff, Percent, Users, CalendarClock, MessageCircle,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { DashboardShell } from "@/components/DashboardShell";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { PhotoManager } from "@/components/ProviderProfile";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { playNotificationSound } from "@/lib/notifications";
+import { brl } from "@/lib/fees";
+import { PARTNER_TYPES } from "@/lib/partner-types";
+import { PartnerHours } from "@/components/PartnerHours";
+import { PartnerPromos } from "@/components/PartnerPromos";
+import { PartnerStaff } from "@/components/PartnerStaff";
+import { PartnerAgenda } from "@/components/PartnerAgenda";
+
+export const Route = createFileRoute("/parceiro")({
+  head: () => ({
+    meta: [
+      { title: "Painel do parceiro — Privora" },
+      { name: "description", content: "Cadastre seus quartos e ganhe com cada atendimento." },
+    ],
+  }),
+  component: () => <DashboardShell role="parceiro"><ParceiroContent /></DashboardShell>,
+});
+
+/* ─── Types ─────────────────────────────────────────────────────────── */
+
+// lista única de tipos (rótulo + letra do ponto no mapa) em src/lib/partner-types.ts
+const localTypes = PARTNER_TYPES.map((t) => ({ value: t.value, label: `${t.icone}  ${t.label}` }));
+
+interface Room {
+  id: string;
+  name: string;
+  description: string | null;
+  photo_url: string | null;
+  price: number;
+  duration_minutes: number;
+  is_active: boolean;
+  sort_order: number;
+}
+
+interface Booking {
+  id: string;
+  request_id: string;
+  room_id: string;
+  room_price: number;
+  partner_net: number;
+  duration_minutes: number;
+  status: "pendente" | "confirmada" | "em_uso" | "concluida" | "cancelada";
+  starts_at: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
+interface Block {
+  id: string;
+  room_id: string;
+  kind: "balcao" | "limpeza" | "bloqueado";
+  until: string | null;
+}
+
+type Estado =
+  | { tipo: "em_uso" | "reservado" | "segurando"; booking: Booking }
+  | { tipo: "balcao" | "limpeza" | "bloqueado"; block: Block }
+  | { tipo: "pausado" | "livre" };
+
+const ESTADO_UI: Record<Estado["tipo"], { rotulo: string; cls: string }> = {
+  livre:     { rotulo: "Livre",            cls: "bg-green-500/20 text-green-400" },
+  segurando: { rotulo: "Sendo reservado",  cls: "bg-yellow-500/20 text-yellow-400" },
+  reservado: { rotulo: "Reservado",        cls: "bg-[#a855f7]/20 text-[#c084fc]" },
+  em_uso:    { rotulo: "Em uso",           cls: "bg-primary/20 text-primary" },
+  balcao:    { rotulo: "Ocupado (balcão)", cls: "bg-primary/20 text-primary" },
+  limpeza:   { rotulo: "Limpeza",          cls: "bg-sky-500/20 text-sky-300" },
+  bloqueado: { rotulo: "Bloqueado",        cls: "bg-destructive/20 text-destructive" },
+  pausado:   { rotulo: "Pausado",          cls: "bg-muted text-muted-foreground" },
+};
+
+/** Código curto que cliente e parceiro conferem na chegada */
+const codigoReserva = (id: string) => id.replace(/-/g, "").slice(0, 4).toUpperCase();
+const hora = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "");
+
+const durationOptions = [30, 60, 120, 180, 240, 360, 720];
+const fmtDuration = (m: number) => (m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`);
+
+const emptyRoom = { id: "", name: "", description: "", price: "", duration: 60, photo_url: "" as string | null };
+
+/* ─── Component ─────────────────────────────────────────────────────── */
+
+function ParceiroContent() {
+  const { user } = useAuth();
+  const [tab, setTab] = useState<"local" | "quartos" | "reservas" | "promos" | "equipe" | "agenda">("quartos");
+  const [whats, setWhats] = useState("");
+  const [pedidosAgenda, setPedidosAgenda] = useState(0);
+
+  // ── Local (endereço + geolocalização) ──
+  const [saving, setSaving] = useState(false);
+  const [localType, setLocalType] = useState("");
+  const [localAddress, setLocalAddress] = useState("");
+  const [localDesc, setLocalDesc] = useState("");
+  const [legacyPrice, setLegacyPrice] = useState<number | null>(null);
+  const [localLat, setLocalLat] = useState("");
+  const [localLng, setLocalLng] = useState("");
+
+  // ── Quartos ──
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [roomForm, setRoomForm] = useState<typeof emptyRoom | null>(null);
+  const [savingRoom, setSavingRoom] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Reservas ──
+  const [bookings, setBookings] = useState<Booking[]>([]);
+
+  // ── Quadro de quartos ao vivo: bloqueios (balcão / limpeza / bloqueado) ──
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [agora, setAgora] = useState(() => Date.now());
+  const [acao, setAcao] = useState<string | null>(null);
+  const fetchBlocks = useCallback(async () => {
+    if (!user) return;
+    const { data, error } = await supabase.from("room_blocks").select("id, room_id, kind, until")
+      .eq("partner_id", user.id).is("ended_at", null);
+    setBlocks(error ? [] : ((data as Block[]) ?? []));
+  }, [user]);
+  useEffect(() => { fetchBlocks(); }, [fetchBlocks]);
+  // relógio do quadro: atualiza os horários e solta bloqueios vencidos sem precisar recarregar
+  useEffect(() => {
+    const t = setInterval(() => { setAgora(Date.now()); fetchBlocks(); }, 30000);
+    return () => clearInterval(t);
+  }, [fetchBlocks]);
+
+  function estadoDoQuarto(r: Room): Estado {
+    const emUso = bookings.find((b) => b.room_id === r.id && b.status === "em_uso");
+    if (emUso) return { tipo: "em_uso", booking: emUso };
+    const reservado = bookings.find((b) => b.room_id === r.id && b.status === "confirmada");
+    if (reservado) return { tipo: "reservado", booking: reservado };
+    const block = blocks.find((k) => k.room_id === r.id && (!k.until || new Date(k.until).getTime() > agora));
+    if (block) return { tipo: block.kind, block };
+    const segurando = bookings.find((b) => b.room_id === r.id && b.status === "pendente"
+      && agora - new Date(b.created_at).getTime() < 15 * 60000);
+    if (segurando) return { tipo: "segurando", booking: segurando };
+    return { tipo: r.is_active ? "livre" : "pausado" };
+  }
+
+  async function bloquear(r: Room, kind: Block["kind"]) {
+    setAcao(r.id);
+    const minutos = kind === "balcao" ? r.duration_minutes : kind === "limpeza" ? 15 : null;
+    const { error } = await supabase.rpc("partner_room_block", { p_room_id: r.id, p_kind: kind, p_minutes: minutos });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível alterar o quarto.");
+    toast.success(kind === "balcao" ? `${r.name} ocupado por ${fmtDuration(r.duration_minutes)}.` : kind === "limpeza" ? `${r.name} em limpeza por 15 min.` : `${r.name} bloqueado até você liberar.`);
+    fetchBlocks();
+  }
+  async function liberar(r: Room) {
+    setAcao(r.id);
+    const { error } = await supabase.rpc("partner_room_free", { p_room_id: r.id });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível liberar.");
+    toast.success(`${r.name} liberado. Já aparece como livre.`);
+    fetchBlocks();
+  }
+  async function acaoReserva(b: Booking, action: "checkin" | "checkout" | "no_show") {
+    if (action === "no_show" && !confirm("Ninguém compareceu? A reserva será desfeita e o quarto liberado.")) return;
+    setAcao(b.room_id);
+    const { error } = await supabase.rpc("partner_booking_action", { p_booking_id: b.id, p_action: action });
+    setAcao(null);
+    if (error) return toast.error(error.message || "Não foi possível atualizar a reserva.");
+    toast.success(action === "checkin" ? "Chegada registrada. O tempo do quarto começou." : action === "checkout" ? "Quarto encerrado. Entrou em limpeza." : "Reserva desfeita. Quarto liberado.");
+    fetchBookings(); fetchBlocks();
+  }
+
+  // ── Ponto no mapa: ligado / desligado (não mexe nos quartos) ──
+  const [noMapa, setNoMapa] = useState(true);
+  const [mudandoMapa, setMudandoMapa] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    // consulta separada: se a coluna ainda não existir no banco, o resto da tela carrega normal
+    supabase.from("profiles").select("partner_visible").eq("id", user.id).maybeSingle()
+      .then(({ data }) => { if (data && (data as { partner_visible?: boolean }).partner_visible === false) setNoMapa(false); });
+  }, [user]);
+  async function alternarMapa() {
+    setMudandoMapa(true);
+    const { error } = await supabase.rpc("set_partner_visible", { p_on: !noMapa });
+    setMudandoMapa(false);
+    if (error) return toast.error(error.message || "Não foi possível alterar.");
+    setNoMapa(!noMapa);
+    toast.success(!noMapa ? "Seu local voltou a aparecer no mapa." : "Seu local saiu do mapa. Reservas já feitas continuam valendo.");
+  }
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      // dados do próprio local (inclui a localização exata) vêm pela função do banco
+      const rpc = await supabase.rpc("meu_perfil");
+      const data = (!rpc.error && rpc.data ? rpc.data : (await supabase.from("profiles")
+        .select("local_type, local_address, local_description, local_price, lat, lng")
+        .eq("id", user.id).single()).data) as {
+          local_type: string | null; local_address: string | null; local_description: string | null;
+          local_price: number | null; lat: number | null; lng: number | null; partner_whatsapp?: string | null } | null;
+      if (data) {
+        setLocalType(data.local_type ?? "");
+        setWhats(data.partner_whatsapp ?? "");
+        // clínica e casa de swing não trabalham com quartos: abre na aba certa
+        if (data.local_type === "clinica") setTab("equipe");
+        else if (data.local_type === "swing") setTab("local");
+        setLocalAddress(data.local_address ?? "");
+        setLocalDesc(data.local_description ?? "");
+        setLegacyPrice(data.local_price ? Number(data.local_price) : null);
+        if (data.lat) setLocalLat(String(data.lat));
+        if (data.lng) setLocalLng(String(data.lng));
+      }
+    })();
+  }, [user]);
+
+  const fetchRooms = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("partner_rooms").select("*")
+      .eq("partner_id", user.id).order("sort_order").order("created_at");
+    setRooms((data as Room[]) ?? []);
+  }, [user]);
+
+  const fetchBookings = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from("room_bookings").select("*")
+      .eq("partner_id", user.id).order("created_at", { ascending: false }).limit(50);
+    setBookings((data as Booking[]) ?? []);
+  }, [user]);
+
+  useEffect(() => { fetchRooms(); fetchBookings(); }, [fetchRooms, fetchBookings]);
+
+  // Realtime: parceiro é avisado na hora quando um quarto é reservado/confirmado
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel(`partner-bookings-${user.id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "room_bookings", filter: `partner_id=eq.${user.id}` },
+        (payload) => {
+          const b = payload.new as Booking;
+          const old = payload.old as Partial<Booking>;
+          if (payload.eventType === "INSERT") {
+            toast("Quarto sendo reservado — aguardando o cliente confirmar", { icon: "🛏️" });
+          } else if (payload.eventType === "UPDATE" && b.status === "confirmada" && old?.status !== "confirmada") {
+            playNotificationSound("accepted");
+            toast.success(`Reserva confirmada! ${brl(b.room_price)} — pagamento no seu estabelecimento`);
+          } else if (payload.eventType === "UPDATE" && b.status === "cancelada" && old?.status !== "cancelada") {
+            toast("Uma reserva foi cancelada.", { icon: "⚠️" });
+          }
+          fetchBookings();
+        })
+      .subscribe();
+    const fallback = setInterval(fetchBookings, 60000);
+    return () => { supabase.removeChannel(channel); clearInterval(fallback); };
+  }, [user, fetchBookings]);
+
+  function captureLocation() {
+    if (!navigator.geolocation) return toast.error("Geolocalização não disponível.");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocalLat(pos.coords.latitude.toFixed(6));
+        setLocalLng(pos.coords.longitude.toFixed(6));
+        toast.success("Localização capturada!");
+      },
+      () => toast.error("Não foi possível capturar a localização."),
+      { enableHighAccuracy: true },
+    );
+  }
+
+  const activeRooms = rooms.filter((r) => r.is_active);
+  const minRoomPrice = activeRooms.length ? Math.min(...activeRooms.map((r) => Number(r.price))) : null;
+
+  async function handleSaveLocal() {
+    if (!localType) return toast.error("Selecione o tipo do local.");
+    if (!localAddress.trim()) return toast.error("Informe o endereço.");
+    if (!localLat || !localLng) return toast.error("Capture a localização no mapa.");
+    if (!user) return;
+    setSaving(true);
+    // local_price é só referência legada; o catálogo de quartos é a fonte dos preços
+    const { error } = await supabase.rpc("update_partner_local", {
+      p_user_id: user.id,
+      p_local_type: localType,
+      p_local_address: localAddress.trim(),
+      p_local_description: localDesc.trim() || null,
+      p_local_price: minRoomPrice ?? legacyPrice ?? 1,
+      p_lat: parseFloat(localLat),
+      p_lng: parseFloat(localLng),
+    });
+    if (error) { setSaving(false); toast.error(error.message || "Erro ao salvar."); return; }
+    const zap = await supabase.rpc("set_partner_whatsapp", { p_number: whats });
+    setSaving(false);
+    if (zap.error) { toast.error(zap.error.message || "Local salvo, mas o WhatsApp não."); return; }
+    toast.success("Local salvo!");
+    if (localType === "clinica") setTab("equipe");
+    else if (localType !== "swing" && rooms.length === 0) { setTab("quartos"); setRoomForm({ ...emptyRoom }); }
+  }
+
+  // ── CRUD de quartos ──
+  async function handleRoomPhoto(file: File) {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) return toast.error("Apenas imagens.");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Máximo 5MB por foto.");
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `${user.id}/rooms/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("photos").upload(path, file, { upsert: false });
+    setUploading(false);
+    if (error) return toast.error(`Erro no upload: ${error.message}`);
+    const { data: { publicUrl } } = supabase.storage.from("photos").getPublicUrl(path);
+    setRoomForm((f) => (f ? { ...f, photo_url: publicUrl } : f));
+  }
+
+  async function handleSaveRoom() {
+    if (!user || !roomForm) return;
+    const price = parseFloat(String(roomForm.price).replace(",", "."));
+    if (!roomForm.name.trim()) return toast.error("Dê um nome ao quarto.");
+    if (!price || price <= 0) return toast.error("Informe um valor válido.");
+    if (!roomForm.photo_url) return toast.error("Adicione uma foto do quarto.");
+    setSavingRoom(true);
+    const payload = {
+      partner_id: user.id,
+      name: roomForm.name.trim(),
+      description: roomForm.description.trim() || null,
+      photo_url: roomForm.photo_url,
+      price,
+      duration_minutes: roomForm.duration,
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = roomForm.id
+      ? await supabase.from("partner_rooms").update(payload).eq("id", roomForm.id)
+      : await supabase.from("partner_rooms").insert({ ...payload, sort_order: rooms.length });
+    setSavingRoom(false);
+    if (error) { console.error(error); return toast.error("Erro ao salvar quarto."); }
+    toast.success(roomForm.id ? "Quarto atualizado!" : "Quarto cadastrado! Já aparece para clientes próximos.");
+    setRoomForm(null);
+    fetchRooms();
+  }
+
+  async function toggleRoom(r: Room) {
+    const { error } = await supabase.from("partner_rooms").update({ is_active: !r.is_active }).eq("id", r.id);
+    if (error) return toast.error("Erro ao atualizar.");
+    fetchRooms();
+  }
+
+  async function deleteRoom(r: Room) {
+    if (!confirm(`Excluir "${r.name}"?`)) return;
+    const { error } = await supabase.from("partner_rooms").delete().eq("id", r.id);
+    if (error) {
+      // quarto com histórico de reservas não pode ser apagado — só desativado
+      toast.error("Este quarto tem reservas no histórico. Ele foi desativado em vez de excluído.");
+      await supabase.from("partner_rooms").update({ is_active: false }).eq("id", r.id);
+    } else toast.success("Quarto excluído.");
+    fetchRooms();
+  }
+
+  const roomName = (id: string) => rooms.find((r) => r.id === id)?.name ?? "Quarto";
+  const openBookings = bookings.filter((b) => ["pendente", "confirmada", "em_uso"].includes(b.status));
+  const totalEarnings = bookings.filter((b) => b.status === "concluida").reduce((s, b) => s + Number(b.room_price), 0);
+  const ehClinica = localType === "clinica";
+  const soVitrine = localType === "swing";            // aparece no mapa, sem reserva pelo app
+  const semQuartos = ehClinica || soVitrine;
+  const isConfigured = !!localAddress && !!localLat && (semQuartos || activeRooms.length > 0);
+
+  const statusLabel: Record<Booking["status"], { text: string; cls: string }> = {
+    pendente: { text: "Aguardando confirmação", cls: "bg-yellow-500/20 text-yellow-400" },
+    confirmada: { text: "Confirmada", cls: "bg-green-500/20 text-green-400 animate-pulse" },
+    em_uso: { text: "Em uso", cls: "bg-primary/20 text-primary" },
+    concluida: { text: "Concluída", cls: "bg-green-500/20 text-green-400" },
+    cancelada: { text: "Cancelada", cls: "opacity-60" },
+  };
+
+  const TabBtn = ({ id, icon, children }: { id: typeof tab; icon: React.ReactNode; children: React.ReactNode }) => (
+    <button onClick={() => setTab(id)}
+      className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 text-[11px] font-medium transition-all sm:flex-row sm:gap-1.5 sm:py-2.5 sm:text-sm ${tab === id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+      {icon}{children}
+    </button>
+  );
+
+  return (
+    <main className="mx-auto min-h-dvh w-full max-w-3xl px-4 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-header">
+      {/* Stats */}
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">Status</p>
+          <p className={`mt-1 text-sm font-bold ${!isConfigured ? "text-yellow-400" : noMapa ? "text-green-400" : "text-muted-foreground"}`}>
+            {!isConfigured ? "Pendente" : noMapa ? "No mapa" : "Fora do mapa"}
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">{ehClinica ? "Pedidos aguardando" : soVitrine ? "Tipo" : "Reservas ativas"}</p>
+          <p className="mt-1 text-sm font-bold">{ehClinica ? pedidosAgenda : soVitrine ? "Vitrine" : openBookings.length}</p>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-3 text-center">
+          <p className="text-[10px] text-muted-foreground">{semQuartos ? "Reserva pelo app" : "Reservas concluídas"}</p>
+          <p className="mt-1 text-sm font-bold text-green-400">{ehClinica ? "Agenda" : soVitrine ? "Não" : bookings.filter((b) => b.status === "concluida").length}</p>
+        </div>
+      </div>
+
+      {/* Chave geral do ponto no mapa */}
+      <button onClick={alternarMapa} disabled={mudandoMapa || !isConfigured}
+        className={`mb-4 flex w-full items-center gap-3 rounded-2xl border p-4 text-left transition-colors disabled:opacity-50 ${noMapa ? "border-green-500/30 bg-green-500/5" : "border-border bg-card"}`}>
+        <span className={`flex size-10 shrink-0 items-center justify-center rounded-full ${noMapa ? "bg-green-500/20 text-green-400" : "bg-secondary text-muted-foreground"}`}>
+          <MapPin className="size-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{noMapa ? "Aparecendo no mapa" : "Fora do mapa"}</span>
+          <span className="block text-xs text-muted-foreground">
+            {noMapa ? (soVitrine ? "Clientes próximos veem seu local e traçam a rota." : ehClinica ? "Clientes próximos veem seu local e pedem horário." : "Clientes próximos veem seu local e podem reservar.") : "Ninguém vê seu local no mapa. Seu cadastro fica como está."}
+          </span>
+        </span>
+        <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${noMapa ? "bg-green-500" : "bg-muted"}`}>
+          <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${noMapa ? "left-[22px]" : "left-0.5"}`} />
+        </span>
+      </button>
+
+      {!isConfigured && (
+        <div className="mb-4 rounded-xl border border-yellow-500/30 bg-yellow-500/5 p-3 text-xs text-yellow-300">
+          Para aparecer no mapa: salve seu endereço com localização em <b>Meu local</b>{semQuartos ? "." : " e cadastre ao menos um quarto ativo."}
+        </div>
+      )}
+
+      <div className="mb-4 flex gap-1.5 sm:gap-2">
+        {ehClinica && <TabBtn id="equipe" icon={<Users className="size-4" />}>Equipe</TabBtn>}
+        {ehClinica && <TabBtn id="agenda" icon={<CalendarClock className="size-4" />}>Agenda{pedidosAgenda > 0 && ` (${pedidosAgenda})`}</TabBtn>}
+        {!semQuartos && <TabBtn id="quartos" icon={<BedDouble className="size-4" />}>Quartos</TabBtn>}
+        {!semQuartos && <TabBtn id="reservas" icon={<Handshake className="size-4" />}>Reservas{openBookings.length > 0 && ` (${openBookings.length})`}</TabBtn>}
+        {!soVitrine && <TabBtn id="promos" icon={<Percent className="size-4" />}>Promoções</TabBtn>}
+        <TabBtn id="local" icon={<Settings className="size-4" />}>Meu local</TabBtn>
+      </div>
+
+      {/* ── Quartos ── */}
+      {tab === "quartos" && !roomForm && (
+        <div className="space-y-3">
+          {rooms.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <BedDouble className="size-12 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">Nenhum quarto cadastrado ainda.</p>
+            </div>
+          )}
+          {rooms.length > 0 && (() => {
+            const est = rooms.map(estadoDoQuarto);
+            const conta = (...t: Estado["tipo"][]) => est.filter((e) => t.includes(e.tipo)).length;
+            return (
+              <div className="grid grid-cols-4 gap-2 text-center text-[11px]">
+                <div className="rounded-xl bg-green-500/10 py-2"><p className="text-base font-bold text-green-400">{conta("livre")}</p>Livres</div>
+                <div className="rounded-xl bg-[#a855f7]/10 py-2"><p className="text-base font-bold text-[#c084fc]">{conta("reservado", "segurando")}</p>Reservados</div>
+                <div className="rounded-xl bg-primary/10 py-2"><p className="text-base font-bold text-primary">{conta("em_uso", "balcao")}</p>Em uso</div>
+                <div className="rounded-xl bg-secondary py-2"><p className="text-base font-bold">{conta("limpeza", "bloqueado", "pausado")}</p>Fora</div>
+              </div>
+            );
+          })()}
+          {rooms.map((r) => {
+            const e = estadoDoQuarto(r);
+            const ui = ESTADO_UI[e.tipo];
+            const ocupado = acao === r.id;
+            return (
+            <article key={r.id} className={`rounded-2xl border border-border bg-card p-3 ${e.tipo === "pausado" ? "opacity-60" : ""}`}>
+              <div className="flex gap-3">
+              <div className="size-20 shrink-0 overflow-hidden rounded-xl bg-secondary">
+                {r.photo_url ? <SecureImg src={r.photo_url} alt={r.name} className="size-full object-cover" />
+                  : <div className="flex size-full items-center justify-center"><Camera className="size-6 text-muted-foreground" /></div>}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="truncate font-semibold">{r.name}</p>
+                  <Badge variant="secondary" className={`shrink-0 text-[10px] ${ui.cls}`}>{ui.rotulo}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  <Clock className="mr-1 inline size-3" />{fmtDuration(r.duration_minutes)} · {brl(r.price)} · pago no seu estabelecimento
+                </p>
+                {"booking" in e && e.tipo !== "segurando" && (
+                  <p className="mt-0.5 text-xs font-medium text-foreground">
+                    Código {codigoReserva(e.booking.id)}
+                    {e.tipo === "em_uso" && e.booking.ends_at ? ` · até ${hora(e.booking.ends_at)}` : ""}
+                    {e.tipo === "reservado" && e.booking.starts_at ? ` · reservado às ${hora(e.booking.starts_at)}` : ""}
+                  </p>
+                )}
+                {"block" in e && (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{e.block.until ? `Volta a ficar livre às ${hora(e.block.until)}` : "Até você liberar"}</p>
+                )}
+                {e.tipo === "segurando" && <p className="mt-0.5 text-xs text-muted-foreground">Um cliente está escolhendo este quarto.</p>}
+                {!r.photo_url && <p className="mt-0.5 text-[11px] text-yellow-400">Sem foto — adicione para aparecer melhor</p>}
+                <div className="mt-2 flex gap-1">
+                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={() => setRoomForm({
+                    id: r.id, name: r.name, description: r.description ?? "", price: String(r.price),
+                    duration: r.duration_minutes, photo_url: r.photo_url,
+                  })}><Pencil className="mr-1 size-3" />Editar</Button>
+                  <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={() => toggleRoom(r)}>
+                    {r.is_active ? <><EyeOff className="mr-1 size-3" />Pausar</> : <><Eye className="mr-1 size-3" />Ativar</>}
+                  </Button>
+                  <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive" onClick={() => deleteRoom(r)}>
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+              </div>
+              </div>
+
+              {/* Ações do momento — mudam conforme o estado do quarto */}
+              <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+                {e.tipo === "livre" && (<>
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => bloquear(r, "balcao")}>Ocupar agora</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => bloquear(r, "limpeza")}>Limpeza</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => bloquear(r, "bloqueado")}>Bloquear</Button>
+                </>)}
+                {(e.tipo === "balcao" || e.tipo === "limpeza" || e.tipo === "bloqueado") && (
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => liberar(r)}>Liberar quarto</Button>
+                )}
+                {e.tipo === "reservado" && (<>
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => acaoReserva(e.booking, "checkin")}>Cliente chegou</Button>
+                  <Button size="sm" variant="secondary" className="h-9" disabled={ocupado} onClick={() => acaoReserva(e.booking, "no_show")}>Não compareceu</Button>
+                </>)}
+                {e.tipo === "em_uso" && (
+                  <Button size="sm" className="h-9 flex-1" disabled={ocupado} onClick={() => acaoReserva(e.booking, "checkout")}>Encerrar e liberar</Button>
+                )}
+                {e.tipo === "segurando" && <p className="text-xs text-muted-foreground">Aguardando o cliente confirmar (até 15 min).</p>}
+                {e.tipo === "pausado" && <p className="text-xs text-muted-foreground">Quarto pausado: não aparece para ninguém. Use "Ativar" para voltar.</p>}
+              </div>
+            </article>
+            );
+          })}
+          <Button className="h-12 w-full" onClick={() => setRoomForm({ ...emptyRoom })}>
+            <Plus className="mr-2 size-5" /> Adicionar quarto
+          </Button>
+        </div>
+      )}
+
+      {tab === "quartos" && roomForm && (
+        <div className="space-y-5 rounded-2xl border border-border bg-card p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold">{roomForm.id ? "Editar quarto" : "Novo quarto"}</h3>
+            <Button variant="ghost" size="icon" onClick={() => setRoomForm(null)}><X className="size-5" /></Button>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Foto</Label>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleRoomPhoto(f); e.target.value = ""; }} />
+            <button onClick={() => fileRef.current?.click()}
+              className="flex h-40 w-full items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-secondary/30">
+              {uploading ? <Loader2 className="size-6 animate-spin text-primary" />
+                : roomForm.photo_url ? <SecureImg src={roomForm.photo_url} alt="" className="size-full object-cover" />
+                : <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground"><Camera className="size-6" />Toque para enviar</span>}
+            </button>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Nome</Label>
+            <Input value={roomForm.name} onChange={(e) => setRoomForm({ ...roomForm, name: e.target.value })} placeholder="Suíte com hidro, Standard..." />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Valor (R$)</Label>
+            <Input value={roomForm.price} inputMode="decimal" placeholder="120,00"
+              onChange={(e) => setRoomForm({ ...roomForm, price: e.target.value })} />
+            {parseFloat(String(roomForm.price).replace(",", ".")) > 0 && (
+              <p className="text-xs text-muted-foreground">
+                O cliente paga <span className="font-semibold text-green-400">
+                  {brl(parseFloat(String(roomForm.price).replace(",", ".")))}
+                </span> direto no seu estabelecimento. A Privora não cobra comissão sobre reservas.
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Tempo de permanência</Label>
+            <div className="flex flex-wrap gap-2">
+              {durationOptions.map((d) => (
+                <button key={d} onClick={() => setRoomForm({ ...roomForm, duration: d })}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-medium ${roomForm.duration === d ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                  {fmtDuration(d)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Descrição (opcional)</Label>
+            <Textarea rows={2} value={roomForm.description} onChange={(e) => setRoomForm({ ...roomForm, description: e.target.value })}
+              placeholder="Hidromassagem, garagem privativa, ar-condicionado..." />
+          </div>
+
+          <Button className="h-12 w-full" disabled={savingRoom || uploading} onClick={handleSaveRoom}>
+            {savingRoom ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Save className="mr-2 size-5" />}
+            {savingRoom ? "Salvando..." : "Salvar quarto"}
+          </Button>
+        </div>
+      )}
+
+      {/* ── Reservas ── */}
+      {tab === "reservas" && (
+        <div className="space-y-3">
+          {bookings.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <Inbox className="size-12 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">
+                {isConfigured ? "Nenhuma reserva ainda. Você será avisado na hora." : "Complete seu cadastro para começar a receber reservas."}
+              </p>
+            </div>
+          ) : bookings.map((b) => {
+            const st = statusLabel[b.status] ?? { text: b.status, cls: "" };
+            return (
+              <article key={b.id} className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent"><Building2 className="size-5" /></div>
+                    <div>
+                      <p className="text-sm font-semibold">{roomName(b.room_id)}</p>
+                      <p className="text-xs text-muted-foreground">{fmtDuration(b.duration_minutes)} · {brl(b.room_price)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant="secondary" className={`text-[10px] ${st.cls}`}>{st.text}</Badge>
+                    <p className={`mt-1 text-sm font-bold ${b.status === "cancelada" ? "text-muted-foreground line-through" : "text-green-400"}`}>{brl(b.room_price)}</p>
+                  </div>
+                </div>
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  <Clock className="mr-1 inline size-3" />
+                  {b.starts_at
+                    ? `${new Date(b.starts_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })} até ${b.ends_at ? new Date(b.ends_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "—"}`
+                    : `Solicitada em ${new Date(b.created_at).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Meu local ── */}
+      {tab === "promos" && user && (
+        <PartnerPromos userId={user.id} unidade={localType === "clinica" ? "clientes" : "quartos"} />
+      )}
+
+      {tab === "equipe" && user && <PartnerStaff userId={user.id} />}
+      {/* a agenda fica montada para o contador de pedidos acompanhar em tempo real */}
+      {ehClinica && user && <div className={tab === "agenda" ? "" : "hidden"}><PartnerAgenda userId={user.id} onPendentes={setPedidosAgenda} /></div>}
+
+      {tab === "local" && (
+        <div className="space-y-5">
+          {soVitrine && (
+            <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm leading-relaxed">
+              <p className="font-semibold">Seu local é uma vitrine no mapa</p>
+              <p className="mt-1 text-muted-foreground">
+                Clientes próximos veem o ponto <b>Ψ</b>, o endereço, a descrição e as fotos, e traçam a rota até você.
+                Não há reserva pelo app. Capriche na descrição: horários, valores de entrada e regras da casa.
+              </p>
+            </div>
+          )}
+          {user && <PartnerHours userId={user.id} />}
+          <div className="space-y-2">
+            <Label className="text-sm font-semibold">Tipo do local</Label>
+            <div className="flex flex-wrap gap-2">
+              {localTypes.map((t) => (
+                <button key={t.value} onClick={() => setLocalType(t.value)}
+                  className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${localType === t.value ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-secondary"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Endereço completo</Label>
+            <Input value={localAddress} onChange={(e) => setLocalAddress(e.target.value)} placeholder="Rua, número, bairro, cidade..." />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Descrição do estabelecimento</Label>
+            <Textarea rows={3} value={localDesc} onChange={(e) => setLocalDesc(e.target.value)}
+              placeholder="Estacionamento, sigilo, horário de funcionamento..." />
+          </div>
+
+          {ehClinica && (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-sm font-semibold"><MessageCircle className="size-4 text-[#25D366]" />WhatsApp para agendamentos</Label>
+              <Input value={whats} inputMode="tel" placeholder="(11) 91234-5678" onChange={(e) => setWhats(e.target.value.replace(/[^0-9()\-+ ]/g, ""))} />
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Fica oculto. O cliente só vê depois que você confirma o horário dele na Agenda.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Localização exata</Label>
+            {localLat && localLng ? (
+              <div className="flex items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/5 p-3">
+                <MapPin className="size-5 text-green-400" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-400">Localização capturada</p>
+                  <p className="text-[10px] text-muted-foreground">{localLat}, {localLng}</p>
+                </div>
+                <Button variant="secondary" size="sm" onClick={captureLocation}>Atualizar</Button>
+              </div>
+            ) : (
+              <Button variant="secondary" className="w-full" onClick={captureLocation}>
+                <MapPin className="mr-2 size-4" /> Capturar minha localização
+              </Button>
+            )}
+          </div>
+
+          {user && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-4">
+              <p className="mb-2 text-sm font-semibold">Fotos do estabelecimento</p>
+              <PhotoManager userId={user.id} onDone={() => {}} />
+            </div>
+          )}
+
+          <Button className="h-13 w-full text-base" disabled={saving} onClick={handleSaveLocal}>
+            {saving ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Save className="mr-2 size-5" />}
+            {saving ? "Salvando..." : "Salvar local"}
+          </Button>
+        </div>
+      )}
+    </main>
+  );
+}
