@@ -1,3 +1,4 @@
+import { LiveStats } from "@/components/LiveStats";
 import { VERSAO } from "@/lib/version";
 import { useT, LanguageSwitcher } from "@/lib/i18n";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -40,6 +41,8 @@ function Welcome() {
         </p>
         </div>
       </div>
+
+      <div className="relative z-10 mb-4 flex w-full justify-center"><LiveStats /></div>
 
       <div className="relative z-10 w-full max-w-sm space-y-3">
         <Button asChild size="lg" className="h-13 w-full text-base shadow-glow">
