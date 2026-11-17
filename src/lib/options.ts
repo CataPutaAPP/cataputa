@@ -12,7 +12,7 @@ export const TIPOS_SEM_DETALHE = ["jantar", "virtual"];
 
 /** Durações que fazem sentido em cada tipo. */
 const DURACAO_POR_TIPO: Record<string, string[]> = {
-  acompanhante: ["30min", "60min", "120min", "240min", "pernoite"],
+  acompanhante: ["no_carro", "30min", "60min", "120min", "240min", "pernoite"],
   pernoite: ["pernoite", "diaria"],
   viagem: ["diaria", "fim_semana"],
 };
