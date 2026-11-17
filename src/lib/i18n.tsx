@@ -179,6 +179,15 @@ export function setIdioma(l: Idioma) {
   ouvintes.forEach((f) => f());
 }
 
+/** Idioma em uso agora (para código que não é tela). */
+export function idiomaAtual(): Idioma { return atual; }
+
+/** Avisa quando o idioma muda. Devolve a função que cancela o aviso. */
+export function aoMudarIdioma(f: () => void): () => void {
+  ouvintes.add(f);
+  return () => { ouvintes.delete(f); };
+}
+
 /** Idioma salvo no aparelho; senão, o idioma do navegador; senão, português. */
 function detectar(): Idioma {
   const validos = IDIOMAS.map((i) => i.code) as readonly string[];
@@ -223,7 +232,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
   const { lang, t } = useT();
   const [aberto, setAberto] = useState(false);
   return (
-    <div className={`relative ${className}`}>
+    <div className={`notranslate relative ${className}`}>
       <button type="button" onClick={() => setAberto((v) => !v)} aria-label={t("lang.title")} aria-expanded={aberto}
         className="flex h-9 items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 text-xs font-semibold uppercase backdrop-blur-md hover:bg-secondary">
         <Bandeira code={lang} /> <span className="hidden sm:inline">{lang}</span>
