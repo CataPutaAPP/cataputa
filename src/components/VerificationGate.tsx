@@ -53,6 +53,12 @@ export function VerificationGate({ children }: { children: ReactNode }) {
   const [checkingCnpj, setCheckingCnpj] = useState(false);
   const returning = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("verificacao") === "retorno";
   const [waiting, setWaiting] = useState(returning);
+  // Admin > Resumo: com a chave ligada, o cliente também confirma a idade com documento (sem selfie)
+  const [clienteComDocumento, setClienteComDocumento] = useState(false);
+  useEffect(() => {
+    supabase.from("platform_settings").select("value").eq("key", "client_doc_required").maybeSingle()
+      .then(({ data }) => setClienteComDocumento(Number((data as { value?: number } | null)?.value ?? 0) === 1));
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("my_verification");
@@ -106,6 +112,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
   const needsIdentity = v.status !== "aprovado";
   const needsCnpj = v.needs_cnpj && !v.cnpj_ok;
   const isClient = v.audience === "cliente";
+  const soDocumento = v.audience === "prestador" || (isClient && clienteComDocumento);
 
   if (waiting || v.status === "em_analise") return (
     <Card>
@@ -122,7 +129,9 @@ export function VerificationGate({ children }: { children: ReactNode }) {
       <ShieldCheck className="mx-auto mb-3 size-12 text-primary" />
       <h1 className="text-xl font-semibold">Verificação obrigatória</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {isClient
+        {isClient && clienteComDocumento
+          ? "Por lei (ECA Digital), a Privora é exclusiva para maiores de 18 anos. Confirme sua idade com uma foto do seu documento. Ela é vista só pela nossa equipe e não aparece para ninguém no app."
+          : isClient
           ? "Por lei (ECA Digital), a Privora é exclusiva para maiores de 18 anos. Confirme sua idade com uma selfie rápida."
           : v.audience === "prestador"
             ? "Para a segurança de todos, confirmamos a idade de quem anuncia com uma foto do documento antes de o perfil aparecer no app."
@@ -155,7 +164,7 @@ export function VerificationGate({ children }: { children: ReactNode }) {
         <div className="mt-5 space-y-2">
           {v.needs_cnpj && <p className="text-left text-sm font-semibold">2. Idade do responsável</p>}
           {/* anunciante sempre confirma com documento; cliente e parceiro começam pela selfie */}
-          {v.audience !== "prestador" && v.status !== "documento_necessario" && !querDocumento ? (
+          {!soDocumento && v.status !== "documento_necessario" && !querDocumento ? (
             <>
               <Button className="h-12 w-full text-base" onClick={() => setSelfie(true)}>
                 <ScanFace className="mr-2 size-5" /> Verificar com selfie
@@ -181,9 +190,11 @@ export function VerificationGate({ children }: { children: ReactNode }) {
         />
       )}
 
-      <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
-        A selfie é analisada no seu próprio aparelho e não é enviada nem guardada. A Privora registra apenas o resultado.
-      </p>
+      {!soDocumento && (
+        <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground">
+          A selfie é analisada no seu próprio aparelho e não é enviada nem guardada. A Privora registra apenas o resultado.
+        </p>
+      )}
     </Card>
   );
 }
