@@ -297,6 +297,12 @@ Receba ofertas e execute serviços|Receive requests and provide services|Recibe 
 Participe de negociações em conjunto|Take part as a venue|Participa como local
 Seus dados|Your details|Tus datos
 Nome completo|Full name|Nombre completo
+Nome de exibição|Display name|Nombre visible
+Como você quer aparecer|How you want to appear|Cómo quieres aparecer
+Nome do estabelecimento|Venue name|Nombre del establecimiento
+É o nome que aparece no mapa.|This is the name shown on the map.|Es el nombre que aparece en el mapa.
+É o nome que os outros usuários veem. Pode ser apelido ou nome artístico — seu nome de registro não aparece no app.|This is the name other users see. It can be a nickname or stage name — your legal name is not shown in the app.|Es el nombre que ven los demás usuarios. Puede ser un apodo o nombre artístico — tu nombre legal no aparece en la app.
+Informe como você quer aparecer.|Enter how you want to appear.|Indica cómo quieres aparecer.
 Data de nascimento|Date of birth|Fecha de nacimiento
 Telefone|Phone|Teléfono
 E-mail|Email|Correo electrónico
