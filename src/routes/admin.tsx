@@ -234,8 +234,8 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"]);
-    const ordem = ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"];
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "client_doc_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"]);
+    const ordem = ["billing_enabled", "beta_all_features", "verification_required", "client_doc_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"];
     setSettings(((data as Setting[]) ?? []).sort((a, b) => ordem.indexOf(a.key) - ordem.indexOf(b.key)));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -251,6 +251,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     billing_enabled: "Cobrança ligada (usuários podem assinar)",
     beta_all_features: "Beta: todos com recursos do plano mais alto",
     verification_required: "Exigir verificação de idade para usar o app",
+    client_doc_required: "Cliente confirma a idade com documento (desligado: selfie com estimativa)",
     sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
     feature_requests: "Chamados (desligado: cliente só vê ofertas e perfis, sem abrir pedido)",
     feature_shorts: "Vídeos curtos (feed com o vídeo de apresentação dos anunciantes)",
