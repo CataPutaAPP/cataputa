@@ -6,11 +6,12 @@ import { supabase } from "@/lib/supabase";
  *  - rooms: reserva de quartos de parceiros pelo app
  *  - clinicStaff: equipe com foto + agenda de clínicas
  *  - requests: chamados (cliente abre pedido, prestadores enviam propostas)
+ *  - shorts: feed de vídeos curtos dos anunciantes
  * Com a chave desligada, o recurso some da tela.
  * Enquanto carrega, vale o modo mais contido (tudo desligado).
  */
-export interface Flags { rooms: boolean; clinicStaff: boolean; requests: boolean; pronto: boolean }
-const CONTIDO: Flags = { rooms: false, clinicStaff: false, requests: false, pronto: true };
+export interface Flags { rooms: boolean; clinicStaff: boolean; requests: boolean; shorts: boolean; pronto: boolean }
+const CONTIDO: Flags = { rooms: false, clinicStaff: false, requests: false, shorts: false, pronto: true };
 let guardado: Flags | null = null;
 let pedido: Promise<Flags> | null = null;
 
@@ -26,6 +27,7 @@ async function consultar(): Promise<Flags> {
       clinicStaff: ligado(d["feature_clinic_staff"]),
       // chave ainda não criada no banco: chamados seguem como sempre foram
       requests: d["feature_requests"] === undefined ? true : ligado(d["feature_requests"]),
+      shorts: ligado(d["feature_shorts"]),
       pronto: true,
     };
   }
@@ -33,7 +35,7 @@ async function consultar(): Promise<Flags> {
   const antigo = await supabase.rpc("app_flags");
   if (antigo.error || !antigo.data) return CONTIDO;
   const a = antigo.data as { rooms?: boolean; clinic_staff?: boolean };
-  return { rooms: !!a.rooms, clinicStaff: !!a.clinic_staff, requests: true, pronto: true };
+  return { rooms: !!a.rooms, clinicStaff: !!a.clinic_staff, requests: true, shorts: false, pronto: true };
 }
 
 function buscar(): Promise<Flags> {
