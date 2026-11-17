@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase, canal } from "@/lib/supabase";
 
 type Handler = () => void;
 
@@ -22,7 +22,7 @@ export function useRealtime(
 
   useEffect(() => {
     if (!enabled) return;
-    const channel = supabase.channel(channelName);
+    const channel = canal(channelName);
     subscriptions.forEach((s) => {
       channel.on(
         "postgres_changes",
