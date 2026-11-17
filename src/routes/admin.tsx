@@ -444,6 +444,7 @@ function Usuarios({ onChange }: { onChange: () => void }) {
             {u.is_suspended && <p className="mt-1 text-xs text-destructive">{u.suspended_reason}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               {u.verification_status !== "aprovado" && <Button size="sm" variant="secondary" disabled={busy === u.id} onClick={() => act(u, "aprovado")}>Aprovar</Button>}
+              {u.verification_status === "aprovado" && <Button size="sm" variant="secondary" disabled={busy === u.id} onClick={() => act(u, "pendente")}>Pedir verificação de novo</Button>}
               {u.verification_status === "aprovado" && <Button size="sm" variant="ghost" disabled={busy === u.id} onClick={() => act(u, "reprovado")}>Reprovar</Button>}
               {!u.is_suspended
                 ? <Button size="sm" variant="secondary" disabled={busy === u.id} onClick={() => act(u, "suspender")}><Ban className="mr-1.5 size-3.5" /> Suspender</Button>
