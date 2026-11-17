@@ -37,7 +37,7 @@ export function ProviderVideoManager({ userId }: { userId: string }) {
     const { error } = await supabase.rpc("set_provider_video", { p_url: publicUrl, p_path: path });
     setBusy(false);
     if (error) { await supabase.storage.from("videos").remove([path]); return toast.error(error.message); }
-    toast.success("Vídeo enviado! Ele aparece no seu perfil após a análise.");
+    toast.success("Vídeo enviado! Ele aparece no seu perfil e no feed de vídeos após a análise.");
     load();
   }
 
@@ -62,7 +62,7 @@ export function ProviderVideoManager({ userId }: { userId: string }) {
 
   const selo = {
     em_revisao: { icon: <Clock className="size-3.5" />, txt: "Em análise — aparece no perfil após aprovação", cls: "text-yellow-400" },
-    aprovado:   { icon: <CheckCircle2 className="size-3.5" />, txt: "Aprovado e visível no seu perfil", cls: "text-green-400" },
+    aprovado:   { icon: <CheckCircle2 className="size-3.5" />, txt: "Aprovado — visível no seu perfil e no feed de vídeos", cls: "text-green-400" },
     reprovado:  { icon: <XCircle className="size-3.5" />, txt: "Reprovado", cls: "text-destructive" },
   };
 
