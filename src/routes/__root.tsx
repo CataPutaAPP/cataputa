@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SCRIPT_TEMA, CSS_TEMA_CLARO, useTema } from "@/lib/theme";
+import { iniciarAutoTraducao } from "@/lib/autotraducao";
 import {
   Outlet,
   Link,
@@ -136,6 +137,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const tema = useTema();
+  useEffect(() => { iniciarAutoTraducao(); }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
