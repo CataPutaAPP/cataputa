@@ -113,6 +113,7 @@ export function AgeSelfie({ onDone, onClose }: { onDone: (r: "aprovado" | "docum
 export function AgeDocument({ userId, onSent }: { userId: string; onSent: () => void }) {
   const campo = useRef<HTMLInputElement | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [camera, setCamera] = useState(false);
 
   async function enviar(file: File) {
     if (!file.type.startsWith("image/")) return toast.error("Envie uma foto.");
@@ -136,15 +137,97 @@ export function AgeDocument({ userId, onSent }: { userId: string; onSent: () => 
         <li>A foto e a data de nascimento do documento precisam estar legíveis.</li>
         <li>Lugar claro, sem óculos escuros ou boné.</li>
       </ol>
-      <Button className="h-12 w-full text-base" disabled={enviando} onClick={() => campo.current?.click()}>
+      <Button className="h-12 w-full text-base" disabled={enviando} onClick={() => setCamera(true)}>
         {enviando ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Camera className="mr-2 size-5" />}
-        {enviando ? "Enviando…" : "Tirar ou escolher a foto"}
+        {enviando ? "Enviando…" : "Abrir a câmera"}
       </Button>
-      <input ref={campo} type="file" accept="image/*" capture="user" className="hidden"
+      <button type="button" disabled={enviando} onClick={() => campo.current?.click()}
+        className="block w-full text-center text-xs text-muted-foreground underline">
+        Escolher uma foto do aparelho
+      </button>
+      <input ref={campo} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) enviar(f); }} />
+      {camera && <CameraFoto onClose={() => setCamera(false)} onFoto={(f) => { setCamera(false); enviar(f); }} />}
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         Só a equipe da Privora vê esta foto, apenas para confirmar que você tem 18 anos ou mais. Ela é apagada logo após a conferência.
       </p>
+    </div>
+  );
+}
+
+/** Câmera ao vivo para tirar a foto com o documento (funciona no celular e no computador). */
+function CameraFoto({ onFoto, onClose }: { onFoto: (f: File) => void; onClose: () => void }) {
+  const video = useRef<HTMLVideoElement | null>(null);
+  const [pronta, setPronta] = useState(false);
+  const [erro, setErro] = useState("");
+  const [tentativa, setTentativa] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+    let fluxo: MediaStream | null = null;
+    const parar = () => fluxo?.getTracks().forEach((t) => t.stop());
+    setPronta(false); setErro("");
+    (async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) { setErro("Este navegador não libera a câmera. Use o Chrome ou o Safari atualizado."); return; }
+        fluxo = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false,
+        });
+        if (!vivo || !video.current) return parar();
+        video.current.srcObject = fluxo;
+        await video.current.play();
+        if (vivo) setPronta(true);
+      } catch (e) {
+        const nome = (e as { name?: string })?.name;
+        if (vivo) setErro(nome === "NotAllowedError" ? "Você precisa permitir o uso da câmera para a verificação."
+          : nome === "NotFoundError" ? "Nenhuma câmera encontrada neste aparelho."
+          : "Não foi possível abrir a câmera.");
+      }
+    })();
+    return () => { vivo = false; parar(); };
+  }, [tentativa]);
+
+  function tirar() {
+    const v = video.current;
+    if (!v || !v.videoWidth) return;
+    const tela = document.createElement("canvas");
+    tela.width = v.videoWidth; tela.height = v.videoHeight;
+    tela.getContext("2d")?.drawImage(v, 0, 0);   // sem espelhar: o texto do documento precisa sair legível
+    tela.toBlob((blob) => {
+      if (!blob) return toast.error("Não foi possível tirar a foto. Tente de novo.");
+      onFoto(new File([blob], `documento_${Date.now()}.jpg`, { type: "image/jpeg" }));
+    }, "image/jpeg", 0.9);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col items-center justify-center bg-background/95 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-border bg-card p-5 text-center">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="flex items-center gap-2 font-semibold"><IdCard className="size-5 text-primary" />Foto com documento</p>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar"><X className="size-5" /></Button>
+        </div>
+        <div className="relative mx-auto aspect-[4/3] w-full overflow-hidden rounded-2xl border-2 border-primary/40 bg-black">
+          <video ref={video} playsInline muted className="size-full -scale-x-100 object-cover" />
+          {!pronta && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+              {erro ? <Camera className="size-10 text-muted-foreground" /> : <Loader2 className="size-9 animate-spin text-primary" />}
+            </div>
+          )}
+        </div>
+        {erro ? (
+          <>
+            <p className="mt-4 text-sm text-destructive">{erro}</p>
+            <Button className="mt-4 h-11 w-full" onClick={() => setTentativa((t) => t + 1)}>Tentar de novo</Button>
+          </>
+        ) : (
+          <>
+            <p className="mt-4 text-sm">Segure o documento aberto ao lado do rosto, com a data de nascimento legível.</p>
+            <Button className="mt-4 h-12 w-full text-base" disabled={!pronta} onClick={tirar}>
+              <Camera className="mr-2 size-5" /> Tirar foto
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
