@@ -272,6 +272,11 @@ A foto e a data de nascimento do documento precisam estar legíveis.|The photo a
 Lugar claro, sem óculos escuros ou boné.|Bright place, no sunglasses or cap.|Lugar iluminado, sin gafas de sol ni gorra.
 Só a equipe da Privora vê esta foto, apenas para confirmar que você tem 18 anos ou mais. Ela é apagada logo após a conferência.|Only the Privora team sees this photo, solely to confirm you are 18 or older. It is deleted right after the check.|Solo el equipo de Privora ve esta foto, únicamente para confirmar que tienes 18 años o más. Se borra justo después de la comprobación.
 Tirar ou escolher a foto|Take or choose a photo|Tomar o elegir la foto
+Abrir a câmera|Open the camera|Abrir la cámara
+Escolher uma foto do aparelho|Choose a photo from the device|Elegir una foto del dispositivo
+Tirar foto|Take photo|Tomar foto
+Segure o documento aberto ao lado do rosto, com a data de nascimento legível.|Hold the ID open next to your face, with the date of birth readable.|Sostén el documento abierto junto a tu rostro, con la fecha de nacimiento legible.
+Não foi possível abrir a câmera.|Could not open the camera.|No se pudo abrir la cámara.
 Recebido. Você é liberado assim que a conferência terminar.|Received. You will be cleared as soon as the check is done.|Recibido. Se te habilitará en cuanto termine la comprobación.
 Recebemos sua foto. A conferência é feita pela nossa equipe e você é liberado automaticamente assim que terminar.|We received your photo. Our team does the check and you are cleared automatically as soon as it is done.|Recibimos tu foto. Nuestro equipo hace la comprobación y se te habilita automáticamente al terminar.
 Verificar com selfie|Verify with a selfie|Verificar con selfie
