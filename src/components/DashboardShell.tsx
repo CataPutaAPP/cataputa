@@ -1,4 +1,5 @@
 import { LanguageSwitcher } from "@/lib/i18n";
+import { ThemeToggle } from "@/lib/theme";
 import { useEffect, type ReactNode } from "react";
 import { useNavigate, Link } from "@tanstack/react-router";
 import { LogOut, ShieldCheck } from "lucide-react";
@@ -70,6 +71,7 @@ export function DashboardShell({
           )}
           {user && <PlansButton audience={role} />}
           <LanguageSwitcher />
+          <ThemeToggle />
           <PreferencesButton />
           <HelpButton screen={role} />
           {user && <NotificationBell />}

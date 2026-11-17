@@ -20,21 +20,21 @@ export function MapBackground({ className = "" }: { className?: string }) {
   return (
     <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} aria-hidden="true">
       <svg className="h-full w-full" preserveAspectRatio="xMidYMid slice" viewBox="0 0 400 700">
-        <rect width="400" height="700" fill="#160a13" />
+        <rect width="400" height="700" style={{ fill: "var(--bgmap-base, #160a13)" }} />
 
         {/* quadras da cidade, levemente giradas */}
         <g transform="rotate(-9 200 350)">
           {QUADRAS.map(({ i, j }) => (
             <rect key={`${i}-${j}`} x={i * 56 - 80} y={j * 44 - 70} width="48" height="36" rx="5"
-              fill={(i + j) % 6 === 0 ? "#1c1a15" : "#22101f"} />
+              style={{ fill: (i + j) % 6 === 0 ? "var(--bgmap-b1, #1c1a15)" : "var(--bgmap-b2, #22101f)" }} />
           ))}
         </g>
 
         {/* rio e avenidas */}
-        <path d="M-20 610 C 90 560, 150 640, 250 600 S 380 520, 430 560" stroke="#161b2a" strokeWidth="30" fill="none" strokeLinecap="round" />
-        <path d="M-10 170 L130 205 L205 380 L410 455" stroke="#3a2233" strokeWidth="10" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M70 -10 L104 250 L250 520 L282 720" stroke="#33202e" strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M410 120 L250 232 L205 380" stroke="#33202e" strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M-20 610 C 90 560, 150 640, 250 600 S 380 520, 430 560" style={{ stroke: "var(--bgmap-water, #161b2a)" }} strokeWidth="30" fill="none" strokeLinecap="round" />
+        <path d="M-10 170 L130 205 L205 380 L410 455" style={{ stroke: "var(--bgmap-road, #3a2233)" }} strokeWidth="10" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M70 -10 L104 250 L250 520 L282 720" style={{ stroke: "var(--bgmap-road2, #33202e)" }} strokeWidth="7" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M410 120 L250 232 L205 380" style={{ stroke: "var(--bgmap-road2, #33202e)" }} strokeWidth="6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
 
         {/* rota até um local parceiro */}
         <path d="M205 380 L176 345 L150 318" stroke="#D8B890" strokeOpacity="0.55" strokeWidth="2.5" strokeDasharray="5 6" fill="none" strokeLinecap="round" />
@@ -68,7 +68,7 @@ export function MapBackground({ className = "" }: { className?: string }) {
 
         {/* você */}
         <circle cx="205" cy="380" r="16" fill="#D8B890" opacity="0.2" />
-        <circle cx="205" cy="380" r="7" fill="#D8B890" stroke="#160a13" strokeWidth="2" />
+        <circle cx="205" cy="380" r="7" fill="#D8B890" style={{ stroke: "var(--bgmap-base, #160a13)" }} strokeWidth="2" />
       </svg>
       <div className="absolute inset-0 bg-gradient-to-b from-background/55 via-background/15 to-background/90" />
     </div>
