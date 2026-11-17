@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SCRIPT_TEMA, useTema } from "@/lib/theme";
 import {
   Outlet,
   Link,
@@ -118,9 +119,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark">
+    <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body>
         {children}
@@ -132,12 +134,13 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const tema = useTema();
 
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Outlet />
-        <Toaster position="top-center" theme="dark"
+        <Toaster position="top-center" theme={tema}
           offset="calc(var(--header-h) + 8px)" mobileOffset="calc(var(--header-h) + 8px)" />
       </AuthProvider>
     </QueryClientProvider>

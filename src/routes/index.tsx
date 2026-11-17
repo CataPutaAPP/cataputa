@@ -1,6 +1,7 @@
 import { LiveStats } from "@/components/LiveStats";
 import { VERSAO } from "@/lib/version";
 import { useT, LanguageSwitcher } from "@/lib/i18n";
+import { ThemeToggle } from "@/lib/theme";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { MapBackground } from "@/components/MapBackground";
 import { Logo } from "@/components/Logo";
@@ -30,7 +31,7 @@ function Welcome() {
   return (
     <main className="relative flex min-h-dvh flex-col items-center justify-between overflow-hidden px-6 pb-[calc(3.5rem+env(safe-area-inset-bottom))] pt-[calc(3.5rem+env(safe-area-inset-top))]">
       <MapBackground />
-      <div className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-20"><LanguageSwitcher /></div>
+      <div className="absolute right-4 top-[calc(1rem+env(safe-area-inset-top))] z-20 flex items-center gap-1"><ThemeToggle /><LanguageSwitcher /></div>
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center">
         {/* véu atrás do texto: o mapa aparece em volta, sem atrapalhar a leitura */}

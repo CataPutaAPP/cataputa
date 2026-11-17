@@ -1,5 +1,6 @@
 import { VERSAO } from "@/lib/version";
 import { useT, LanguageSwitcher } from "@/lib/i18n";
+import { ThemeToggle } from "@/lib/theme";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
@@ -70,6 +71,7 @@ function Login() {
             </Link>
           </Button>
           <Logo size="sm" />
+          <ThemeToggle />
           <LanguageSwitcher />
         </div>
 

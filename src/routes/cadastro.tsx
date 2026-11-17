@@ -1,4 +1,5 @@
 import { LanguageSwitcher } from "@/lib/i18n";
+import { ThemeToggle } from "@/lib/theme";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -168,6 +169,7 @@ function Cadastro() {
             </Link>
           </Button>
           <Logo size="sm" />
+          <ThemeToggle />
           <LanguageSwitcher />
         </div>
 
