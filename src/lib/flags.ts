@@ -15,9 +15,9 @@ let pedido: Promise<Flags> | null = null;
 function buscar(): Promise<Flags> {
   if (!pedido) {
     pedido = Promise.resolve(supabase.rpc("app_flags")).then(({ data, error }) => {
-      // banco ainda sem as chaves: comporta-se como antes
+      // falhou a consulta ou banco sem as chaves: fica no modo mais contido (tudo desligado)
       const f: Flags = error || !data
-        ? { rooms: true, clinicStaff: true, pronto: true }
+        ? { rooms: false, clinicStaff: false, pronto: true }
         : { rooms: !!(data as { rooms?: boolean }).rooms, clinicStaff: !!(data as { clinic_staff?: boolean }).clinic_staff, pronto: true };
       guardado = f;
       return f;
