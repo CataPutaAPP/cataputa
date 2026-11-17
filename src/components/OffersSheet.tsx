@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { brl } from "@/lib/fees";
 import { getSubLabel, getLocalLabel, type ServiceType } from "@/lib/service-options";
 import { useServiceOptions } from "@/lib/options";
+import { buscarTraits, passaNosFiltros, etniaDisponivel, CAMPOS_TRAITS, type Traits, type CampoTrait } from "@/lib/traits";
 
 export interface NearbyOffer {
   offer_id: string; provider_id: string; provider_name: string | null; gender: string | null;
@@ -41,12 +42,20 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
   const [precoMax, setPrecoMax] = useState<number | null>(null);
   const [ordem, setOrdem] = useState("relevancia");
   const [faixa, setFaixa] = useState<{ minimo: number; maximo: number; total: number } | null>(null);
+  // características do anunciante (etnia, cabelo, corpo...): filtradas aqui, dentro do raio já buscado
+  const [traits, setTraits] = useState<Record<string, Traits>>({});
+  const [caract, setCaract] = useState<Partial<Record<CampoTrait, string[]>>>({});
+  const totalCaract = Object.values(caract).reduce((s, l) => s + (l?.length ?? 0), 0);
+  const alternaCaract = (campo: CampoTrait, v: string) => setCaract((a) => {
+    const atual = a[campo] ?? [];
+    return { ...a, [campo]: atual.includes(v) ? atual.filter((x) => x !== v) : [...atual, v] };
+  });
 
   const alterna = (lista: string[], set: (v: string[]) => void, v: string) =>
     set(lista.includes(v) ? lista.filter((x) => x !== v) : [...lista, v]);
 
   const filtrosAtivos =
-    generos.length + locais.length + flags.length + (precoMax ? 1 : 0) + (ordem !== "relevancia" ? 1 : 0);
+    generos.length + locais.length + flags.length + totalCaract + (precoMax ? 1 : 0) + (ordem !== "relevancia" ? 1 : 0);
 
   useEffect(() => {
     supabase.rpc("offers_price_range", { p_lat: lat, p_lng: lng, p_radius_km: radius })
@@ -66,9 +75,13 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
       p_order: ordem,
     });
     if (error) { console.error("nearby_offers", error); toast.error("Erro ao buscar ofertas."); setOffers([]); return; }
-    setOffers((data as NearbyOffer[]) ?? []);
+    const lista = (data as NearbyOffer[]) ?? [];
+    setOffers(lista);
+    buscarTraits(lista.map((o) => o.provider_id)).then((ts) => setTraits(Object.fromEntries(ts.map((t) => [t.id, t]))));
   }, [lat, lng, radius, tipo, generos, locais, flags, precoMax, ordem]);
   useEffect(() => { load(); }, [load]);
+
+  const visiveis = offers && totalCaract > 0 ? offers.filter((o) => passaNosFiltros(traits[o.provider_id], caract)) : offers;
 
   async function accept(o: NearbyOffer) {
     setAccepting(o.offer_id);
@@ -172,8 +185,27 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
               </div>
             </div>
 
+            {CAMPOS_TRAITS.map(({ campo, titulo }) => {
+              if (campo === "ethnicity" && !etniaDisponivel()) return null;
+              const lista = opcoes.atributos(campo);
+              if (lista.length === 0) return null;
+              return (
+                <div key={campo}>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase text-muted-foreground">{titulo}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lista.map((o) => (
+                      <button key={o.value} onClick={() => alternaCaract(campo, o.value)}
+                        className={`rounded-full border px-2.5 py-1 text-[11px] ${(caract[campo] ?? []).includes(o.value) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground"}`}>
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+
             {filtrosAtivos > 0 && (
-              <button onClick={() => { setGeneros([]); setLocais([]); setFlags([]); setPrecoMax(null); setOrdem("relevancia"); }}
+              <button onClick={() => { setGeneros([]); setLocais([]); setFlags([]); setCaract({}); setPrecoMax(null); setOrdem("relevancia"); }}
                 className="text-xs text-muted-foreground underline">
                 Limpar filtros
               </button>
@@ -182,9 +214,9 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
         )}
 
         <div className="flex-1 space-y-3 overflow-y-auto px-4 pb-8">
-          {!offers ? (
+          {!visiveis ? (
             <div className="flex justify-center py-10"><Loader2 className="size-7 animate-spin text-primary" /></div>
-          ) : offers.length === 0 ? (
+          ) : visiveis.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               <Inbox className="size-12 text-muted-foreground/40" />
               <p className="text-sm text-muted-foreground">
@@ -192,7 +224,7 @@ export function OffersSheet({ lat, lng, radius, onClose, onAccepted, onViewProfi
               </p>
               <p className="text-xs text-muted-foreground">Abra um chamado e os prestadores próximos enviam propostas.</p>
             </div>
-          ) : offers.map((o) => (
+          ) : visiveis.map((o) => (
             <article key={o.offer_id} className={`rounded-2xl border p-4 ${o.destaque ? "border-yellow-500/40 bg-yellow-500/5" : "border-border bg-card"}`}>
               <div className="flex items-start gap-3">
                 <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent"><Sparkles className="size-5" /></div>

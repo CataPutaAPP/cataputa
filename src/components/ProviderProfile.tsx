@@ -15,6 +15,7 @@ import { useMyPlan, featureLimit } from "@/lib/plans";
 import { ReportButton } from "@/components/ReportButton";
 import { ProviderReviews } from "@/components/ProviderReviews";
 import { ProviderVideoPlayer } from "@/components/ProviderVideo";
+import { ProviderTraits } from "@/components/ProviderAbout";
 import { serviceFlags, getSubLabel, type ServiceType } from "@/lib/service-options";
 import type { Profile } from "@/context/AuthContext";
 
@@ -146,8 +147,10 @@ export function ProviderProfileView({ providerId, onClose }: ProviderProfileView
             </div>
 
             {profile.bio && (
-              <p className="mt-3 text-sm text-muted-foreground">{profile.bio}</p>
+              <p className="mt-3 whitespace-pre-line text-sm text-muted-foreground">{profile.bio}</p>
             )}
+
+            <ProviderTraits providerId={providerId} />
 
             {profile.has_local && (
               <div className="mt-3 flex items-center gap-2 text-sm text-primary">
