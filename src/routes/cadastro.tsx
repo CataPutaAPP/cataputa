@@ -88,7 +88,7 @@ function Cadastro() {
 
   async function validate(): Promise<boolean> {
     const e: FormErrors = {};
-    if (form.full_name.trim().split(" ").length < 2) e.full_name = "Informe nome e sobrenome.";
+    if (form.full_name.trim().length < 2) e.full_name = "Informe como você quer aparecer.";
     if (!isValidCPF(form.cpf)) e.cpf = "CPF inválido.";
     if (!isValidPhone(form.phone)) e.phone = "Telefone incompleto.";
     if (!isValidEmail(form.email)) e.email = "E-mail inválido.";
@@ -230,8 +230,14 @@ function Cadastro() {
               <Badge className="bg-accent text-accent-foreground">{roleLabel[role]}</Badge>
             </div>
 
-            <Field label="Nome completo" htmlFor="full_name" error={errors.full_name}>
-              <Input id="full_name" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} placeholder="Maria Silva" />
+            <Field label="Nome de exibição" htmlFor="full_name" error={errors.full_name}>
+              <Input id="full_name" value={form.full_name} onChange={(e) => set("full_name", e.target.value)} maxLength={40}
+                placeholder={role === "parceiro" ? "Nome do estabelecimento" : "Como você quer aparecer"} />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {role === "parceiro"
+                  ? "É o nome que aparece no mapa."
+                  : "É o nome que os outros usuários veem. Pode ser apelido ou nome artístico — seu nome de registro não aparece no app."}
+              </p>
             </Field>
             <Field label="CPF" htmlFor="cpf" error={errors.cpf}>
               <Input id="cpf" value={form.cpf} inputMode="numeric" onChange={(e) => set("cpf", maskCPF(e.target.value))} placeholder="000.000.000-00" />
