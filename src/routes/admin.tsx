@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
   Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video, TrendingUp,
-  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save, IdCard,
+  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save, IdCard, ListChecks, Plus, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,7 +61,7 @@ function AdminContent() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<
     "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "equipes" | "idades" | "excluidas" |
-    "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda"
+    "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda" | "catalogo"
   >("resumo");
   const [menuAberto, setMenuAberto] = useState(false);
   const [dash, setDash] = useState<Dash | null>(null);
@@ -117,6 +117,7 @@ function AdminContent() {
     {
       titulo: "Conteúdo",
       itens: [
+        { id: "catalogo", label: "Catálogo de serviços", icon: <ListChecks className="size-4" /> },
         { id: "legais", label: "Termos e privacidade", icon: <ScrollText className="size-4" /> },
         { id: "ajuda", label: "Textos de ajuda", icon: <HelpCircle className="size-4" /> },
       ],
@@ -209,6 +210,7 @@ function AdminContent() {
           {tab === "campanhas" && <Campanhas />}
           {tab === "legais" && <Legais />}
           {tab === "ajuda" && <Ajuda />}
+          {tab === "catalogo" && <Catalogo />}
         </div>
       </main>
     </div>
@@ -232,8 +234,9 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_rooms", "feature_clinic_staff"]);
-    setSettings((data as Setting[]) ?? []);
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_rooms", "feature_clinic_staff"]);
+    const ordem = ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_rooms", "feature_clinic_staff"];
+    setSettings(((data as Setting[]) ?? []).sort((a, b) => ordem.indexOf(a.key) - ordem.indexOf(b.key)));
   }, []);
   useEffect(() => { load(); }, [load]);
 
@@ -249,6 +252,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     beta_all_features: "Beta: todos com recursos do plano mais alto",
     verification_required: "Exigir verificação de idade para usar o app",
     sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
+    feature_requests: "Chamados (desligado: cliente só vê ofertas e perfis, sem abrir pedido)",
     feature_rooms: "Reserva de quartos pelo app (desligado: motel e hotel só como vitrine no mapa)",
     feature_clinic_staff: "Clínicas com equipe e agenda (desligado: clínica só como vitrine no mapa)",
   };
@@ -1084,6 +1088,121 @@ function Campanhas() {
             </Button>
           </div>
         ))}
+    </div>
+  );
+}
+
+/* ─── Catálogo de serviços ──────────────────────────────────────────── */
+interface ItemCatalogo { id: string; grupo: string; aplica_a: string | null; value: string; label: string; sort_order: number; is_active: boolean }
+
+const GRUPOS_CATALOGO: { grupo: string; titulo: string; ajuda: string }[] = [
+  { grupo: "tipo_servico", titulo: "Tipos de atendimento", ajuda: "O que aparece em “Ofertar” e “Solicitar”." },
+  { grupo: "pratica", titulo: "Práticas", ajuda: "Itens que o anunciante marca e o cliente usa como filtro." },
+  { grupo: "estilo_massagem", titulo: "Estilos de massagem", ajuda: "" },
+  { grupo: "duracao", titulo: "Durações", ajuda: "" },
+  { grupo: "genero", titulo: "Quem atende", ajuda: "" },
+  { grupo: "publico", titulo: "Público atendido", ajuda: "" },
+  { grupo: "atributo", titulo: "Atributos do perfil", ajuda: "Cabelo, corpo, idiomas e faixa de idade." },
+];
+
+function Catalogo() {
+  const [itens, setItens] = useState<ItemCatalogo[] | null>(null);
+  const [erro, setErro] = useState("");
+  const [editando, setEditando] = useState<{ id: string; label: string } | null>(null);
+  const [novo, setNovo] = useState<{ grupo: string; label: string } | null>(null);
+  const [ocupado, setOcupado] = useState("");
+
+  const carregar = useCallback(async () => {
+    const { data, error } = await supabase.rpc("admin_catalog_list");
+    if (error) { setErro(error.message); setItens([]); return; }
+    setErro(""); setItens((data as ItemCatalogo[]) ?? []);
+  }, []);
+  useEffect(() => { carregar(); }, [carregar]);
+
+  async function alternar(i: ItemCatalogo) {
+    setOcupado(i.id);
+    const { error } = await supabase.rpc("admin_catalog_set", { p_id: i.id, p_active: !i.is_active, p_label: null });
+    setOcupado("");
+    if (error) return toast.error(error.message);
+    toast.success(i.is_active ? `“${i.label}” desligado.` : `“${i.label}” ligado.`);
+    carregar();
+  }
+  async function salvarNome() {
+    if (!editando || !editando.label.trim()) return;
+    const atual = itens?.find((x) => x.id === editando.id);
+    const { error } = await supabase.rpc("admin_catalog_set", { p_id: editando.id, p_active: atual?.is_active ?? true, p_label: editando.label.trim() });
+    if (error) return toast.error(error.message);
+    setEditando(null); toast.success("Nome salvo."); carregar();
+  }
+  async function adicionar() {
+    if (!novo || !novo.label.trim()) return;
+    const { error } = await supabase.rpc("admin_catalog_add", { p_grupo: novo.grupo, p_label: novo.label.trim() });
+    if (error) return toast.error(error.message);
+    setNovo(null); toast.success("Item criado."); carregar();
+  }
+
+  if (itens === null) return <Center><Loader2 className="size-7 animate-spin text-primary" /></Center>;
+  if (erro) return (
+    <div className="rounded-2xl border border-border bg-card p-4 text-sm">
+      <p className="font-semibold">Catálogo ainda não disponível</p>
+      <p className="mt-1 text-muted-foreground">Rode o SQL desta etapa no Supabase e atualize a página. Detalhe: {erro}</p>
+    </div>
+  );
+
+  const rotuloAplica: Record<string, string> = { hair: "Cabelo", body_type: "Corpo", languages: "Idiomas", age_range: "Faixa de idade", massagem: "" };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Ligue e desligue o que aparece para clientes e anunciantes. Um item desligado some das telas na hora, sem apagar nada do que já foi cadastrado.
+      </p>
+      {GRUPOS_CATALOGO.map((g) => {
+        const doGrupo = itens.filter((i) => i.grupo === g.grupo).sort((a, b) => (a.aplica_a ?? "").localeCompare(b.aplica_a ?? "") || a.sort_order - b.sort_order);
+        const ativos = doGrupo.filter((i) => i.is_active).length;
+        return (
+          <section key={g.grupo} className="rounded-2xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">{g.titulo} <span className="text-xs font-normal text-muted-foreground">· {ativos} de {doGrupo.length} ligados</span></p>
+                {g.ajuda && <p className="text-[11px] text-muted-foreground">{g.ajuda}</p>}
+              </div>
+              {g.grupo !== "atributo" && (
+                <Button size="sm" variant="secondary" onClick={() => setNovo({ grupo: g.grupo, label: "" })}><Plus className="mr-1 size-4" /> Novo</Button>
+              )}
+            </div>
+            {novo?.grupo === g.grupo && (
+              <div className="mb-3 flex gap-2">
+                <Input autoFocus placeholder="Nome do novo item" value={novo.label} onChange={(e) => setNovo({ grupo: g.grupo, label: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === "Enter") adicionar(); }} />
+                <Button size="sm" onClick={adicionar}>Criar</Button>
+                <Button size="sm" variant="ghost" onClick={() => setNovo(null)}><X className="size-4" /></Button>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              {doGrupo.map((i) => (
+                <div key={i.id} className={`flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2 ${i.is_active ? "" : "opacity-60"}`}>
+                  {editando?.id === i.id ? (
+                    <div className="flex min-w-0 flex-1 gap-2">
+                      <Input autoFocus value={editando.label} onChange={(e) => setEditando({ id: i.id, label: e.target.value })}
+                        onKeyDown={(e) => { if (e.key === "Enter") salvarNome(); if (e.key === "Escape") setEditando(null); }} />
+                      <Button size="sm" onClick={salvarNome}><Save className="size-4" /></Button>
+                    </div>
+                  ) : (
+                    <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => setEditando({ id: i.id, label: i.label })} title="Mudar o nome">
+                      <span className="truncate text-sm">{i.label}</span>
+                      {i.aplica_a && rotuloAplica[i.aplica_a] ? <Badge variant="secondary" className="text-[10px]">{rotuloAplica[i.aplica_a]}</Badge> : null}
+                      <Pencil className="size-3 shrink-0 text-muted-foreground" />
+                    </button>
+                  )}
+                  <Button size="sm" variant={i.is_active ? "default" : "secondary"} disabled={ocupado === i.id} onClick={() => alternar(i)}>
+                    {i.is_active ? "Ligado" : "Desligado"}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

@@ -35,6 +35,7 @@ import { ProviderStats } from "@/components/ProviderStats";
 import { ProviderVideoManager } from "@/components/ProviderVideo";
 import { HistorySheet } from "@/components/HistorySheet";
 import { useMyPlan } from "@/lib/plans";
+import { useFlags } from "@/lib/flags";
 import { useRealtime } from "@/lib/realtime";
 import { useServiceOptions } from "@/lib/options";
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,7 @@ function PrestadorDashboard() {
 
 function PrestadorContent() {
   const { user, updateLocation } = useAuth();
+  const flags = useFlags();
 
   const [coords, setCoords] = useState<MapCoords | null>(null);
   const [view, setView] = useState<"map" | "offer" | "details" | "match" | "perfil">("map");
@@ -288,6 +290,8 @@ function PrestadorContent() {
   // Fetch nearby requests
   const fetchRequests = useCallback(async () => {
     if (!coords) return;
+    // chamados desligados no Admin: não busca nem mostra pedidos de clientes
+    if (!flags.requests) { setRequests([]); setLoadingRequests(false); return; }
     setLoadingRequests(true);
 
     const { data, error } = await supabase.rpc("nearby_requests", {
@@ -300,7 +304,7 @@ function PrestadorContent() {
       setRequests(data as NearbyRequest[]);
     }
     setLoadingRequests(false);
-  }, [coords, radius]);
+  }, [coords, radius, flags.requests]);
 
   // Fetch my proposals
   const fetchMyProposals = useCallback(async () => {
@@ -583,7 +587,7 @@ function PrestadorContent() {
       </div>
 
       {/* ── Request count badge ────────────────────────────────── */}
-      {view === "map" && available && (
+      {view === "map" && available && flags.requests && (
         <div className={`fixed left-4 z-20 ${needsPhotos ? "top-[calc(var(--header-h)+8.5rem)]" : "top-[calc(var(--header-h)+4.25rem)]"}`}>
           <Badge variant="secondary" className="backdrop-blur-md">
             {loadingRequests ? <Loader2 className="mr-1 size-3 animate-spin" /> : <MapPin className="mr-1 size-3" />}

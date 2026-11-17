@@ -753,9 +753,11 @@ function ClienteContent() {
             </button>
           )}
           <div className="fixed inset-x-0 bottom-[calc(1.5rem+env(safe-area-inset-bottom))] z-30 flex items-center justify-center gap-2 px-4">
-            <Button size="lg" onClick={() => setView("request")} className="h-14 rounded-full px-6 text-base shadow-glow">
-              <Plus className="mr-1 size-5" /> Solicitar
-            </Button>
+            {flags.requests && (
+              <Button size="lg" onClick={() => setView("request")} className="h-14 rounded-full px-6 text-base shadow-glow">
+                <Plus className="mr-1 size-5" /> Solicitar
+              </Button>
+            )}
             <Button size="lg" variant="secondary" onClick={() => setShowOffers(true)} className="h-14 rounded-full px-6 text-base">
               <Sparkles className="mr-1 size-5" /> Ver ofertas{mapOffers.length > 0 ? ` (${mapOffers.length})` : ""}
             </Button>
