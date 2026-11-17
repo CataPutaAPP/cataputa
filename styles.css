@@ -1,0 +1,324 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ring-offset-background: var(--background);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Privora Private Club — Tipografia
+     Fraunces para títulos (serifada, editorial) · Manrope para interface */
+  --font-display: "Fraunces", "Goudy Old Style", Georgia, serif;
+  --font-sans: "Manrope", "Montserrat", ui-sans-serif, system-ui, sans-serif;
+
+  /* Privora — Sombras (brilho discreto em latão) */
+  --shadow-glow: 0 18px 60px -18px rgba(216, 184, 144, 0.35);
+  --shadow-panel: 0 24px 60px -30px rgba(20, 8, 17, 0.9);
+}
+
+:root {
+  --radius: 0.875rem;
+
+  /* Privora Private Club — paleta oficial
+     Deep Plum      #3F1D36   (60% — base)
+     Brass          #D8B890   (10% — detalhe nobre)
+     Antique Rose   #B17078   (30% — apoio)
+     Ivory          #F6EDDE   (texto sobre fundo escuro)
+     Graphite       #4C5051   (neutros)
+     Proporção de uso 60/30/10, conforme o manual. */
+
+  --background: #1E0E1A;
+  --foreground: #F6EDDE;
+
+  --card: #2A1425;
+  --card-foreground: #F6EDDE;
+
+  --popover: #2A1425;
+  --popover-foreground: #F6EDDE;
+
+  /* Primary = Brass/Champagne (o dourado do lacre) */
+  --primary: #D8B890;
+  --primary-foreground: #2A1425;
+
+  --secondary: #3F1D36;
+  --secondary-foreground: #F6EDDE;
+
+  --muted: #351830;
+  --muted-foreground: #C3AFBC;
+
+  /* Accent = Antique Rose */
+  --accent: #B17078;
+  --accent-foreground: #1E0E1A;
+
+  --destructive: #A83246;
+  --destructive-foreground: #F6EDDE;
+
+  --success: #6E8E6A;
+  --success-foreground: #1E0E1A;
+
+  --border: rgba(246, 237, 222, 0.12);
+  --input: rgba(246, 237, 222, 0.16);
+  --ring: #D8B890;
+
+  --chart-1: #D8B890;
+  --chart-2: #B17078;
+  --chart-3: #F6EDDE;
+  --chart-4: #4C5051;
+  --chart-5: #6E8E6A;
+
+  --sidebar: #161313;
+  --sidebar-foreground: #F0E6D2;
+  --sidebar-primary: #961A19;
+  --sidebar-primary-foreground: #F0E6D2;
+  --sidebar-accent: #2A2220;
+  --sidebar-accent-foreground: #F0E6D2;
+  --sidebar-border: rgba(240, 230, 210, 0.1);
+  --sidebar-ring: #961A19;
+
+  --map-base: #111010;
+  --map-line: #2A2220;
+  --map-road: #78533D;
+  --map-block: #1E1917;
+  --map-pulse: rgba(150, 26, 25, 0.25);
+
+  /* Layout — fonte única de medidas. Mude aqui e todas as telas acompanham. */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --header-h: calc(4rem + var(--safe-t));   /* altura do cabeçalho fixo */
+  --panel-w: 27.5rem;                        /* largura do painel lateral no desktop */
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* ── Tema claro (escolhido pelo usuário no botão sol/lua) ──────────────
+   Mesma paleta da marca, invertida: fundo Ivory, texto e destaque em Deep Plum. */
+html.light {
+  color-scheme: light;
+
+  --background: #F6EDDE;
+  --foreground: #2A1425;
+
+  --card: #FFFAF1;
+  --card-foreground: #2A1425;
+
+  --popover: #FFFAF1;
+  --popover-foreground: #2A1425;
+
+  --primary: #3F1D36;
+  --primary-foreground: #F6EDDE;
+
+  --secondary: #EADCC8;
+  --secondary-foreground: #2A1425;
+
+  --muted: #EFE3D0;
+  --muted-foreground: #6B5563;
+
+  --accent: #B17078;
+  --accent-foreground: #1E0E1A;
+
+  --destructive: #A83246;
+  --destructive-foreground: #F6EDDE;
+
+  --success: #4F7A4A;
+  --success-foreground: #F6EDDE;
+
+  --border: rgba(42, 20, 37, 0.14);
+  --input: rgba(42, 20, 37, 0.22);
+  --ring: #3F1D36;
+
+  --chart-1: #3F1D36;
+  --chart-2: #B17078;
+  --chart-3: #8A6A3E;
+  --chart-4: #4C5051;
+  --chart-5: #4F7A4A;
+
+  --map-base: #EDE3D3;
+  --map-line: #D9CBB6;
+  --map-road: #B9A088;
+  --map-block: #E4D8C5;
+  --map-pulse: rgba(63, 29, 54, 0.18);
+
+  /* mapa ilustrado das telas de entrada */
+  --bgmap-base: #EFE4D2;
+  --bgmap-b1: #E6D9C3;
+  --bgmap-b2: #EADFCB;
+  --bgmap-water: #C9D6E2;
+  --bgmap-road: #D2BFA6;
+  --bgmap-road2: #DCCBB4;
+
+  --shadow-glow: 0 18px 50px -20px rgba(63, 29, 54, 0.35);
+  --shadow-panel: 0 24px 60px -34px rgba(42, 20, 37, 0.45);
+}
+
+/* cores fixas pensadas para fundo escuro: versão legível no claro */
+html.light .text-green-400 { color: #2F7A3F; }
+html.light .text-yellow-400,
+html.light .text-yellow-500 { color: #9A6400; }
+html.light .fill-yellow-500 { fill: #C98A00; }
+html.light .text-red-400 { color: #B3261E; }
+
+/* mapa: no claro, o mapa aparece nas cores originais, só um pouco suavizado */
+html.light .sh-dark-tiles .leaflet-tile-pane { filter: saturate(0.7) sepia(0.12); }
+html.light .sh-dark-tiles .leaflet-container { background: #EDE3D3 !important; }
+html.light .dark-popup .leaflet-popup-content-wrapper {
+  background: #FFFAF1; color: #2A1425; border: 1px solid rgba(42, 20, 37, 0.18);
+  box-shadow: 0 8px 28px rgba(42, 20, 37, 0.25);
+}
+html.light .dark-popup .leaflet-popup-tip { background: #FFFAF1; border: 1px solid rgba(42, 20, 37, 0.18); }
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html,
+  body {
+    overscroll-behavior-y: none; /* sem "puxar para recarregar" no meio do atendimento */
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* iOS dá zoom em campo com fonte menor que 16px — trava a tela "ampliada" */
+  @media (max-width: 640px) {
+    input:not([data-grande]),
+    select,
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+    font-weight: 700;
+  }
+}
+
+@utility panel {
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-panel);
+}
+
+@utility text-gradient {
+  background: linear-gradient(
+    100deg,
+    #F0E6D2 10%,
+    #C4A77D 50%,
+    #961A19 90%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Layout responsivo ────────────────────────────────────────────────
+   Celular: painéis ocupam a tela / sobem de baixo.
+   Desktop (≥1024px): viram coluna à esquerda e o mapa continua visível. */
+
+@utility top-header {
+  top: var(--header-h);
+}
+
+@utility pt-header {
+  padding-top: calc(var(--header-h) + 1rem);
+}
+
+/* Tela cheia abaixo do cabeçalho (propostas, atendimento, histórico…) */
+@utility app-page {
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  @media (min-width: 1024px) {
+    right: auto;
+    width: var(--panel-w);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-panel);
+  }
+}
+
+/* Folha que sobe de baixo (nova solicitação, oferta, perfil…) */
+@utility app-sheet {
+  right: 0;
+  bottom: 0;
+  left: 0;
+  max-height: calc(100dvh - var(--header-h) - 0.5rem);
+  @media (min-width: 1024px) {
+    top: var(--header-h);
+    right: auto;
+    width: var(--panel-w);
+    max-height: none;
+  }
+}
+
+/* Cartões flutuantes acima dos botões de ação */
+@utility app-dock {
+  right: 1rem;
+  left: 1rem;
+  bottom: calc(6rem + var(--safe-b));
+  @media (min-width: 1024px) {
+    right: auto;
+    width: calc(var(--panel-w) - 2rem);
+  }
+}
+
+@utility app-dock-hi {
+  right: 1rem;
+  left: 1rem;
+  bottom: calc(7rem + var(--safe-b));
+}
