@@ -313,7 +313,22 @@ function PrestadorContent() {
       .order("created_at", { ascending: false })
       .limit(10);
 
-    if (data) setMyProposals(data as MyProposal[]);
+    if (!data) return;
+    let lista = data as MyProposal[];
+    // A proposta continua "aceita"/"pendente" no banco mesmo depois de o atendimento
+    // terminar. Confere a situação do pedido e tira da tela o que já acabou.
+    const ids = [...new Set(lista.map((p) => p.request_id))];
+    if (ids.length > 0) {
+      const { data: reqs } = await supabase.from("service_requests").select("id, status").in("id", ids);
+      const situacao = new Map((reqs ?? []).map((r) => [r.id as string, r.status as string]));
+      lista = lista.filter((p) => {
+        const st = situacao.get(p.request_id);
+        if (!st) return true; // pedido não visível: mantém como estava
+        if (p.status === "aceita") return !["concluida", "cancelada"].includes(st);
+        return ["aberta", "com_propostas"].includes(st);
+      });
+    }
+    setMyProposals(lista);
   }, [user]);
 
   // Fetch active service (where I'm the accepted provider)
