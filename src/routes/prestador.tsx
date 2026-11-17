@@ -33,6 +33,7 @@ import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { CheckoutSheet, type CheckoutItem } from "@/components/CheckoutSheet";
 import { ProviderStats } from "@/components/ProviderStats";
 import { ProviderVideoManager } from "@/components/ProviderVideo";
+import { ProviderAboutEditor } from "@/components/ProviderAbout";
 import { HistorySheet } from "@/components/HistorySheet";
 import { useMyPlan } from "@/lib/plans";
 import { useFlags } from "@/lib/flags";
@@ -849,6 +850,10 @@ function PrestadorContent() {
           )}
 
           <PhotoManager userId={user.id} onDone={fetchPhotoCount} />
+
+          <div className="mt-5">
+            <ProviderAboutEditor userId={user.id} />
+          </div>
 
           <div className="mt-5">
             <ProviderVideoManager userId={user.id} />

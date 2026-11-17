@@ -1103,7 +1103,7 @@ const GRUPOS_CATALOGO: { grupo: string; titulo: string; ajuda: string }[] = [
   { grupo: "duracao", titulo: "Durações", ajuda: "" },
   { grupo: "genero", titulo: "Quem atende", ajuda: "" },
   { grupo: "publico", titulo: "Público atendido", ajuda: "" },
-  { grupo: "atributo", titulo: "Atributos do perfil", ajuda: "Cabelo, corpo, idiomas e faixa de idade." },
+  { grupo: "atributo", titulo: "Atributos do perfil", ajuda: "Etnia, cabelo, corpo, idiomas e faixa de idade. Viram filtro na busca." },
 ];
 
 function Catalogo() {
@@ -1150,7 +1150,7 @@ function Catalogo() {
     </div>
   );
 
-  const rotuloAplica: Record<string, string> = { hair: "Cabelo", body_type: "Corpo", languages: "Idiomas", age_range: "Faixa de idade", massagem: "" };
+  const rotuloAplica: Record<string, string> = { ethnicity: "Etnia", hair: "Cabelo", body_type: "Corpo", languages: "Idiomas", age_range: "Faixa de idade", massagem: "" };
 
   return (
     <div className="space-y-4">
