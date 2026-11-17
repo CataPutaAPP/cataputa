@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { SCRIPT_TEMA, useTema } from "@/lib/theme";
+import { SCRIPT_TEMA, CSS_TEMA_CLARO, useTema } from "@/lib/theme";
 import {
   Outlet,
   Link,
@@ -122,6 +122,7 @@ function RootShell({ children }: { children: ReactNode }) {
     <html lang="pt-BR" className="dark" suppressHydrationWarning>
       <head>
         <HeadContent />
+        <style dangerouslySetInnerHTML={{ __html: CSS_TEMA_CLARO }} />
         <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA }} />
       </head>
       <body>
