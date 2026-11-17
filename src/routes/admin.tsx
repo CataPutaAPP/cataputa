@@ -234,8 +234,8 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
   const [settings, setSettings] = useState<Setting[]>([]);
   const load = useCallback(async () => {
     const { data } = await supabase.from("platform_settings").select("key, value, description")
-      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_rooms", "feature_clinic_staff"]);
-    const ordem = ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_rooms", "feature_clinic_staff"];
+      .in("key", ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"]);
+    const ordem = ["billing_enabled", "beta_all_features", "verification_required", "sanctions_enabled", "feature_requests", "feature_shorts", "feature_rooms", "feature_clinic_staff"];
     setSettings(((data as Setting[]) ?? []).sort((a, b) => ordem.indexOf(a.key) - ordem.indexOf(b.key)));
   }, []);
   useEffect(() => { load(); }, [load]);
@@ -253,6 +253,7 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
     verification_required: "Exigir verificação de idade para usar o app",
     sanctions_enabled: "Suspensão automática por nota baixa e cancelamentos",
     feature_requests: "Chamados (desligado: cliente só vê ofertas e perfis, sem abrir pedido)",
+    feature_shorts: "Vídeos curtos (feed com o vídeo de apresentação dos anunciantes)",
     feature_rooms: "Reserva de quartos pelo app (desligado: motel e hotel só como vitrine no mapa)",
     feature_clinic_staff: "Clínicas com equipe e agenda (desligado: clínica só como vitrine no mapa)",
   };

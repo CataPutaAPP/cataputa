@@ -5,7 +5,7 @@ import { PartnerSheet } from "@/components/PartnerSheet";
 import { useFlags } from "@/lib/flags";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart,
+import { MapPin, Plus, X, Navigation, Radar, Sparkles, Eye, Check, Loader2, Star, Home, Users, Clock, Inbox, Bell, Car, Building2, MessageCircle, History, Heart, Clapperboard,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +17,7 @@ import { RoomPicker, type NearbyRoom } from "@/components/RoomPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { OffersSheet } from "@/components/OffersSheet";
 import { RadarSheet } from "@/components/RadarSheet";
+import { ShortsFeed } from "@/components/ShortsFeed";
 import { HistorySheet } from "@/components/HistorySheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -155,6 +156,7 @@ function ClienteContent() {
     return () => clearInterval(t);
   }, [fetchMapOffers]);
   const [showRadar, setShowRadar] = useState(false);
+  const [showShorts, setShowShorts] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [cancelandoId, setCancelandoId] = useState<string | null>(null);
 
@@ -761,6 +763,12 @@ function ClienteContent() {
             <Button size="lg" variant="secondary" onClick={() => setShowOffers(true)} className="h-14 rounded-full px-6 text-base">
               <Sparkles className="mr-1 size-5" /> Ver ofertas{mapOffers.length > 0 ? ` (${mapOffers.length})` : ""}
             </Button>
+            {flags.shorts && (
+              <Button size="lg" variant="secondary" onClick={() => setShowShorts(true)} aria-label="Vídeos"
+                className="h-14 shrink-0 rounded-full px-4 text-base">
+                <Clapperboard className="size-5" /><span className="ml-1 hidden sm:inline">Vídeos</span>
+              </Button>
+            )}
           </div>
         </>
       )}
@@ -975,6 +983,16 @@ function ClienteContent() {
       )}
 
       {chatProposalId && <ChatPanel proposalId={chatProposalId} onClose={() => setChatProposalId(null)} />}
+
+      {/* Vídeos curtos: fica montado (só escondido) enquanto um perfil está aberto, para voltar no mesmo vídeo */}
+      {showShorts && (
+        <ShortsFeed
+          lat={coords?.lat ?? null} lng={coords?.lng ?? null}
+          oculto={!!viewingProfileId}
+          onClose={() => setShowShorts(false)}
+          onViewProfile={(id) => setViewingProfileId(id)}
+        />
+      )}
 
       {/* Provider profile overlay */}
       {viewingProfileId && (
