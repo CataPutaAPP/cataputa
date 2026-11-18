@@ -14,6 +14,7 @@ import { playNotificationSound } from "@/lib/notifications";
 import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "@/lib/service-options";
 import { brl } from "@/lib/fees";
 import { ReportButton } from "@/components/ReportButton";
+import { RouteCard } from "@/components/RouteCard";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { useRealtime } from "@/lib/realtime";
 import type { Profile } from "@/context/AuthContext";
@@ -111,12 +112,7 @@ function PartnerSpot({ bookingId }: { bookingId: string }) {
       {info.status === "cancelada" && (
         <p className="mt-2 text-xs font-medium text-destructive">Esta reserva foi desfeita pelo local. Combinem outro ponto pelo chat.</p>
       )}
-      {info.lat && info.lng && (
-        <a className="mt-3 block text-sm font-medium text-primary underline"
-          href={`https://www.google.com/maps/dir/?api=1&destination=${info.lat},${info.lng}`} target="_blank" rel="noreferrer">
-          Abrir rota no Google Maps →
-        </a>
-      )}
+      {info.lat && info.lng && <RouteCard destino={{ lat: info.lat, lng: info.lng }} />}
       <p className="mt-2 text-[11px] text-muted-foreground">O quarto é pago direto no estabelecimento.</p>
     </div>
   );
@@ -433,11 +429,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         <div className="mb-5 rounded-2xl border border-border bg-card p-4">
           <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
           {service.meeting_lat && service.meeting_lng ? (
-            <a className="mt-2 block text-sm font-medium text-primary underline"
-              href={`https://www.google.com/maps/dir/?api=1&destination=${service.meeting_lat},${service.meeting_lng}`}
-              target="_blank" rel="noreferrer">
-              Abrir rota no Google Maps →
-            </a>
+            <RouteCard destino={{ lat: service.meeting_lat, lng: service.meeting_lng }} requestId={service.id} otherName={otherName} />
           ) : (
             <p className="mt-1 text-xs text-muted-foreground">
               {isClient && providerSetsPoint ? "O prestador vai enviar a localização exata." : "Ponto ainda não definido."}
