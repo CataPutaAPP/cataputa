@@ -38,6 +38,7 @@ export interface ActiveService {
   accepted_provider_id: string | null;
   accepted_proposal_id: string | null;
   provider_en_route_at: string | null;
+  client_en_route_at?: string | null;
   provider_arrived_at: string | null;
   client_arrived_at: string | null;
   started_at: string | null;
@@ -66,7 +67,7 @@ interface MatchViewProps {
 
 /* ─── Local do parceiro: endereço, quarto e código da reserva ─────── */
 
-function PartnerSpot({ bookingId }: { bookingId: string }) {
+function PartnerSpot({ bookingId, requestId, otherName, viajo, outroViaja }: { bookingId: string; requestId: string; otherName: string; viajo: boolean; outroViaja: boolean }) {
   const [info, setInfo] = useState<{
     nome: string | null; endereco: string | null; tipo: string | null; lat: number | null; lng: number | null;
     quarto: string | null; status: string;
@@ -112,7 +113,7 @@ function PartnerSpot({ bookingId }: { bookingId: string }) {
       {info.status === "cancelada" && (
         <p className="mt-2 text-xs font-medium text-destructive">Esta reserva foi desfeita pelo local. Combinem outro ponto pelo chat.</p>
       )}
-      {info.lat && info.lng && <RouteCard destino={{ lat: info.lat, lng: info.lng }} />}
+      {info.lat && info.lng && <RouteCard destino={{ lat: info.lat, lng: info.lng }} requestId={requestId} otherName={otherName} viajo={viajo} outroViaja={outroViaja} />}
       <p className="mt-2 text-[11px] text-muted-foreground">O quarto é pago direto no estabelecimento.</p>
     </div>
   );
@@ -223,6 +224,27 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
     await callRpc("provider_arrived", { p_request_id: service.id, p_provider_id: userId }, "Você sinalizou que chegou!");
   }
 
+  // ─── Quem se desloca até o ponto ───
+  const clientTravels = ["local_atendente", "carro", "parceiro"].includes(service.local_option);
+  const providerTravels = ["local_cliente", "parceiro"].includes(service.local_option);
+
+  async function handleClientEnRoute() {
+    await callRpc("meet_update", { p_request_id: service.id, p_step: "cliente_a_caminho" }, "Você sinalizou que está a caminho!");
+  }
+  async function handleProviderReady() {
+    // no local de quem atende: o ponto de encontro é a posição atual, se ainda não foi enviado
+    if (providerSetsPoint && !service.meeting_lat && navigator.geolocation) {
+      await new Promise<void>((ok) => navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          await supabase.rpc("set_meeting_point", { p_request_id: service.id, p_lat: pos.coords.latitude, p_lng: pos.coords.longitude });
+          ok();
+        },
+        () => ok(), { enableHighAccuracy: true, timeout: 15000 },
+      ));
+    }
+    await callRpc("meet_update", { p_request_id: service.id, p_step: "prestador_pronto" }, "Pronto! O cliente foi avisado.");
+  }
+
   // ─── Client actions ───
   async function handleClientArrived() {
     await callRpc("client_arrived", { p_request_id: service.id, p_client_id: userId }, "Presença confirmada!");
@@ -272,6 +294,7 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   };
 
   const providerIsOnWay = !!service.provider_en_route_at;
+  const clientIsOnWay = !!service.client_en_route_at;
   const providerHere = !!service.provider_arrived_at;
   const clientHere = !!service.client_arrived_at;
   const bothHere = providerHere && clientHere;
@@ -389,18 +412,65 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
         </div>
       </div>
 
+      {/* Local do parceiro (quando o atendimento é em quarto reservado) */}
+      {service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && (
+        <PartnerSpot bookingId={service.room_booking_id} requestId={service.id} otherName={otherName} viajo={isClient ? clientTravels : providerTravels} outroViaja={isClient ? providerTravels : clientTravels} />
+      )}
+
+      {/* Ponto de encontro */}
+      {!service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
+        <div className="mb-5 rounded-2xl border border-border bg-card p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
+          {service.meeting_lat && service.meeting_lng ? (
+            <RouteCard destino={{ lat: service.meeting_lat, lng: service.meeting_lng }} requestId={service.id} otherName={otherName}
+              viajo={isClient ? clientTravels : providerTravels} outroViaja={isClient ? providerTravels : clientTravels} />
+          ) : (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isClient && providerSetsPoint ? "O prestador vai enviar a localização exata." : "Ponto ainda não definido."}
+            </p>
+          )}
+          {isProvider && providerSetsPoint && (
+            <Button variant="secondary" size="sm" className="mt-3 w-full" disabled={loading === "set_meeting_point"} onClick={handleSendMyLocation}>
+              {loading === "set_meeting_point" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Navigation className="mr-2 size-4" />}
+              {service.meeting_lat ? "Atualizar com minha localização atual" : "Enviar minha localização como ponto"}
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Status timeline */}
       <div className="mb-5 space-y-2">
         <StatusStep icon={<Check />} label="Proposta aceita" done time={service.created_at} />
-        <StatusStep icon={<Car />} label="Prestador a caminho"
-          done={providerIsOnWay} time={service.provider_en_route_at}
-          active={!providerIsOnWay && isProvider && service.status === "aceita"} />
-        <StatusStep icon={<MapPin />} label="Prestador chegou"
-          done={providerHere} time={service.provider_arrived_at}
-          active={providerIsOnWay && !providerHere && isProvider} />
-        <StatusStep icon={<Flag />} label="Cliente no local"
-          done={clientHere} time={service.client_arrived_at}
-          active={!clientHere && isClient && isActive} />
+        {!providerTravels && (
+          <StatusStep icon={<MapPin />} label="Prestador pronto para receber"
+            done={providerHere} time={service.provider_arrived_at}
+            active={!providerHere && isProvider && isActive} />
+        )}
+        {!clientTravels && (
+          <StatusStep icon={<Flag />} label="Cliente pronto para receber"
+            done={clientHere} time={service.client_arrived_at}
+            active={!clientHere && isClient && isActive} />
+        )}
+        {providerTravels && (
+          <>
+            <StatusStep icon={<Car />} label="Prestador a caminho"
+              done={providerIsOnWay} time={service.provider_en_route_at}
+              active={!providerIsOnWay && isProvider && service.status === "aceita"} />
+            <StatusStep icon={<MapPin />} label="Prestador chegou"
+              done={providerHere} time={service.provider_arrived_at}
+              active={providerIsOnWay && !providerHere && isProvider} />
+          </>
+        )}
+        {clientTravels && (
+          <>
+            <StatusStep icon={<Car />} label="Cliente a caminho"
+              done={clientIsOnWay || clientHere} time={service.client_en_route_at ?? null}
+              active={!clientIsOnWay && !clientHere && isClient && isActive} />
+            <StatusStep icon={<Flag />} label="Cliente chegou"
+              done={clientHere} time={service.client_arrived_at}
+              active={clientIsOnWay && !clientHere && isClient} />
+          </>
+        )}
         <StatusStep icon={<Play />} label="Atendimento iniciado"
           done={!!service.started_at} time={service.started_at}
           active={bothHere && !service.started_at && isClient} />
@@ -417,31 +487,6 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
       )}
       {chatOpen && service.accepted_proposal_id && (
         <ChatPanel proposalId={service.accepted_proposal_id} onClose={() => setChatOpen(false)} />
-      )}
-
-      {/* Local do parceiro (quando o atendimento é em quarto reservado) */}
-      {service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && (
-        <PartnerSpot bookingId={service.room_booking_id} />
-      )}
-
-      {/* Ponto de encontro */}
-      {!service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
-        <div className="mb-5 rounded-2xl border border-border bg-card p-4">
-          <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
-          {service.meeting_lat && service.meeting_lng ? (
-            <RouteCard destino={{ lat: service.meeting_lat, lng: service.meeting_lng }} requestId={service.id} otherName={otherName} />
-          ) : (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {isClient && providerSetsPoint ? "O prestador vai enviar a localização exata." : "Ponto ainda não definido."}
-            </p>
-          )}
-          {isProvider && providerSetsPoint && (
-            <Button variant="secondary" size="sm" className="mt-3 w-full" disabled={loading === "set_meeting_point"} onClick={handleSendMyLocation}>
-              {loading === "set_meeting_point" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Navigation className="mr-2 size-4" />}
-              {service.meeting_lat ? "Atualizar com minha localização atual" : "Enviar minha localização como ponto"}
-            </Button>
-          )}
-        </div>
       )}
 
       {/* Timer (em andamento) */}
@@ -483,27 +528,47 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
 
       {/* Action buttons — grudados no rodape para nunca cairem abaixo da dobra */}
       <div className="sticky bottom-0 -mx-4 space-y-3 border-t border-border/50 bg-background/95 px-4 pb-2 pt-3 backdrop-blur-md">
-        {/* Provider: estou a caminho */}
-        {isProvider && service.status === "aceita" && !providerIsOnWay && (
+        {/* Prestador que se desloca: a caminho → cheguei */}
+        {isProvider && providerTravels && service.status === "aceita" && !providerIsOnWay && (
           <Button className="h-13 w-full text-base" onClick={handleEnRoute} disabled={loading === "provider_en_route"}>
             {loading === "provider_en_route" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Car className="mr-2 size-5" />}
             Estou a caminho
           </Button>
         )}
-
-        {/* Provider: cheguei */}
-        {isProvider && providerIsOnWay && !providerHere && (
+        {isProvider && providerTravels && providerIsOnWay && !providerHere && (
           <Button className="h-13 w-full text-base" onClick={handleProviderArrived} disabled={loading === "provider_arrived"}>
             {loading === "provider_arrived" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <MapPin className="mr-2 size-5" />}
             Cheguei no local
           </Button>
         )}
 
-        {/* Client: estou no local */}
-        {isClient && isActive && !clientHere && !service.started_at && (
+        {/* Prestador que recebe no próprio local: pronto para receber */}
+        {isProvider && !providerTravels && isActive && !providerHere && !service.started_at && (
+          <Button className="h-13 w-full text-base" onClick={handleProviderReady} disabled={loading === "meet_update"}>
+            {loading === "meet_update" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <MapPin className="mr-2 size-5" />}
+            Estou pronto para receber
+          </Button>
+        )}
+
+        {/* Cliente que se desloca: a caminho → cheguei */}
+        {isClient && clientTravels && isActive && !clientIsOnWay && !clientHere && !service.started_at && (
+          <Button className="h-13 w-full text-base" onClick={handleClientEnRoute} disabled={loading === "meet_update"}>
+            {loading === "meet_update" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Car className="mr-2 size-5" />}
+            Estou a caminho
+          </Button>
+        )}
+        {isClient && clientTravels && isActive && clientIsOnWay && !clientHere && !service.started_at && (
           <Button className="h-13 w-full text-base" onClick={handleClientArrived} disabled={loading === "client_arrived"}>
             {loading === "client_arrived" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Flag className="mr-2 size-5" />}
-            Estou no local
+            Cheguei no local
+          </Button>
+        )}
+
+        {/* Cliente que recebe no próprio local: pronto para receber */}
+        {isClient && !clientTravels && isActive && !clientHere && !service.started_at && (
+          <Button className="h-13 w-full text-base" onClick={handleClientArrived} disabled={loading === "client_arrived"}>
+            {loading === "client_arrived" ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Flag className="mr-2 size-5" />}
+            Estou pronto para receber
           </Button>
         )}
 
@@ -525,19 +590,31 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
           </Button>
         )}
 
-        {/* Waiting hints */}
-        {isClient && !clientHere && providerIsOnWay && !providerHere && (
-          <p className="text-center text-sm text-muted-foreground">O prestador está a caminho...</p>
-        )}
-        {isClient && !clientHere && providerHere && (
-          <p className="animate-pulse text-center text-sm font-medium text-primary">O prestador já chegou! Confirme sua presença.</p>
-        )}
-        {isProvider && providerHere && !clientHere && (
-          <p className="text-center text-sm text-muted-foreground">Aguardando o cliente confirmar presença...</p>
-        )}
-        {isClient && bothHere && !service.started_at && (
-          <p className="animate-pulse text-center text-xs text-muted-foreground">Ambos estão no local. Toque acima para iniciar!</p>
-        )}
+        {/* Avisos de espera — dizem quem está a caminho e quem espera, conforme o local */}
+        {isActive && !service.started_at && (() => {
+          const outroViaja = isClient ? providerTravels : clientTravels;
+          const outroACaminho = isClient ? providerIsOnWay : clientIsOnWay;
+          const outroPronto = isClient ? providerHere : clientHere;
+          const euPronto = isClient ? clientHere : providerHere;
+          let aviso: string | null = null;
+          let destaque = false;
+          if (bothHere) {
+            aviso = isClient ? "Tudo pronto. Toque acima para iniciar!" : "Tudo pronto. Aguardando o cliente iniciar o atendimento.";
+            destaque = true;
+          } else if (outroPronto && !euPronto) {
+            destaque = true;
+            if (isClient) aviso = outroViaja ? "O prestador chegou! Confirme que está pronto para receber." : "O prestador está pronto para receber você.";
+            else aviso = outroViaja ? "O cliente chegou! Confirme que está pronto para receber." : "O cliente está pronto para receber você.";
+          } else if (outroViaja && outroACaminho && !outroPronto) {
+            aviso = isClient ? "O prestador está a caminho..." : "O cliente está a caminho...";
+          } else if (euPronto && !outroPronto) {
+            if (isClient) aviso = outroViaja ? "Aguardando o prestador chegar..." : "Aguardando o prestador confirmar que está pronto...";
+            else aviso = outroViaja ? "Aguardando o cliente chegar..." : "Aguardando o cliente confirmar que está pronto...";
+          }
+          return aviso ? (
+            <p className={`text-center text-sm ${destaque ? "animate-pulse font-medium text-primary" : "text-muted-foreground"}`}>{aviso}</p>
+          ) : null;
+        })()}
 
         {/* Cancel (always available before done) */}
         {isActive && (
