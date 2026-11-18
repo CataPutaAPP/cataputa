@@ -219,6 +219,7 @@ Calculando a rota…|Calculating the route…|Calculando la ruta…
 Navegar até o ponto|Navigate to the point|Navegar hasta el punto
 Tela cheia|Full screen|Pantalla completa
 Recentralizar|Recenter|Recentrar
+Voltar ao atendimento|Back to the service|Volver al servicio
 Abrir no Waze|Open in Waze|Abrir en Waze
 Acompanhando ao vivo|Tracking live|Siguiendo en vivo
 Ao vivo|Live|En vivo
