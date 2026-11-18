@@ -216,6 +216,35 @@ Atualizar com minha localização atual|Update with my current location|Actualiz
 Abrir rota no Google Maps →|Open route in Google Maps →|Abrir ruta en Google Maps →
 Traçar rota|Get directions|Trazar ruta
 Calculando a rota…|Calculating the route…|Calculando la ruta…
+Navegar até o ponto|Navigate to the point|Navegar hasta el punto
+Tela cheia|Full screen|Pantalla completa
+Recentralizar|Recenter|Recentrar
+Abrir no Waze|Open in Waze|Abrir en Waze
+Acompanhando ao vivo|Tracking live|Siguiendo en vivo
+Ao vivo|Live|En vivo
+Ao vivo — aguardando o sinal da outra pessoa|Live — waiting for the other person's signal|En vivo — esperando la señal de la otra persona
+Atualiza a cada 30 segundos|Updates every 30 seconds|Se actualiza cada 30 segundos
+Você chegou ao ponto de encontro|You have reached the meeting point|Llegaste al punto de encuentro
+Cliente a caminho|Client on the way|Cliente en camino
+Cliente chegou|Client has arrived|El cliente llegó
+Prestador pronto para receber|Provider ready to receive|Proveedor listo para recibir
+Cliente pronto para receber|Client ready to receive|Cliente listo para recibir
+Estou a caminho|I'm on my way|Estoy en camino
+Cheguei no local|I've arrived|Ya llegué
+Estou pronto para receber|I'm ready to receive|Estoy listo para recibir
+Você sinalizou que está a caminho!|You marked that you are on the way!|¡Indicaste que estás en camino!
+Pronto! O cliente foi avisado.|Done! The client has been notified.|¡Listo! Se avisó al cliente.
+Tudo pronto. Toque acima para iniciar!|All set. Tap above to start!|Todo listo. ¡Toca arriba para iniciar!
+Tudo pronto. Aguardando o cliente iniciar o atendimento.|All set. Waiting for the client to start the service.|Todo listo. Esperando a que el cliente inicie el servicio.
+O prestador chegou! Confirme que está pronto para receber.|The provider has arrived! Confirm you are ready to receive.|¡El proveedor llegó! Confirma que estás listo para recibir.
+O prestador está pronto para receber você.|The provider is ready to receive you.|El proveedor está listo para recibirte.
+O cliente chegou! Confirme que está pronto para receber.|The client has arrived! Confirm you are ready to receive.|¡El cliente llegó! Confirma que estás listo para recibir.
+O cliente está pronto para receber você.|The client is ready to receive you.|El cliente está listo para recibirte.
+O cliente está a caminho...|The client is on the way...|El cliente está en camino...
+Aguardando o prestador chegar...|Waiting for the provider to arrive...|Esperando a que llegue el proveedor...
+Aguardando o prestador confirmar que está pronto...|Waiting for the provider to confirm they are ready...|Esperando a que el proveedor confirme que está listo...
+Aguardando o cliente chegar...|Waiting for the client to arrive...|Esperando a que llegue el cliente...
+Aguardando o cliente confirmar que está pronto...|Waiting for the client to confirm they are ready...|Esperando a que el cliente confirme que está listo...
 Você está no ponto de encontro|You are at the meeting point|Estás en el punto de encuentro
 Chegada|Arrival|Llegada
 Permita o acesso à localização para ver a rota.|Allow location access to see the route.|Permite el acceso a la ubicación para ver la ruta.
@@ -506,6 +535,10 @@ Este anunciante já está em um atendimento. Tente outro.|This advertiser is alr
  * $1, $2... repetem o que foi capturado.
  */
 export const MODELOS: Array<[RegExp, string, string]> = [
+  [/^Acompanhar (.+) no mapa$/, "Follow $1 on the map", "Seguir a $1 en el mapa"],
+  [/^Aguardando a localização de (.+)…$/, "Waiting for $1's location…", "Esperando la ubicación de $1…"],
+  [/^(.+) chegou ao ponto de encontro\.$/, "$1 has reached the meeting point.", "$1 llegó al punto de encuentro."],
+  [/^chega (\d{2}:\d{2})$/, "arrives $1", "llega $1"],
   [/^Nenhuma oferta em (\d+) km agora\.$/, "No offers within $1 km right now.", "No hay ofertas en $1 km ahora."],
   [/^Nenhum parceiro em (\d+) km ainda$/, "No partner venues within $1 km yet", "Aún no hay locales asociados en $1 km"],
   [/^Nenhum parceiro em (\d+) km$/, "No partner venues within $1 km", "No hay locales asociados en $1 km"],
