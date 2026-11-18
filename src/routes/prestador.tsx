@@ -150,8 +150,8 @@ function PrestadorContent() {
       return;
     }
     toast.success(novo
-      ? "Voce esta online. Aparece no radar dos clientes por perto."
-      : "Voce esta offline. Suas ofertas continuam publicadas.");
+      ? "Você está online e aparece no radar dos clientes por perto."
+      : "Você está offline. Suas ofertas continuam publicadas.");
   }, []);
 
   // Sinal de vida: 60s enquanto online. Tambem bate ao voltar para a aba,
@@ -794,7 +794,7 @@ function PrestadorContent() {
         <button onClick={() => setView("perfil")}
           className="fixed inset-x-4 top-[calc(var(--header-h)+4rem)] lg:right-auto lg:w-[26rem] z-20 rounded-xl border border-yellow-500/40 bg-card/95 p-3 text-left text-xs backdrop-blur">
           <span className="font-semibold text-yellow-400">Perfil incompleto:</span>{" "}
-          adicione pelo menos {MIN_PHOTOS} fotos ({photoCount}/{MIN_PHOTOS}) para enviar propostas e ofertas. Toque aqui →
+          {`adicione pelo menos ${MIN_PHOTOS} fotos (${photoCount}/${MIN_PHOTOS}) para enviar propostas e ofertas. Toque aqui →`}
         </button>
       )}
 

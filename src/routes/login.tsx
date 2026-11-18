@@ -114,7 +114,7 @@ function Login() {
             {t("login.signup")}
           </Link>
         </p>
-        <p className="mt-8 text-center text-[10px] text-muted-foreground/60">versão {VERSAO}</p>
+        <p className="mt-8 text-center text-[10px] text-muted-foreground/60">{`versão ${VERSAO}`}</p>
       </div>
     </main>
   );

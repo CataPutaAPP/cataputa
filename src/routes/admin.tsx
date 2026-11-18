@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ShieldAlert, Users, Flag, CreditCard, Settings, Ticket, Loader2, Search,
   Ban, CheckCircle2, MessageSquare, X, Power, RefreshCw, Video, TrendingUp,
-  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save, IdCard, ListChecks, Plus, Pencil,
+  Gauge, Gift, ScrollText, HelpCircle, UserMinus, Menu, Save, IdCard, ListChecks, Plus, Pencil, Megaphone, Activity, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +53,17 @@ const reasonLabel: Record<string, string> = {
   suspeita_menor: "🚨 Suspeita de menor", perfil_falso: "Perfil falso",
   violencia_ameaca: "Violência/ameaça", golpe: "Golpe", outro: "Outro",
 };
+const roleLabel: Record<string, string> = { cliente: "Cliente", prestador: "Anunciante", parceiro: "Parceiro (local)", admin: "Admin" };
+const verifLabel: Record<string, string> = {
+  aprovado: "Verificado", pendente: "Verificação pendente", em_analise: "Em análise", reprovado: "Reprovado", nao_iniciado: "Não verificado",
+};
+const statusServico: Record<string, string> = {
+  aberta: "Chamado aberto", com_propostas: "Com propostas", aceita: "Aceito", a_caminho: "A caminho",
+  em_andamento: "Em andamento", disputa: "Em disputa", concluida: "Concluído", cancelada: "Cancelado",
+};
+const localLabel: Record<string, string> = {
+  local_atendente: "no local do anunciante", local_cliente: "no local do cliente", carro: "no carro", parceiro: "em local parceiro",
+};
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
 /* ─── Tela ──────────────────────────────────────────────────────────── */
@@ -61,7 +72,7 @@ function AdminContent() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   const [tab, setTab] = useState<
     "resumo" | "denuncias" | "usuarios" | "funil" | "videos" | "equipes" | "idades" | "excluidas" |
-    "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda" | "catalogo"
+    "pagamentos" | "planos" | "campanhas" | "legais" | "ajuda" | "catalogo" | "atendimentos" | "avisos"
   >("resumo");
   const [menuAberto, setMenuAberto] = useState(false);
   const [dash, setDash] = useState<Dash | null>(null);
@@ -93,6 +104,13 @@ function AdminContent() {
       itens: [
         { id: "resumo", label: "Resumo", icon: <Gauge className="size-4" /> },
         { id: "funil", label: "Funil e saúde", icon: <TrendingUp className="size-4" /> },
+      ],
+    },
+    {
+      titulo: "Operação",
+      itens: [
+        { id: "atendimentos", label: "Atendimentos ativos", icon: <Activity className="size-4" /> },
+        { id: "avisos", label: "Enviar aviso", icon: <Megaphone className="size-4" /> },
       ],
     },
     {
@@ -152,9 +170,9 @@ function AdminContent() {
   );
 
   return (
-    <div className="min-h-dvh" style={{ background: "#1E0E1A" }}>
+    <div className="min-h-dvh bg-background" style={{ paddingTop: "var(--header-h)" }}>
       {/* Barra lateral fixa no desktop */}
-      <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-card/40 px-3 py-5 lg:flex">
+      <aside style={{ top: "var(--header-h)" }} className="fixed bottom-0 left-0 hidden w-60 flex-col border-r border-border bg-card/40 px-3 py-5 lg:flex">
         <div className="mb-6 flex items-center gap-2 px-3">
           <img src="/privora-selo.png" alt="" className="size-8 object-contain" />
           <div>
@@ -211,6 +229,8 @@ function AdminContent() {
           {tab === "legais" && <Legais />}
           {tab === "ajuda" && <Ajuda />}
           {tab === "catalogo" && <Catalogo />}
+          {tab === "atendimentos" && <Atendimentos onChange={loadDash} />}
+          {tab === "avisos" && <Avisos />}
         </div>
       </main>
     </div>
@@ -218,7 +238,7 @@ function AdminContent() {
 }
 
 function Center({ children }: { children: React.ReactNode }) {
-  return <main className="flex min-h-dvh flex-col items-center justify-center px-4 text-center" style={{ background: "#1E0E1A" }}>{children}</main>;
+  return <main className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 text-center">{children}</main>;
 }
 function Card({ label, value, alert = false }: { label: string; value: string | number; alert?: boolean }) {
   return (
@@ -271,6 +291,8 @@ function Resumo({ dash, onRefresh }: { dash: Dash | null; onRefresh: () => void 
         <Card label="Receita 30 dias" value={brl(dash?.receita_30d ?? 0)} />
         <Card label="Atendimentos 30 dias" value={`${dash?.concluidos_30d ?? 0}/${dash?.atendimentos_30d ?? 0}`} />
       </div>
+
+      <ProntoParaLancar settings={settings} />
 
       <section className="rounded-2xl border border-border bg-card p-4">
         <p className="mb-3 flex items-center gap-2 font-semibold"><Power className="size-4" /> Interruptores</p>
@@ -427,12 +449,13 @@ function Usuarios({ onChange }: { onChange: () => void }) {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="truncate font-semibold">{u.full_name}</p>
-                <p className="truncate text-xs text-muted-foreground">{u.email} · {u.role}</p>
+                <p className="truncate text-xs text-muted-foreground">{u.email} · {roleLabel[u.role] ?? u.role}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">
                 <Badge variant="secondary" className={`text-[10px] ${u.verification_status === "aprovado" ? "bg-green-500/20 text-green-400" : "bg-yellow-500/20 text-yellow-400"}`}>
-                  {u.verification_status}
+                  {verifLabel[u.verification_status] ?? u.verification_status}
                 </Badge>
+                {u.is_suspended && <Badge variant="secondary" className="bg-destructive/20 text-[10px] text-destructive">Suspenso</Badge>}
                 {u.denuncias > 0 && <Badge variant="secondary" className="bg-destructive/20 text-[10px] text-destructive">{u.denuncias} denúncia(s)</Badge>}
               </div>
             </div>
@@ -1207,5 +1230,200 @@ function Catalogo() {
         );
       })}
     </div>
+  );
+}
+
+/* ─── Checklist de lançamento (sem cobrança) ────────────────────────── */
+function ProntoParaLancar({ settings }: { settings: Setting[] }) {
+  const [vagas, setVagas] = useState<Record<string, { aberto: boolean; restantes: number | null } | null>>({});
+  useEffect(() => {
+    (["cliente", "prestador", "parceiro"] as const).forEach((r) => {
+      supabase.rpc("signup_slots", { p_role: r }).then(({ data, error }) => {
+        const d = (Array.isArray(data) ? data[0] : data) as { aberto?: boolean; restantes?: number | null } | null;
+        setVagas((v) => ({ ...v, [r]: error || !d ? null : { aberto: !!d.aberto, restantes: d.restantes ?? null } }));
+      });
+    });
+  }, []);
+  if (!settings.length) return null;
+  const val = (k: string) => Number(settings.find((s) => s.key === k)?.value ?? 0);
+  const itens: { ok: boolean; texto: string; dica: string }[] = [
+    { ok: val("billing_enabled") === 0, texto: "Cobrança desligada", dica: "No teste ninguém paga nada. Ligue só quando o gateway estiver homologado." },
+    { ok: val("beta_all_features") === 1, texto: "Beta liberado para todos", dica: "Sem cobrança, todos usam os recursos do plano mais alto." },
+    { ok: val("verification_required") === 1, texto: "Verificação de idade obrigatória", dica: "Obrigatório por lei (18+). Nunca desligue com usuários reais." },
+    { ok: val("sanctions_enabled") === 1, texto: "Suspensão automática ligada", dica: "Afasta quem acumula nota baixa ou cancelamentos." },
+    { ok: val("feature_rooms") === 0, texto: "Reserva de quartos desligada", dica: "Motel e hotel ficam só como vitrine até haver parceiros ativos." },
+    { ok: val("feature_clinic_staff") === 0, texto: "Agenda de clínicas desligada", dica: "Clínica fica só como vitrine até haver parceiros ativos." },
+  ];
+  const pendentes = itens.filter((i) => !i.ok).length;
+  return (
+    <section className={`rounded-2xl border p-4 ${pendentes ? "border-yellow-500/40 bg-yellow-500/5" : "border-green-500/40 bg-green-500/5"}`}>
+      <p className="mb-1 flex items-center gap-2 font-semibold">
+        {pendentes ? <AlertTriangle className="size-4 text-yellow-400" /> : <CheckCircle2 className="size-4 text-green-400" />}
+        {pendentes ? `Lançamento de teste: ${pendentes} ponto(s) para conferir` : "Pronto para o lançamento de teste"}
+      </p>
+      <p className="mb-3 text-[11px] text-muted-foreground">Configuração recomendada para rodar sem cobrança. Ajuste nos interruptores abaixo.</p>
+      <ul className="space-y-1.5">
+        {itens.map((i) => (
+          <li key={i.texto} className="flex gap-2 text-sm">
+            {i.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-400" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0 text-yellow-400" />}
+            <span><span className={i.ok ? "" : "font-medium"}>{i.texto}</span><span className="block text-[11px] text-muted-foreground">{i.dica}</span></span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {(["cliente", "prestador", "parceiro"] as const).map((r) => {
+          const v = vagas[r];
+          return (
+            <div key={r} className="rounded-xl border border-border bg-card p-2 text-center">
+              <p className="text-[10px] text-muted-foreground">Cadastro de {roleLabel[r].toLowerCase()}</p>
+              <p className="text-sm font-semibold">
+                {v === undefined ? "…" : v === null ? "—" : !v.aberto ? "Fechado" : v.restantes == null ? "Aberto" : `${v.restantes} vaga(s)`}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Atendimentos ativos (encerrar os travados) ────────────────────── */
+interface AtendimentoAtivo {
+  id: string; status: string; criado_em: string | null; iniciado_em: string | null; valor: number | null;
+  local: string | null; ponto: string | null; cliente: string; cliente_user: string | null;
+  prestador: string | null; prestador_user: string | null;
+}
+function Atendimentos({ onChange }: { onChange: () => void }) {
+  const [rows, setRows] = useState<AtendimentoAtivo[] | null>(null);
+  const [filtro, setFiltro] = useState<"andamento" | "abertos" | "todos">("andamento");
+  const [encerrando, setEncerrando] = useState<AtendimentoAtivo | null>(null);
+  const [motivo, setMotivo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(async () => {
+    setRows(null);
+    const { data, error } = await supabase.rpc("admin_active_services");
+    if (error) { toast.error(error.message.includes("admin_active_services") ? "Rode o SQL da etapa 23 no Supabase." : error.message); setRows([]); return; }
+    setRows((data as AtendimentoAtivo[]) ?? []);
+  }, []);
+  useEffect(() => { load(); }, [load]);
+
+  async function encerrar() {
+    if (!encerrando) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("admin_cancel_service", { p_request_id: encerrando.id, p_reason: motivo || null });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    toast.success("Atendimento encerrado. Os dois foram avisados e liberados.");
+    setEncerrando(null); setMotivo(""); load(); onChange();
+  }
+
+  const abertos = ["aberta", "com_propostas"];
+  const lista = (rows ?? []).filter((r) => filtro === "todos" || (filtro === "abertos" ? abertos.includes(r.status) : !abertos.includes(r.status)));
+  const horas = (d: string | null) => (d ? Math.round((Date.now() - new Date(d).getTime()) / 36e5) : 0);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {([["andamento", "Em atendimento"], ["abertos", "Chamados abertos"], ["todos", "Todos"]] as const).map(([k, l]) => (
+          <Button key={k} size="sm" variant={filtro === k ? "default" : "secondary"} onClick={() => setFiltro(k)}>{l}</Button>
+        ))}
+        <Button size="sm" variant="ghost" className="ml-auto" onClick={load}><RefreshCw className="mr-1.5 size-3.5" /> Atualizar</Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Use para destravar quem ficou preso em um atendimento (ex.: ninguém concluiu). Ao encerrar, o atendimento vira cancelado, os dois ficam livres e recebem um aviso.
+      </p>
+      {!rows ? <Loader2 className="mx-auto my-8 size-6 animate-spin text-primary" />
+        : lista.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">Nenhum atendimento nesta lista.</p>
+        : lista.map((r) => {
+          const velho = horas(r.criado_em) >= 6;
+          return (
+            <article key={r.id} className={`rounded-2xl border p-4 ${velho ? "border-yellow-500/40 bg-yellow-500/5" : "border-border bg-card"}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    <span className="notranslate">{r.cliente}</span>{r.prestador ? <> → <span className="notranslate">{r.prestador}</span></> : ""}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {fmtDate(r.criado_em)}{r.valor ? ` · ${brl(r.valor)}` : ""}{r.local ? ` · ${localLabel[r.local] ?? r.local}` : ""}
+                    {r.ponto ? ` · ${r.ponto}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <Badge variant="secondary" className="text-[10px]">{statusServico[r.status] ?? r.status}</Badge>
+                  {velho && <Badge variant="secondary" className="bg-yellow-500/20 text-[10px] text-yellow-400">há {horas(r.criado_em)} h</Badge>}
+                </div>
+              </div>
+              <div className="mt-3">
+                <Button size="sm" variant="secondary" onClick={() => { setEncerrando(r); setMotivo(""); }}>
+                  <X className="mr-1.5 size-3.5" /> Encerrar atendimento
+                </Button>
+              </div>
+            </article>
+          );
+        })}
+
+      {encerrando && (
+        <ModalPortal>
+          <div className="fixed inset-0 z-[80] flex items-end justify-center bg-black/70 p-4 sm:items-center" onClick={() => !busy && setEncerrando(null)}>
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5" onClick={(e) => e.stopPropagation()}>
+              <p className="font-semibold">Encerrar este atendimento?</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {encerrando.cliente}{encerrando.prestador ? ` e ${encerrando.prestador}` : ""} serão avisados e liberados para novos atendimentos. Não dá para desfazer.
+              </p>
+              <Input className="mt-3" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={200}
+                placeholder="Motivo (aparece no aviso aos dois)" />
+              <div className="mt-4 flex gap-2">
+                <Button variant="secondary" className="flex-1" disabled={busy} onClick={() => setEncerrando(null)}>Voltar</Button>
+                <Button variant="destructive" className="flex-1" disabled={busy} onClick={encerrar}>
+                  {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null} Encerrar
+                </Button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+    </div>
+  );
+}
+
+/* ─── Aviso geral (aparece no sino do app) ──────────────────────────── */
+function Avisos() {
+  const [publico, setPublico] = useState<"todos" | "cliente" | "prestador" | "parceiro">("todos");
+  const [titulo, setTitulo] = useState("");
+  const [texto, setTexto] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function enviar() {
+    if (!titulo.trim() || !texto.trim()) return toast.error("Preencha título e mensagem.");
+    const nome = publico === "todos" ? "todos os usuários" : `todos os perfis de ${roleLabel[publico].toLowerCase()}`;
+    if (!window.confirm(`Enviar este aviso para ${nome}?`)) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc("admin_broadcast", { p_audience: publico, p_title: titulo, p_body: texto });
+    setBusy(false);
+    if (error) return toast.error(error.message.includes("admin_broadcast") ? "Rode o SQL da etapa 23 no Supabase." : error.message);
+    toast.success(`Aviso enviado para ${Number(data ?? 0)} pessoa(s).`);
+    setTitulo(""); setTexto("");
+  }
+  return (
+    <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
+      <p className="text-sm text-muted-foreground">
+        O aviso aparece no sino do app (e no celular de quem ligou os avisos). Use para manutenção, novidades ou regras do teste.
+        Escreva em português: o app traduz os textos fixos, mas não os seus avisos.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {(["todos", "cliente", "prestador", "parceiro"] as const).map((k) => (
+          <Button key={k} size="sm" variant={publico === k ? "default" : "secondary"} onClick={() => setPublico(k)}>
+            {k === "todos" ? "Todos" : k === "cliente" ? "Clientes" : k === "prestador" ? "Anunciantes" : "Parceiros"}
+          </Button>
+        ))}
+      </div>
+      <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} maxLength={80} placeholder="Título (até 80 caracteres)" />
+      <textarea value={texto} onChange={(e) => setTexto(e.target.value)} maxLength={400} rows={4}
+        placeholder="Mensagem (até 400 caracteres)"
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+      <p className="text-right text-[11px] text-muted-foreground">{texto.length}/400</p>
+      <Button className="w-full" disabled={busy} onClick={enviar}>
+        {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Megaphone className="mr-2 size-4" />} Enviar aviso
+      </Button>
+    </section>
   );
 }
