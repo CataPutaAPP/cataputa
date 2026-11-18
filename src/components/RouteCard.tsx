@@ -105,7 +105,7 @@ function MapaRota({ destino, eu, outro, linhaEu, linhaOutro, seguir, onArrastar,
 
   if (semMapa) return null;
   return (
-    <div className={`sh-dark-tiles overflow-hidden ${className ?? ""}`}>
+    <div className={`sh-dark-tiles isolate z-0 overflow-hidden ${className ?? ""}`}>
       <div ref={caixa} className="size-full bg-secondary" aria-label="Mapa com a rota até o ponto de encontro" />
     </div>
   );
@@ -306,7 +306,7 @@ function Navegacao({ destino, eu, outro, rota, rotaOutro, quem, viajo, aoVivo, o
         seguir={centro} onArrastar={() => setSeguindo(false)} className="absolute inset-0" />
 
       {/* topo: próxima manobra */}
-      <div className="relative z-10 m-3 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-2xl bg-card/95 p-3 shadow-lg backdrop-blur">
+      <div className="relative z-20 m-3 mt-[calc(0.75rem+env(safe-area-inset-top))] rounded-2xl bg-card/95 p-3 shadow-lg backdrop-blur">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             {viajo ? (
@@ -339,13 +339,13 @@ function Navegacao({ destino, eu, outro, rota, rotaOutro, quem, viajo, aoVivo, o
       </div>
 
       {!seguindo && (
-        <Button size="sm" variant="secondary" className="absolute bottom-40 right-3 z-10 shadow-lg" onClick={() => setSeguindo(true)}>
+        <Button size="sm" variant="secondary" className="absolute bottom-40 right-3 z-20 shadow-lg" onClick={() => setSeguindo(true)}>
           <LocateFixed className="mr-1.5 size-4" /> Recentralizar
         </Button>
       )}
 
       {/* rodapé: tempo, chegada e a outra pessoa */}
-      <div className="relative z-10 mt-auto m-3 mb-[calc(0.75rem+env(safe-area-inset-bottom))] rounded-2xl bg-card/95 p-3 shadow-lg backdrop-blur">
+      <div className="relative z-20 mt-auto m-3 mb-[calc(0.75rem+env(safe-area-inset-bottom))] rounded-2xl bg-card/95 p-3 shadow-lg backdrop-blur">
         {viajo && faltaMin != null && faltaKm != null && !cheguei && (
           <div className="flex items-end justify-between">
             <div>
@@ -366,8 +366,11 @@ function Navegacao({ destino, eu, outro, rota, rotaOutro, quem, viajo, aoVivo, o
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
           <Radio className={`size-3 ${aoVivo ? "text-green-500" : ""}`} /> {aoVivo ? "Ao vivo" : "Atualiza a cada 30 segundos"}
         </p>
+        <Button variant="secondary" className="mt-3 h-11 w-full" onClick={onClose}>
+          <X className="mr-2 size-4" /> Voltar ao atendimento
+        </Button>
         {viajo && (
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <a className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border text-sm font-medium" href={linkWaze(destino)} target="_blank" rel="noreferrer">
               <Navigation className="size-4" /> Abrir no Waze
             </a>
