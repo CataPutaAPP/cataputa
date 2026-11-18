@@ -15,6 +15,7 @@ import { getSubLabel, getLocalLabel, type ServiceType, type LocalOption } from "
 import { brl } from "@/lib/fees";
 import { ReportButton } from "@/components/ReportButton";
 import { RouteCard } from "@/components/RouteCard";
+import { MeetingPointPicker } from "@/components/MeetingPointPicker";
 import { ChatPanel, useUnreadChats } from "@/components/ChatPanel";
 import { useRealtime } from "@/lib/realtime";
 import type { Profile } from "@/context/AuthContext";
@@ -32,6 +33,8 @@ export interface ActiveService {
   lng: number;
   meeting_lat: number | null;
   meeting_lng: number | null;
+  meeting_label?: string | null;
+  meeting_custom?: boolean | null;
   provider_fee_pct?: number | null;
   room_booking_id?: string | null;
   client_id: string;
@@ -225,8 +228,16 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
   }
 
   // ─── Quem se desloca até o ponto ───
-  const clientTravels = ["local_atendente", "carro", "parceiro"].includes(service.local_option);
-  const providerTravels = ["local_cliente", "parceiro"].includes(service.local_option);
+  // ponto combinado entre os dois (fora do local de um deles): os dois se deslocam
+  const pontoCombinado = !!service.meeting_custom;
+  const clientTravels = pontoCombinado || ["local_atendente", "carro", "parceiro"].includes(service.local_option);
+  const providerTravels = pontoCombinado || ["local_cliente", "parceiro"].includes(service.local_option);
+  const [escolhendoPonto, setEscolhendoPonto] = useState(false);
+
+  async function salvarPonto(p: { lat: number; lng: number }, rotulo: string) {
+    return callRpc("meet_set_point", { p_request_id: service.id, p_lat: p.lat, p_lng: p.lng, p_label: rotulo },
+      "Ponto de encontro combinado! A outra pessoa foi avisada.");
+  }
 
   async function handleClientEnRoute() {
     await callRpc("meet_update", { p_request_id: service.id, p_step: "cliente_a_caminho" }, "Você sinalizou que está a caminho!");
@@ -421,6 +432,9 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
       {!service.room_booking_id && service.status !== "concluida" && service.status !== "cancelada" && service.status !== "em_andamento" && (
         <div className="mb-5 rounded-2xl border border-border bg-card p-4">
           <p className="flex items-center gap-2 text-sm font-semibold"><MapPin className="size-4 text-primary" /> Ponto de encontro</p>
+          {pontoCombinado && service.meeting_label && (
+            <p className="mt-1 text-sm"><span className="text-muted-foreground">Combinado: </span><span className="font-medium">{service.meeting_label}</span></p>
+          )}
           {service.meeting_lat && service.meeting_lng ? (
             <RouteCard destino={{ lat: service.meeting_lat, lng: service.meeting_lng }} requestId={service.id} otherName={otherName}
               viajo={isClient ? clientTravels : providerTravels} outroViaja={isClient ? providerTravels : clientTravels} />
@@ -429,7 +443,17 @@ export function MatchView({ service, role, userId, onClose, onRefresh }: MatchVi
               {isClient && providerSetsPoint ? "O prestador vai enviar a localização exata." : "Ponto ainda não definido."}
             </p>
           )}
-          {isProvider && providerSetsPoint && (
+          {!service.started_at && isActive && (
+            <Button variant="ghost" size="sm" className="mt-2 w-full text-xs" onClick={() => setEscolhendoPonto(true)}>
+              <MapPin className="mr-1.5 size-3.5" /> {pontoCombinado ? "Mudar o ponto combinado" : "Combinar outro ponto"}
+            </Button>
+          )}
+          {escolhendoPonto && (
+            <MeetingPointPicker
+              inicial={service.meeting_lat && service.meeting_lng ? { lat: service.meeting_lat, lng: service.meeting_lng } : null}
+              onConfirm={salvarPonto} onClose={() => setEscolhendoPonto(false)} />
+          )}
+          {isProvider && providerSetsPoint && !pontoCombinado && (
             <Button variant="secondary" size="sm" className="mt-3 w-full" disabled={loading === "set_meeting_point"} onClick={handleSendMyLocation}>
               {loading === "set_meeting_point" ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Navigation className="mr-2 size-4" />}
               {service.meeting_lat ? "Atualizar com minha localização atual" : "Enviar minha localização como ponto"}

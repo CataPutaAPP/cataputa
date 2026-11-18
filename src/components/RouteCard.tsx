@@ -21,7 +21,7 @@ const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-function carregarLeaflet(): Promise<any> {
+export function carregarLeaflet(): Promise<any> {
   return new Promise((resolve, reject) => {
     const w = window as any;
     if (w.L) return resolve(w.L);
@@ -115,14 +115,15 @@ function MapaRota({ destino, eu, outro, linhaEu, linhaOutro, seguir, onArrastar,
 /* ─── Rota que se atualiza conforme a pessoa anda ─────────────────── */
 function useRotaViva(de: Ponto | null, destino: Ponto, ativo: boolean) {
   const [rota, setRota] = useState<Rota | null>(null);
-  const ultima = useRef<{ de: Ponto; quando: number } | null>(null);
+  const ultima = useRef<{ de: Ponto; para: Ponto; quando: number } | null>(null);
   const [forcar, setForcar] = useState(0);
 
   useEffect(() => {
     if (!ativo || !de) return;
     const u = ultima.current;
-    if (u && retaKm(u.de, de) < 0.15 && Date.now() - u.quando < 60000) return;
-    ultima.current = { de, quando: Date.now() };
+    // refaz quando a pessoa anda 150 m, a cada minuto ou quando o ponto de encontro muda
+    if (u && retaKm(u.de, de) < 0.15 && retaKm(u.para, destino) < 0.01 && Date.now() - u.quando < 60000) return;
+    ultima.current = { de, para: destino, quando: Date.now() };
     let vivo = true;
     buscarRota(de, destino).then((r) => { if (vivo) setRota(r); });
     return () => { vivo = false; };
