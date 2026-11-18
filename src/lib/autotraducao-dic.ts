@@ -220,6 +220,20 @@ Navegar até o ponto|Navigate to the point|Navegar hasta el punto
 Tela cheia|Full screen|Pantalla completa
 Recentralizar|Recenter|Recentrar
 Voltar ao atendimento|Back to the service|Volver al servicio
+Combinar outro ponto|Agree on another point|Acordar otro punto
+Mudar o ponto combinado|Change the agreed point|Cambiar el punto acordado
+Combinado:|Agreed:|Acordado:
+Buscar endereço ou lugar|Search address or place|Buscar dirección o lugar
+Ou toque no mapa para marcar o ponto. Prefira um lugar público e fácil de achar.|Or tap the map to mark the point. Prefer a public place that is easy to find.|O toca el mapa para marcar el punto. Prefiere un lugar público y fácil de encontrar.
+Nenhum ponto escolhido ainda.|No point chosen yet.|Aún no se eligió ningún punto.
+Ponto:|Point:|Punto:
+Onde estou|Where I am|Dónde estoy
+Confirmar ponto|Confirm point|Confirmar punto
+Ponto marcado no mapa|Point marked on the map|Punto marcado en el mapa
+Ponto atual|Current point|Punto actual
+Minha localização atual|My current location|Mi ubicación actual
+A outra pessoa é avisada na hora e os dois passam a ver a rota até o novo ponto.|The other person is notified right away and both see the route to the new point.|La otra persona recibe el aviso al instante y ambos ven la ruta al nuevo punto.
+Ponto de encontro combinado! A outra pessoa foi avisada.|Meeting point agreed! The other person has been notified.|¡Punto de encuentro acordado! Se avisó a la otra persona.
 Abrir no Waze|Open in Waze|Abrir en Waze
 Acompanhando ao vivo|Tracking live|Siguiendo en vivo
 Ao vivo|Live|En vivo
