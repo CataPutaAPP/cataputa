@@ -215,6 +215,11 @@ Enviar minha localização como ponto|Send my location as the point|Enviar mi ub
 Atualizar com minha localização atual|Update with my current location|Actualizar con mi ubicación actual
 Abrir rota no Google Maps →|Open route in Google Maps →|Abrir ruta en Google Maps →
 Traçar rota|Get directions|Trazar ruta
+Calculando a rota…|Calculating the route…|Calculando la ruta…
+Você está no ponto de encontro|You are at the meeting point|Estás en el punto de encuentro
+Chegada|Arrival|Llegada
+Permita o acesso à localização para ver a rota.|Allow location access to see the route.|Permite el acceso a la ubicación para ver la ruta.
+Tempo e chegada são estimativas e se atualizam durante o trajeto. Para navegação com voz, abra no Waze ou no Google Maps.|Time and arrival are estimates and update along the way. For voice navigation, open in Waze or Google Maps.|El tiempo y la llegada son estimaciones y se actualizan en el trayecto. Para navegación por voz, abre en Waze o Google Maps.
 Posição aproximada — o ponto exato não é divulgado.|Approximate position — the exact point is not disclosed.|Posición aproximada — el punto exacto no se divulga.
 No mapa aparece só uma posição aproximada, nunca o ponto exato.|The map shows only an approximate position, never the exact point.|En el mapa solo aparece una posición aproximada, nunca el punto exacto.
 Cancelar serviço|Cancel service|Cancelar servicio
