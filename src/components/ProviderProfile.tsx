@@ -213,7 +213,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
     }
     if (photos.length + files.length > maxPhotos) {
       toast.error(
-        `Limite de fotos do seu plano: ${maxLabel}. Voce ja tem ${photos.length} e tentou somar ${files.length}.`
+        `Limite de fotos do seu plano: ${maxLabel}. Você já tem ${photos.length} e tentou somar mais ${files.length}.`
       );
       return;
     }
@@ -292,7 +292,7 @@ export function PhotoManager({ userId, onDone }: PhotoUploadProps) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Minhas fotos</h3>
-          <p className="text-xs text-muted-foreground">{photos.length}/{maxLabel} fotos · Mínimo 3 obrigatório</p>
+          <p className="text-xs text-muted-foreground">{`${photos.length}/${maxLabel} fotos · mínimo de 3`}</p>
         </div>
         {photos.length < maxPhotos && (
           <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={uploading}>

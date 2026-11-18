@@ -5,7 +5,7 @@ import { Navigation, Clock, Loader2, MapPin, Car, X, Volume2, VolumeX, LocateFix
 import { Button } from "@/components/ui/button";
 import { useBackClose } from "@/lib/back";
 import {
-  buscarRota, distanciaDaRota, fmtKm, fmtMin, horaChegada, retaKm, useEncontroAoVivo,
+  frases, buscarRota, distanciaDaRota, fmtKm, fmtMin, horaChegada, retaKm, useEncontroAoVivo,
   type Ponto, type PosicaoAoVivo, type Rota,
 } from "@/lib/encontro";
 
@@ -234,7 +234,7 @@ function falar(texto: string) {
     if (!s) return;
     s.cancel();
     const u = new SpeechSynthesisUtterance(texto);
-    u.lang = "pt-BR"; u.rate = 1.02;
+    u.lang = frases().voz; u.rate = 1.02;
     s.speak(u);
   } catch { /* aparelho sem voz */ }
 }
@@ -273,7 +273,7 @@ function Navegacao({ destino, eu, outro, rota, rotaOutro, quem, viajo, aoVivo, o
     if (i !== proximo) setProximo(i);
     if (!rota.estimada && distanciaDaRota(eu, rota.linha) > 0.06 && Date.now() - ultimoDesvio.current > 15000) {
       ultimoDesvio.current = Date.now();
-      if (voz) falar("Recalculando a rota");
+      if (voz) falar(frases().recalculando);
       onRecalcular();
     }
   }, [eu]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -284,11 +284,11 @@ function Navegacao({ destino, eu, outro, rota, rotaOutro, quem, viajo, aoVivo, o
     const chave = `${rota?.linha.length}-${proximo}`;
     if (!avisos.current.has(`ini-${rota?.linha.length}`)) {
       avisos.current.add(`ini-${rota?.linha.length}`);
-      falar(proximo >= passos.length - 1 ? passo.texto : `Em ${fmtKm(distPasso).replace("km", "quilômetros").replace(" m", " metros")}, ${passo.texto.toLowerCase()}`);
+      falar(proximo >= passos.length - 1 ? passo.texto : frases().em(fmtKm(distPasso).replace(" km", " " + frases().km).replace(" m", " " + frases().metros), passo.texto));
       return;
     }
     if (distPasso < 0.04 && !avisos.current.has(`agora-${chave}`)) { avisos.current.add(`agora-${chave}`); falar(passo.texto); }
-    else if (distPasso < 0.15 && !avisos.current.has(`perto-${chave}`)) { avisos.current.add(`perto-${chave}`); falar(`Em ${Math.round(distPasso * 100) * 10} metros, ${passo.texto.toLowerCase()}`); }
+    else if (distPasso < 0.15 && !avisos.current.has(`perto-${chave}`)) { avisos.current.add(`perto-${chave}`); falar(frases().em(`${Math.round(distPasso * 100) * 10} ${frases().metros}`, passo.texto)); }
   }, [distPasso, proximo, voz, viajo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // quanto falta (a partir da manobra atual)
