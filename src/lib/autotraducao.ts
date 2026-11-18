@@ -1,5 +1,5 @@
 import { LINHAS, MODELOS } from "@/lib/autotraducao-dic";
-import { idiomaAtual, aoMudarIdioma } from "@/lib/i18n";
+import { idiomaAtual, aoMudarIdioma, aplicarIdiomaSalvo } from "@/lib/i18n";
 
 /**
  * Tradução automática das telas.
@@ -55,6 +55,11 @@ function ignorado(el: Element | null): boolean {
   return false;
 }
 
+/** Campo de texto longo: o conteúdo é do usuário, mas a dica (placeholder) é nossa. */
+function campoTraduzivel(el: Element): boolean {
+  return el.tagName === "TEXTAREA" && !el.classList.contains("notranslate") && !ignorado(el.parentElement);
+}
+
 function acertaTexto(no: Node, lang: Lang) {
   const valor = no.nodeValue ?? "";
   let r = textos.get(no);
@@ -86,12 +91,12 @@ function varre(raiz: Node, lang: Lang) {
   }
   if (raiz.nodeType !== Node.ELEMENT_NODE) return;
   const el = raiz as Element;
-  if (ignorado(el)) return;
+  if (ignorado(el)) { if (campoTraduzivel(el)) acertaAtributos(el, lang); return; }
   acertaAtributos(el, lang);
   const andar = document.createTreeWalker(el, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
   for (let n = andar.nextNode(); n; n = andar.nextNode()) {
     if (n.nodeType === Node.TEXT_NODE) { if (!ignorado(n.parentElement)) acertaTexto(n, lang); }
-    else acertaAtributos(n as Element, lang);
+    else if (!ignorado(n as Element) || campoTraduzivel(n as Element)) acertaAtributos(n as Element, lang);
   }
 }
 
@@ -101,6 +106,7 @@ let ligado = false;
 export function iniciarAutoTraducao() {
   if (ligado || typeof window === "undefined" || typeof MutationObserver === "undefined") return;
   ligado = true;
+  aplicarIdiomaSalvo();
   const lang = () => idiomaAtual() as Lang;
 
   const observador = new MutationObserver((mudancas) => {
@@ -109,7 +115,8 @@ export function iniciarAutoTraducao() {
       if (m.type === "characterData") {
         if (!ignorado(m.target.parentElement)) acertaTexto(m.target, l);
       } else if (m.type === "attributes") {
-        if (!ignorado(m.target as Element)) acertaAtributos(m.target as Element, l);
+        const alvo = m.target as Element;
+        if (!ignorado(alvo) || campoTraduzivel(alvo)) acertaAtributos(alvo, l);
       } else {
         m.addedNodes.forEach((n) => varre(n, l));
       }

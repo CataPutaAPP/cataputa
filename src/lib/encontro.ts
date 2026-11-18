@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { idiomaAtual } from "@/lib/i18n";
 
 /**
  * Encontro ao vivo: rota de carro, instruções de navegação e posição em tempo real
@@ -40,39 +41,90 @@ export function retaKm(a: Ponto, b: Ponto) {
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 }
 
-/* ─── instruções em português ─── */
-const LADO: Record<string, string> = {
-  left: "à esquerda", right: "à direita", "slight left": "levemente à esquerda", "slight right": "levemente à direita",
-  "sharp left": "acentuadamente à esquerda", "sharp right": "acentuadamente à direita", straight: "em frente", uturn: "o retorno",
+/* ─── instruções de navegação (no idioma escolhido na bandeira) ─── */
+type Lingua = "pt" | "en" | "es";
+const lingua = (): Lingua => { const l = idiomaAtual(); return l === "es" ? "es" : l === "pt" ? "pt" : "en"; };
+
+const LADO: Record<Lingua, Record<string, string>> = {
+  pt: { left: "à esquerda", right: "à direita", "slight left": "levemente à esquerda", "slight right": "levemente à direita",
+        "sharp left": "acentuadamente à esquerda", "sharp right": "acentuadamente à direita", straight: "em frente" },
+  en: { left: "left", right: "right", "slight left": "slightly left", "slight right": "slightly right",
+        "sharp left": "sharp left", "sharp right": "sharp right", straight: "straight" },
+  es: { left: "a la izquierda", right: "a la derecha", "slight left": "ligeramente a la izquierda", "slight right": "ligeramente a la derecha",
+        "sharp left": "bruscamente a la izquierda", "sharp right": "bruscamente a la derecha", straight: "recto" },
 };
+
+type Frases = {
+  saida: (lado: string, via: string) => string; chegou: string; rotatoria: (n: number, para: string) => string;
+  sairRot: (para: string) => string; bifurca: (lado: string, para: string) => string; entre: (lado: string, para: string) => string;
+  acesso: (lado: string, para: string) => string; saidaVia: (lado: string, para: string) => string; fimVia: (lado: string, para: string) => string;
+  retorno: (para: string) => string; continue: (via: string) => string; mantenha: (lado: string, via: string) => string;
+  vire: (lado: string, para: string) => string; via: (n: string) => string; para: (n: string) => string;
+  sigaAte: string; recalculando: string; em: (dist: string, texto: string) => string; metros: string; km: string; voz: string;
+};
+const FRASES: Record<Lingua, Frases> = {
+  pt: {
+    saida: (l, v) => `Siga${l && l !== "em frente" ? " " + l : ""}${v}`, chegou: "Você chegou ao ponto de encontro",
+    rotatoria: (n, p) => `Na rotatória, pegue a ${n}ª saída${p}`, sairRot: (p) => `Saia da rotatória${p}`,
+    bifurca: (l, p) => `Na bifurcação, mantenha-se ${l || "em frente"}${p}`, entre: (l, p) => `Entre ${l}${p}`,
+    acesso: (l, p) => `Pegue o acesso ${l}${p}`, saidaVia: (l, p) => `Pegue a saída ${l}${p}`, fimVia: (l, p) => `No fim da via, vire ${l}${p}`,
+    retorno: (p) => `Faça o retorno${p}`, continue: (v) => `Continue em frente${v}`, mantenha: (l, v) => `Mantenha-se ${l}${v}`,
+    vire: (l, p) => `Vire ${l}${p}`, via: (n) => ` na ${n}`, para: (n) => ` para a ${n}`,
+    sigaAte: "Siga até o ponto de encontro", recalculando: "Recalculando a rota",
+    em: (d, t) => `Em ${d}, ${t.charAt(0).toLowerCase()}${t.slice(1)}`, metros: "metros", km: "quilômetros", voz: "pt-BR",
+  },
+  en: {
+    saida: (l, v) => `Head${l && l !== "straight" ? " " + l : ""}${v}`, chegou: "You have reached the meeting point",
+    rotatoria: (n, p) => `At the roundabout, take exit ${n}${p}`, sairRot: (p) => `Exit the roundabout${p}`,
+    bifurca: (l, p) => `At the fork, keep ${l || "straight"}${p}`, entre: (l, p) => `Merge ${l}${p}`,
+    acesso: (l, p) => `Take the ramp ${l}${p}`, saidaVia: (l, p) => `Take the exit ${l}${p}`, fimVia: (l, p) => `At the end of the road, turn ${l}${p}`,
+    retorno: (p) => `Make a U-turn${p}`, continue: (v) => `Continue straight${v}`, mantenha: (l, v) => `Keep ${l}${v}`,
+    vire: (l, p) => `Turn ${l}${p}`, via: (n) => ` on ${n}`, para: (n) => ` onto ${n}`,
+    sigaAte: "Head to the meeting point", recalculando: "Recalculating the route",
+    em: (d, t) => `In ${d}, ${t.charAt(0).toLowerCase()}${t.slice(1)}`, metros: "meters", km: "kilometers", voz: "en-US",
+  },
+  es: {
+    saida: (l, v) => `Sigue${l && l !== "recto" ? " " + l : ""}${v}`, chegou: "Llegaste al punto de encuentro",
+    rotatoria: (n, p) => `En la rotonda, toma la ${n}.ª salida${p}`, sairRot: (p) => `Sal de la rotonda${p}`,
+    bifurca: (l, p) => `En la bifurcación, mantente ${l || "recto"}${p}`, entre: (l, p) => `Incorpórate ${l}${p}`,
+    acesso: (l, p) => `Toma el acceso ${l}${p}`, saidaVia: (l, p) => `Toma la salida ${l}${p}`, fimVia: (l, p) => `Al final de la vía, gira ${l}${p}`,
+    retorno: (p) => `Da la vuelta${p}`, continue: (v) => `Continúa recto${v}`, mantenha: (l, v) => `Mantente ${l}${v}`,
+    vire: (l, p) => `Gira ${l}${p}`, via: (n) => ` por ${n}`, para: (n) => ` hacia ${n}`,
+    sigaAte: "Sigue hasta el punto de encuentro", recalculando: "Recalculando la ruta",
+    em: (d, t) => `En ${d}, ${t.charAt(0).toLowerCase()}${t.slice(1)}`, metros: "metros", km: "kilómetros", voz: "es-ES",
+  },
+};
+export const frases = () => FRASES[lingua()];
 
 interface ManobraOsrm { type?: string; modifier?: string; exit?: number; location?: [number, number] }
 interface PassoOsrm { maneuver?: ManobraOsrm; name?: string; distance?: number }
 
 function instrucao(p: PassoOsrm): string {
+  const F = frases();
   const m = p.maneuver ?? {};
-  const lado = LADO[m.modifier ?? ""] ?? "";
-  const via = p.name ? ` na ${p.name}` : "";
-  const para = p.name ? ` para a ${p.name}` : "";
+  const lado = LADO[lingua()][m.modifier ?? ""] ?? "";
+  const via = p.name ? F.via(p.name) : "";
+  const para = p.name ? F.para(p.name) : "";
+  const reto = lado === LADO[lingua()]["straight"];
+  const limpa = (t: string) => t.replace(/\s{2,}/g, " ").trim();
   switch (m.type) {
-    case "depart": return `Siga${lado && lado !== "em frente" ? " " + lado : ""}${via}`;
-    case "arrive": return "Você chegou ao ponto de encontro";
-    case "roundabout": case "rotary":
-      return `Na rotatória, pegue a ${m.exit ?? 1}ª saída${para}`;
-    case "exit roundabout": case "exit rotary": return `Saia da rotatória${para}`;
-    case "fork": return `Na bifurcação, mantenha-se ${lado || "em frente"}${para}`;
-    case "merge": return `Entre ${lado}${para}`.replace("  ", " ");
-    case "on ramp": return `Pegue o acesso ${lado}${para}`.replace("  ", " ");
-    case "off ramp": return `Pegue a saída ${lado}${para}`.replace("  ", " ");
-    case "end of road": return `No fim da via, vire ${lado}${para}`;
+    case "depart": return limpa(F.saida(lado, via));
+    case "arrive": return F.chegou;
+    case "roundabout": case "rotary": return limpa(F.rotatoria(m.exit ?? 1, para));
+    case "exit roundabout": case "exit rotary": return limpa(F.sairRot(para));
+    case "fork": return limpa(F.bifurca(lado, para));
+    case "merge": return limpa(F.entre(lado, para));
+    case "on ramp": return limpa(F.acesso(lado, para));
+    case "off ramp": return limpa(F.saidaVia(lado, para));
+    case "end of road": return limpa(F.fimVia(lado, para));
     case "new name": case "continue":
-      if (m.modifier === "uturn") return `Faça o retorno${para}`;
-      if (!lado || lado === "em frente") return `Continue em frente${via}`;
-      return `Mantenha-se ${lado}${via}`;
+      if (m.modifier === "uturn") return limpa(F.retorno(para));
+      if (!lado || reto) return limpa(F.continue(via));
+      return limpa(F.mantenha(lado, via));
     default:
-      if (m.modifier === "uturn") return `Faça o retorno${para}`;
-      if (!lado || lado === "em frente") return `Siga em frente${via}`;
-      return `Vire ${lado}${para}`;
+      if (m.modifier === "uturn") return limpa(F.retorno(para));
+      if (!lado || reto) return limpa(F.continue(via));
+      return limpa(F.vire(lado, para));
   }
 }
 
@@ -102,7 +154,7 @@ export async function buscarRota(de: Ponto, ate: Ponto): Promise<Rota> {
     return {
       km, min: Math.max(1, Math.round((km / 25) * 60)),
       linha: [[de.lat, de.lng], [ate.lat, ate.lng]],
-      passos: [{ texto: "Siga até o ponto de encontro", local: de, metros: km * 1000 }, { texto: "Você chegou ao ponto de encontro", local: ate, metros: 0 }],
+      passos: [{ texto: frases().sigaAte, local: de, metros: km * 1000 }, { texto: frases().chegou, local: ate, metros: 0 }],
       estimada: true,
     };
   }

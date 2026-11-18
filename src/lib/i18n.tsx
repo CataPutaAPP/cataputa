@@ -196,6 +196,12 @@ function detectar(): Idioma {
   return (validos.includes(nav) ? nav : "pt") as Idioma;
 }
 
+/** Aplica o idioma salvo no aparelho (para telas que não usam useT, como termos e páginas de erro). */
+export function aplicarIdiomaSalvo() {
+  if (typeof window === "undefined") return;
+  const d = detectar(); if (d !== atual) setIdioma(d);
+}
+
 export function useT() {
   const lang = useSyncExternalStore(
     (f) => { ouvintes.add(f); return () => { ouvintes.delete(f); }; },

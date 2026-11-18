@@ -216,6 +216,206 @@ Atualizar com minha localização atual|Update with my current location|Actualiz
 Abrir rota no Google Maps →|Open route in Google Maps →|Abrir ruta en Google Maps →
 Traçar rota|Get directions|Trazar ruta
 Calculando a rota…|Calculating the route…|Calculando la ruta…
+Atendimento|Service|Servicio
+Conversar com|Chat with|Hablar con
+pago direto ao prestador|paid directly to the provider|pagado directamente al proveedor
+você recebe (integral)|you receive (full amount)|recibes (importe completo)
+Abrir a navegação em tela cheia|Open full-screen navigation|Abrir la navegación en pantalla completa
+Mapa com a rota até o ponto de encontro|Map with the route to the meeting point|Mapa con la ruta al punto de encuentro
+Toque no mapa para marcar o ponto de encontro|Tap the map to mark the meeting point|Toca el mapa para marcar el punto de encuentro
+Depois:|Then:|Después:
+está a|is|está a
+de carro|by car|en coche
+(estimativa)|(estimate)|(estimación)
+· estimativa|· estimate|· estimación
+Ponto combinado|Agreed point|Punto acordado
+Ligar voz|Turn voice on|Activar voz
+Desligar voz|Turn voice off|Desactivar voz
+Ligar som|Turn sound on|Activar sonido
+Desligar som|Turn sound off|Desactivar sonido
+Usar tema claro|Use light theme|Usar tema claro
+Usar tema escuro|Use dark theme|Usar tema oscuro
+Como foi com|How was it with|Cómo fue con
+Obrigado pelo feedback.|Thanks for the feedback.|Gracias por tu opinión.
+Agora não|Not now|Ahora no
+Escolha de 1 a 5 estrelas.|Choose from 1 to 5 stars.|Elige de 1 a 5 estrellas.
+Você deu|You gave|Diste
+Recebeu|Received|Recibió
+Você recebeu|You received|Recibiste
+Visitas por dia|Visits per day|Visitas por día
+Alcance|Reach|Alcance
+Público|Audience|Público
+Serviços|Services|Servicios
+Preferência|Preference|Preferencia
+Apresentação|Introduction|Presentación
+Atual|Current|Actual
+Incluído|Included|Incluido
+Em breve.|Coming soon.|Próximamente.
+Não informado|Not provided|No informado
+Copiado!|Copied!|¡Copiado!
+Copiar código|Copy code|Copiar código
+Ocupado agora|Busy now|Ocupado ahora
+Ninguém online em|Nobody online within|Nadie en línea en
+Prestadores disponíveis neste momento, em até|Providers available right now, within|Proveedores disponibles ahora, hasta
+Ampliar para 20 km|Expand to 20 km|Ampliar a 20 km
+Até que distância procurar|How far to search|Hasta qué distancia buscar
+Raio maior faz parte do Pass Black.|A larger radius is part of Pass Black.|Un radio mayor es parte del Pass Black.
+km agora.|km right now.|km ahora.
+Nenhum parceiro em|No partner venues within|No hay locales asociados en
+Comentário disponível no Pass|Comment available with Pass|Comentario disponible con Pass
+Os comentários das avaliações fazem parte do|Review comments are part of|Los comentarios de las valoraciones son parte del
+Um vídeo curto aumenta muito a confiança de quem procura. Faz parte do plano|A short video greatly increases the trust of people searching. It is part of the plan|Un video corto aumenta mucho la confianza de quien busca. Es parte del plan
+Visitas, propostas, taxa de aceite e faturamento fazem parte do plano|Visits, proposals, acceptance rate and earnings are part of the plan|Visitas, propuestas, tasa de aceptación e ingresos son parte del plan
+. Veja no ícone da coroa.|. See the crown icon.|. Mira el icono de la corona.
+. Assine no ícone da coroa.|. Subscribe from the crown icon.|. Suscríbete desde el icono de la corona.
+Abra os planos no ícone da coroa para assinar.|Open the plans from the crown icon to subscribe.|Abre los planes desde el icono de la corona para suscribirte.
+Faz parte do|Part of|Parte del
+Seu perfil aparece em destaque nas propostas por|Your profile is featured in proposals for|Tu perfil aparece destacado en las propuestas por
+Como você aparece no marketplace|How you appear in the marketplace|Cómo apareces en el marketplace
+Selecione como você aparecerá no marketplace.|Select how you will appear in the marketplace.|Selecciona cómo aparecerás en el marketplace.
+Contatos e links são ocultados automaticamente|Contacts and links are hidden automatically|Los contactos y enlaces se ocultan automáticamente
+Adicione suas fotos|Add your photos|Añade tus fotos
+Mínimo de 3 fotos de corpo inteiro para aparecer nas propostas|At least 3 full-body photos to appear in proposals|Mínimo 3 fotos de cuerpo entero para aparecer en las propuestas
+Ex.: Sou carinhosa e discreta, atendo com calma em apartamento próprio. Gosto de conversar antes...|E.g.: I'm affectionate and discreet, I receive calmly in my own apartment. I like to chat first...|Ej.: Soy cariñosa y discreta, atiendo con calma en apartamento propio. Me gusta conversar antes...
+Informe a altura em centímetros (ex.: 165).|Enter the height in centimeters (e.g. 165).|Indica la altura en centímetros (ej.: 165).
+Foto muito grande (máximo 10 MB).|Photo too large (maximum 10 MB).|Foto demasiado grande (máximo 10 MB).
+Envie uma foto.|Please upload a photo.|Sube una foto.
+Somar mais|Add more|Añadir más
+Selecione tipo e subtipo.|Select type and subtype.|Selecciona tipo y subtipo.
+Não foi possível carregar a proposta. Tente novamente.|Could not load the proposal. Try again.|No se pudo cargar la propuesta. Inténtalo de nuevo.
+Proposta R$|Proposal R$|Propuesta R$
+Erro ao buscar parceiros.|Error loading partner venues.|Error al buscar locales asociados.
+Este aparelho não informa a localização.|This device does not provide location.|Este dispositivo no informa la ubicación.
+Geolocalização não disponível.|Location not available.|Ubicación no disponible.
+Localização não disponível.|Location not available.|Ubicación no disponible.
+Seu navegador não suporta geolocalização.|Your browser does not support location.|Tu navegador no admite la ubicación.
+Recalculando a rota|Recalculating the route|Recalculando la ruta
+Siga até o ponto de encontro|Head to the meeting point|Sigue hasta el punto de encuentro
+cancelado pelo cliente|cancelled by the client|cancelado por el cliente
+cancelado pelo prestador|cancelled by the provider|cancelado por el proveedor
+Cancelar este chamado? As propostas recebidas serão encerradas.|Cancel this request? The proposals received will be closed.|¿Cancelar esta solicitud? Las propuestas recibidas se cerrarán.
+Escolha o local|Choose the venue|Elige el local
+Local|Place|Lugar
+Quarto|Room|Habitación
+Quarto:|Room:|Habitación:
+Quartos a partir de|Rooms from|Habitaciones desde
+quarto disponível|room available|habitación disponible
+quartos disponíveis|rooms available|habitaciones disponibles
+Todos os quartos ocupados agora|All rooms taken right now|Todas las habitaciones ocupadas ahora
+Quartos de parceiros próximos ao seu chamado|Partner rooms near your request|Habitaciones asociadas cerca de tu solicitud
+O quarto do parceiro é pago pelo cliente, no local.|The partner room is paid by the client at the venue.|La habitación asociada la paga el cliente en el local.
+O quarto é pago direto no estabelecimento.|The room is paid directly at the venue.|La habitación se paga directamente en el establecimiento.
+· quarto escolhido por você, somado ao total|· room chosen by you, added to the total|· habitación elegida por ti, sumada al total
+Não foi possível reservar.|Could not book.|No se pudo reservar.
+Este local não está disponível no momento.|This venue is not available right now.|Este local no está disponible en este momento.
+Esta reserva foi desfeita pelo local. Combinem outro ponto pelo chat.|This booking was cancelled by the venue. Agree on another point in the chat.|El local deshizo esta reserva. Acuerden otro punto por el chat.
+Código para informar na recepção|Code to give at the reception|Código para informar en la recepción
+Motel|Motel|Motel
+Hotel|Hotel|Hotel
+Hostel|Hostel|Hostal
+Garagem|Garage|Garaje
+Casa de swing|Swing club|Club swinger
+Clínica de massagem|Massage clinic|Clínica de masajes
+Aberto agora. Veja o endereço e trace a rota.|Open now. See the address and get directions.|Abierto ahora. Mira la dirección y traza la ruta.
+Ver local|View venue|Ver local
+Ver equipe e agendar|See team and book|Ver equipo y reservar
+Veja quem está atendendo e peça seu horário.|See who is working and request your time.|Mira quién atiende y pide tu horario.
+Quem está atendendo|Who is working|Quién atiende
+Equipe|Team|Equipo
+Agenda|Schedule|Agenda
+Horário|Time|Horario
+Horário com|Time with|Horario con
+Escolha o dia e o horário.|Choose the day and time.|Elige el día y la hora.
+Horário de Brasília. O local confirma ou sugere outro horário. O valor é acertado e pago direto no estabelecimento.|Brasília time. The venue confirms or suggests another time. The price is agreed and paid directly at the venue.|Hora de Brasilia. El local confirma o sugiere otro horario. El precio se acuerda y se paga directamente en el establecimiento.
+Algum recado para o local? (opcional)|Any message for the venue? (optional)|¿Algún mensaje para el local? (opcional)
+Pedido enviado. Você é avisado quando o local confirmar.|Request sent. You will be notified when the venue confirms.|Solicitud enviada. Te avisaremos cuando el local confirme.
+Aguardando o local confirmar|Waiting for the venue to confirm|Esperando la confirmación del local
+Agendamento confirmado|Booking confirmed|Reserva confirmada
+Cancelar este agendamento?|Cancel this booking?|¿Cancelar esta reserva?
+WhatsApp do local|Venue's WhatsApp|WhatsApp del local
+O WhatsApp do local aparece aqui assim que o horário for confirmado.|The venue's WhatsApp appears here once the time is confirmed.|El WhatsApp del local aparece aquí en cuanto se confirme el horario.
+Clube reservado para maiores de 18 anos. Perfis verificados e total discrição.|Club for adults over 18 only. Verified profiles and total discretion.|Club reservado para mayores de 18 años. Perfiles verificados y total discreción.
+Privora Private Club — acesso reservado e verificado, com privacidade em primeiro lugar.|Privora Private Club — restricted, verified access, with privacy first.|Privora Private Club — acceso reservado y verificado, con la privacidad primero.
+Escolha seu perfil e crie sua conta na Privora.|Choose your profile and create your Privora account.|Elige tu perfil y crea tu cuenta en Privora.
+Solicite serviços e acompanhe suas solicitações.|Request services and follow your requests.|Solicita servicios y sigue tus solicitudes.
+Receba demandas, envie propostas e oferte seus serviços.|Receive requests, send proposals and offer your services.|Recibe solicitudes, envía propuestas y ofrece tus servicios.
+Username|Username|Usuario
+Username não encontrado.|Username not found.|Usuario no encontrado.
+Username ou senha inválidos.|Invalid username or password.|Usuario o contraseña no válidos.
+Já existe conta com este e-mail. Use 'Esqueci minha senha'.|There is already an account with this email. Use 'Forgot my password'.|Ya existe una cuenta con este correo. Usa 'Olvidé mi contraseña'.
+Este CPF já está cadastrado. Se a conta é sua, use 'Esqueci minha senha'.|This CPF is already registered. If the account is yours, use 'Forgot my password'.|Este CPF ya está registrado. Si la cuenta es tuya, usa 'Olvidé mi contraseña'.
+Erro ao criar usuário.|Error creating the user.|Error al crear el usuario.
+Esta página não carregou|This page did not load|Esta página no cargó
+A página que você procura não existe ou foi movida.|The page you are looking for does not exist or has moved.|La página que buscas no existe o fue movida.
+Este documento foi atualizado.|This document has been updated.|Este documento fue actualizado.
+Estes documentos foram atualizados.|These documents have been updated.|Estos documentos fueron actualizados.
+Carregando o verificador…|Loading the checker…|Cargando el verificador…
+Não foi possível carregar o verificador. Confira sua internet.|Could not load the checker. Check your internet connection.|No se pudo cargar el verificador. Revisa tu conexión.
+Verificador indisponível neste navegador.|Checker not available in this browser.|Verificador no disponible en este navegador.
+A imagem é analisada só neste aparelho. Nenhuma foto é enviada ou guardada.|The image is analysed only on this device. No photo is sent or stored.|La imagen se analiza solo en este dispositivo. No se envía ni se guarda ninguna foto.
+Olhe para a câmera, com o rosto bem iluminado.|Look at the camera, with your face well lit.|Mira a la cámara, con el rostro bien iluminado.
+Não estou vendo seu rosto. Centralize na tela.|I can't see your face. Center it on the screen.|No veo tu rostro. Céntralo en la pantalla.
+Chegue mais perto da câmera.|Move closer to the camera.|Acércate a la cámara.
+Isso, fique assim…|That's it, stay like that…|Así, quédate así…
+Não conseguimos ver seu rosto. Procure um lugar mais claro, tire óculos escuros ou boné e tente de novo.|We couldn't see your face. Find a brighter place, remove sunglasses or cap and try again.|No pudimos ver tu rostro. Busca un lugar más iluminado, quítate gafas de sol o gorra e inténtalo de nuevo.
+Não foi possível iniciar a verificação.|Could not start the verification.|No se pudo iniciar la verificación.
+Não foi possível registrar a verificação.|Could not record the verification.|No se pudo registrar la verificación.
+Não foi possível tirar a foto. Tente de novo.|Could not take the photo. Try again.|No se pudo tomar la foto. Inténtalo de nuevo.
+Este navegador não libera a câmera. Use o Chrome ou o Safari atualizado.|This browser does not allow the camera. Use an up-to-date Chrome or Safari.|Este navegador no permite la cámara. Usa Chrome o Safari actualizados.
+Você precisa permitir o uso da câmera para a verificação.|You need to allow camera access for the verification.|Debes permitir el uso de la cámara para la verificación.
+Nenhuma câmera encontrada neste aparelho.|No camera found on this device.|No se encontró ninguna cámara en este dispositivo.
+Não foi possível validar o CNPJ.|Could not validate the CNPJ.|No se pudo validar el CNPJ.
+empresa ativa|active company|empresa activa
+Avisos desligados neste aparelho.|Notifications off on this device.|Avisos desactivados en este dispositivo.
+Desligar avisos neste aparelho|Turn off notifications on this device|Desactivar avisos en este dispositivo
+Pronto! Você receberá avisos neste aparelho.|Done! You will receive notifications on this device.|¡Listo! Recibirás avisos en este dispositivo.
+Os avisos ainda não foram configurados pela Privora.|Notifications have not been set up by Privora yet.|Privora aún no configuró los avisos.
+Seu navegador não aceita avisos. No iPhone, instale o app na tela inicial primeiro.|Your browser does not accept notifications. On iPhone, install the app on the home screen first.|Tu navegador no acepta avisos. En iPhone, instala la app en la pantalla de inicio primero.
+Você recusou os avisos. Dá para liberar nas configurações do navegador.|You declined notifications. You can allow them in the browser settings.|Rechazaste los avisos. Puedes activarlos en la configuración del navegador.
+Receba chamados novos, propostas e respostas mesmo com o app fechado. No modo discreto o aviso aparece como "Agenda".|Receive new requests, proposals and replies even with the app closed. In discreet mode the notification shows as "Agenda".|Recibe nuevas solicitudes, propuestas y respuestas incluso con la app cerrada. En modo discreto el aviso aparece como "Agenda".
+Já instalado|Already installed|Ya instalado
+No iPhone: toque em Compartilhar → Adicionar à Tela de Início.|On iPhone: tap Share → Add to Home Screen.|En iPhone: toca Compartir → Añadir a pantalla de inicio.
+Já instalou na tela inicial? Remova e instale de novo para o ícone neutro valer.|Already installed on the home screen? Remove and install again for the neutral icon to apply.|¿Ya la instalaste? Quítala e instálala de nuevo para que se aplique el icono neutro.
+Abre em tela cheia, sem barra do navegador, e não aparece no histórico do site.|Opens full screen, without the browser bar, and does not appear in the site history.|Se abre en pantalla completa, sin barra del navegador, y no aparece en el historial del sitio.
+O app passa a se chamar|The app will be called|La app pasará a llamarse
+Apaga perfil, fotos, anúncios, conversas e histórico. Guardamos apenas o registro de que a verificação de idade foi feita, por 5 anos, como exige a lei. Não dá para desfazer.|Deletes profile, photos, listings, chats and history. We keep only the record that the age verification was done, for 5 years, as required by law. This cannot be undone.|Borra perfil, fotos, anuncios, chats e historial. Solo guardamos el registro de que se hizo la verificación de edad, durante 5 años, como exige la ley. No se puede deshacer.
+Se quiser, conte por que está saindo (opcional):|If you like, tell us why you are leaving (optional):|Si quieres, cuéntanos por qué te vas (opcional):
+Conta excluída. Até logo.|Account deleted. Goodbye.|Cuenta eliminada. Hasta luego.
+Obrigado! Bom uso.|Thanks! Enjoy.|¡Gracias! Que lo disfrutes.
+Carregando seu plano... tente de novo em 1 segundo.|Loading your plan... try again in 1 second.|Cargando tu plan... inténtalo de nuevo en 1 segundo.
+Privora Pass|Privora Pass|Privora Pass
+Pass|Pass|Pass
+Impulso|Boost|Impulso
+Renovar +30 dias|Renew +30 days|Renovar +30 días
+Assinatura — 30 dias|Subscription — 30 days|Suscripción — 30 días
+· vence em breve, renove para não perder os recursos|· expires soon, renew to keep the features|· vence pronto, renueva para no perder las funciones
+Pré-pago, sem renovação automática. Na fatura aparece um nome discreto, sem referência ao app.|Prepaid, no automatic renewal. A discreet name appears on the statement, with no reference to the app.|Prepago, sin renovación automática. En el extracto aparece un nombre discreto, sin referencia a la app.
+Tem um código?|Have a code?|¿Tienes un código?
+Cupom (opcional)|Coupon (optional)|Cupón (opcional)
+Cupom guardado para o pagamento|Coupon saved for payment|Cupón guardado para el pago
+Código aplicado!|Code applied!|¡Código aplicado!
+Código inválido.|Invalid code.|Código no válido.
+Forma de pagamento|Payment method|Forma de pago
+Cartão|Card|Tarjeta
+Pix copia e cola|Pix copy and paste|Pix copiar y pegar
+QR Code Pix|Pix QR code|Código QR Pix
+Cartão indisponível para sua conta. Use Pix.|Card not available for your account. Use Pix.|Tarjeta no disponible para tu cuenta. Usa Pix.
+O pagamento com cartão abre numa página segura do gateway.|Card payment opens on the gateway's secure page.|El pago con tarjeta se abre en una página segura de la pasarela.
+Abrir pagamento seguro|Open secure payment|Abrir pago seguro
+Aguardando confirmação…|Waiting for confirmation…|Esperando confirmación…
+Aguardando configuração do pagamento.|Waiting for payment setup.|Esperando la configuración del pago.
+Não foi possível gerar o pagamento.|Could not create the payment.|No se pudo generar el pago.
+Pagamento|Payment|Pago
+Pagamento confirmado!|Payment confirmed!|¡Pago confirmado!
+Modo teste: nenhum valor é cobrado.|Test mode: nothing is charged.|Modo de prueba: no se cobra nada.
+Reservar e ir para pagamento|Book and go to payment|Reservar e ir al pago
+Lingam|Lingam|Lingam
+Yoni|Yoni|Yoni
+Nuru|Nuru|Nuru
+Striptease|Striptease|Striptease
+Versão|Version|Versión
+Documento indisponível no momento|Document unavailable right now|Documento no disponible en este momento
+Tente de novo em alguns minutos.|Try again in a few minutes.|Inténtalo de nuevo en unos minutos.
 Navegar até o ponto|Navigate to the point|Navegar hasta el punto
 Tela cheia|Full screen|Pantalla completa
 Recentralizar|Recenter|Recentrar
@@ -247,7 +447,6 @@ Cliente pronto para receber|Client ready to receive|Cliente listo para recibir
 Estou a caminho|I'm on my way|Estoy en camino
 Cheguei no local|I've arrived|Ya llegué
 Estou pronto para receber|I'm ready to receive|Estoy listo para recibir
-Você sinalizou que está a caminho!|You marked that you are on the way!|¡Indicaste que estás en camino!
 Pronto! O cliente foi avisado.|Done! The client has been notified.|¡Listo! Se avisó al cliente.
 Tudo pronto. Toque acima para iniciar!|All set. Tap above to start!|Todo listo. ¡Toca arriba para iniciar!
 Tudo pronto. Aguardando o cliente iniciar o atendimento.|All set. Waiting for the client to start the service.|Todo listo. Esperando a que el cliente inicie el servicio.
@@ -416,8 +615,8 @@ Retirar esta proposta? O cliente deixa de vê-la.|Withdraw this proposal? The cl
 Aceita! Toque →|Accepted! Tap →|¡Aceptada! Toca →
 Solicitação de cliente|Client request|Solicitud de cliente
 solicitações no raio|requests in range|solicitudes en el radio
-Voce esta online. Aparece no radar dos clientes por perto.|You are online. You show up on nearby clients' radar.|Estás en línea. Apareces en el radar de los clientes cercanos.
-Voce esta offline. Suas ofertas continuam publicadas.|You are offline. Your offers remain published.|Estás desconectado. Tus ofertas siguen publicadas.
+Você está online e aparece no radar dos clientes por perto.|You are online and show up on nearby clients' radar.|Estás en línea. Apareces en el radar de los clientes cercanos.
+Você está offline. Suas ofertas continuam publicadas.|You are offline. Your offers remain published.|Estás desconectado. Tus ofertas siguen publicadas.
 Minhas fotos|My photos|Mis fotos
 Estas fotos aparecem em todas as suas propostas e ofertas. Troque quando quiser.|These photos appear on all your proposals and offers. Change them anytime.|Estas fotos aparecen en todas tus propuestas y ofertas. Cámbialas cuando quieras.
 Foto removida.|Photo removed.|Foto eliminada.
@@ -442,7 +641,7 @@ Suas estatísticas|Your statistics|Tus estadísticas
 Visitas ao perfil|Profile visits|Visitas al perfil
 Taxa de aceite|Acceptance rate|Tasa de aceptación
 Atendimentos concluídos|Completed services|Servicios finalizados
-O valor das propostas é 100% seu — o Privora não cobra comissão sobre atendimentos.|Proposal amounts are 100% yours — Privora charges no commission on services.|El valor de las propuestas es 100% tuyo — Privora no cobra comisión por servicios.
+O valor das propostas é 100% seu — a Privora não cobra comissão sobre atendimentos.|Proposal amounts are 100% yours — Privora charges no commission on services.|El valor de las propuestas es 100% tuyo — Privora no cobra comisión por servicios.
 Modo discreto|Discreet mode|Modo discreto
 Modo discreto ligado.|Discreet mode on.|Modo discreto activado.
 Modo discreto desligado.|Discreet mode off.|Modo discreto desactivado.
@@ -550,6 +749,13 @@ Este anunciante já está em um atendimento. Tente outro.|This advertiser is alr
  * $1, $2... repetem o que foi capturado.
  */
 export const MODELOS: Array<[RegExp, string, string]> = [
+  [/^versão (.+)$/, "version $1", "versión $1"],
+  [/^Versão (\d+) · em vigor desde (.+)$/, "Version $1 · in force since $2", "Versión $1 · vigente desde $2"],
+  [/^(\d+) avisos não lidos$/, "$1 unread notifications", "$1 avisos sin leer"],
+  [/^(\d+)\/(\S+) fotos · mínimo de 3$/, "$1/$2 photos · minimum 3", "$1/$2 fotos · mínimo 3"],
+  [/^Mínimo obrigatório: (\d+) fotos \(você tem (\d+)\)\.$/, "Required minimum: $1 photos (you have $2).", "Mínimo obligatorio: $1 fotos (tienes $2)."],
+  [/^adicione pelo menos (\d+) fotos \((\d+)\/(\d+)\) para enviar propostas e ofertas\. Toque aqui →$/, "add at least $1 photos ($2/$3) to send proposals and offers. Tap here →", "añade al menos $1 fotos ($2/$3) para enviar propuestas y ofertas. Toca aquí →"],
+  [/^Limite de fotos do seu plano: (.+)\. Você já tem (\d+) e tentou somar mais (\d+)\.$/, "Your plan's photo limit: $1. You already have $2 and tried to add $3 more.", "Límite de fotos de tu plan: $1. Ya tienes $2 e intentaste añadir $3 más."],
   [/^Acompanhar (.+) no mapa$/, "Follow $1 on the map", "Seguir a $1 en el mapa"],
   [/^Aguardando a localização de (.+)…$/, "Waiting for $1's location…", "Esperando la ubicación de $1…"],
   [/^(.+) chegou ao ponto de encontro\.$/, "$1 has reached the meeting point.", "$1 llegó al punto de encuentro."],
